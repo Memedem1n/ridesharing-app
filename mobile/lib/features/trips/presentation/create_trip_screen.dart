@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/animated_buttons.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/api/api_client.dart';
 import 'package:dio/dio.dart';
 
 class CreateTripScreen extends ConsumerStatefulWidget {
@@ -94,7 +95,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final dio = Dio();
+      final dio = ref.read(dioProvider);
       final token = await ref.read(authTokenProvider.future);
       
       final departureDateTime = DateTime(
@@ -106,7 +107,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       );
 
       await dio.post(
-        'http://localhost:3000/v1/trips',
+        '/trips',
         data: {
           'departureCity': _departureCityController.text,
           'arrivalCity': _arrivalCityController.text,

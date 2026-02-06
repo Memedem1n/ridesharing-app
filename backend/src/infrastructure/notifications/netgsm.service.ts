@@ -13,11 +13,21 @@ export class NetgsmService {
     private readonly username: string;
     private readonly password: string;
     private readonly header: string;
+    private readonly useMock: boolean;
 
     constructor(private configService: ConfigService) {
         this.username = this.configService.get('NETGSM_USERNAME') || '';
         this.password = this.configService.get('NETGSM_PASSWORD') || '';
         this.header = this.configService.get('NETGSM_HEADER') || 'RIDESHARE';
+        this.useMock = this.configService.get('USE_MOCK_INTEGRATIONS') !== 'false';
+
+        if (process.env.NODE_ENV === 'production' && this.useMock) {
+            throw new Error('USE_MOCK_INTEGRATIONS must be false in production');
+        }
+
+        if (!this.useMock && (!this.username || !this.password)) {
+            throw new Error('Missing Netgsm credentials');
+        }
     }
 
     async sendSms(phone: string, message: string): Promise<SmsResult> {
@@ -61,11 +71,14 @@ export class NetgsmService {
         }
         */
 
-        // Mock implementation
-        return {
-            success: true,
-            messageId: `SMS_${Date.now()}`,
-        };
+        if (this.useMock) {
+            return {
+                success: true,
+                messageId: `SMS_${Date.now()}`,
+            };
+        }
+
+        throw new Error('Netgsm integration is not implemented');
     }
 
     async sendOtp(phone: string, code: string): Promise<SmsResult> {

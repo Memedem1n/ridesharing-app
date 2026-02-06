@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'auth_provider.dart';
+import '../api/api_client.dart';
 
 // Message Model
 class Message {
@@ -74,7 +75,7 @@ class Conversation {
 
 // Message Service
 class MessageService {
-  final Dio _dio = Dio(BaseOptions(baseUrl: 'http://localhost:3000/v1'));
+  final Dio _dio = Dio(BaseOptions(baseUrl: baseUrl));
 
   Future<List<Conversation>> getConversations(String? token) async {
     try {

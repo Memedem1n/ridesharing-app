@@ -12,9 +12,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiConsumes, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../interfaces/http/auth/guards/jwt-auth.guard';
 import { PrismaService } from '../infrastructure/database/prisma.service';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
-import { Request } from 'express';
+import { createUploadOptions } from '../interfaces/http/uploads/upload.utils';
 
 @ApiTags('Verification')
 @ApiBearerAuth()
@@ -37,22 +35,7 @@ export class VerificationController {
             },
         },
     })
-    @UseInterceptors(FileInterceptor('file', {
-        storage: diskStorage({
-            destination: './uploads/identity',
-            filename: (req, file, cb) => {
-                const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-                cb(null, `${randomName}${extname(file.originalname)}`);
-            },
-        }),
-        fileFilter: (req, file, cb) => {
-            if (!file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
-                return cb(new BadRequestException('Only image files are allowed!'), false);
-            }
-            cb(null, true);
-        },
-        limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
-    }))
+    @UseInterceptors(FileInterceptor('file', createUploadOptions('./uploads/identity', /\/(jpg|jpeg|png)$/, 'Only image files are allowed!')))
     async uploadIdentity(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
         if (!file) {
             throw new BadRequestException('File is required');
@@ -90,22 +73,7 @@ export class VerificationController {
             },
         },
     })
-    @UseInterceptors(FileInterceptor('file', {
-        storage: diskStorage({
-            destination: './uploads/license',
-            filename: (req, file, cb) => {
-                const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-                cb(null, `${randomName}${extname(file.originalname)}`);
-            },
-        }),
-        fileFilter: (req, file, cb) => {
-            if (!file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
-                return cb(new BadRequestException('Only image files are allowed!'), false);
-            }
-            cb(null, true);
-        },
-        limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
-    }))
+    @UseInterceptors(FileInterceptor('file', createUploadOptions('./uploads/license', /\/(jpg|jpeg|png)$/, 'Only image files are allowed!')))
     async uploadLicense(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
         if (!file) {
             throw new BadRequestException('File is required');
@@ -143,22 +111,7 @@ export class VerificationController {
             },
         },
     })
-    @UseInterceptors(FileInterceptor('file', {
-        storage: diskStorage({
-            destination: './uploads/registrations',
-            filename: (req, file, cb) => {
-                const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-                cb(null, `${randomName}${extname(file.originalname)}`);
-            },
-        }),
-        fileFilter: (req, file, cb) => {
-            if (!file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
-                return cb(new BadRequestException('Only image files are allowed!'), false);
-            }
-            cb(null, true);
-        },
-        limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
-    }))
+    @UseInterceptors(FileInterceptor('file', createUploadOptions('./uploads/registrations', /\/(jpg|jpeg|png)$/, 'Only image files are allowed!')))
     async uploadVehicleRegistration(@UploadedFile() file: Express.Multer.File) {
         if (!file) {
             throw new BadRequestException('File is required');
@@ -186,22 +139,7 @@ export class VerificationController {
             },
         },
     })
-    @UseInterceptors(FileInterceptor('file', {
-        storage: diskStorage({
-            destination: './uploads/criminal-records',
-            filename: (req, file, cb) => {
-                const randomName = Array(32).fill(null).map(() => (Math.round(Math.random() * 16)).toString(16)).join('');
-                cb(null, `${randomName}${extname(file.originalname)}`);
-            },
-        }),
-        fileFilter: (req, file, cb) => {
-            if (!file.mimetype.match(/\/(jpg|jpeg|png|pdf)$/)) {
-                return cb(new BadRequestException('Only image files or PDFs are allowed!'), false);
-            }
-            cb(null, true);
-        },
-        limits: { fileSize: 5 * 1024 * 1024 } // 5MB limit
-    }))
+    @UseInterceptors(FileInterceptor('file', createUploadOptions('./uploads/criminal-records', /\/(jpg|jpeg|png|pdf)$/, 'Only image files or PDFs are allowed!')))
     async uploadCriminalRecord(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
         if (!file) {
             throw new BadRequestException('File is required');

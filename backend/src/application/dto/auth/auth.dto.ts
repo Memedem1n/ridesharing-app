@@ -91,6 +91,7 @@ export class UserResponseDto {
         email: boolean;
         identity: boolean;
         selfie: boolean;
+        vehicle: boolean;
     };
 }
 

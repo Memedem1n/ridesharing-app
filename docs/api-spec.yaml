@@ -1,0 +1,8 @@
+openapi: 3.1.0
+info:
+  title: Ridesharing API
+  version: 1.0.0
+  description: Minimal placeholder spec. See Swagger at /api/docs for live schema.
+servers:
+  - url: http://localhost:3000/v1
+paths: {}

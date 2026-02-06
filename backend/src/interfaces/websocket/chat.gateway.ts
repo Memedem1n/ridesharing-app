@@ -36,15 +36,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     async handleConnection(client: AuthenticatedSocket) {
         try {
-            // Authenticate via token
-            const token = client.handshake.auth.token || client.handshake.query.token;
-
+            const token = this.extractToken(client);
             if (!token) {
-                client.disconnect();
+                this.logger.warn('WebSocket connection rejected: missing token');
+                client.disconnect(true);
                 return;
             }
 
-            const payload = await this.jwtService.verifyAsync(token as string);
+            const payload = await this.jwtService.verifyAsync(token);
+            if (!payload?.sub) {
+                this.logger.warn('WebSocket connection rejected: invalid token payload');
+                client.disconnect(true);
+                return;
+            }
             client.userId = payload.sub;
 
             // Track socket
@@ -58,7 +62,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             this.logger.log(`User ${payload.sub} connected (socket: ${client.id})`);
         } catch (error) {
             this.logger.error('WebSocket auth failed:', error);
-            client.disconnect();
+            client.disconnect(true);
         }
     }
 
@@ -157,5 +161,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     isUserOnline(userId: string): boolean {
         return this.userSockets.has(userId);
+    }
+
+    private extractToken(client: AuthenticatedSocket): string | null {
+        const authToken = client.handshake.auth?.token;
+        const queryToken = client.handshake.query?.token;
+        const header = client.handshake.headers?.authorization;
+
+        const raw = typeof authToken === 'string'
+            ? authToken
+            : typeof queryToken === 'string'
+                ? queryToken
+                : Array.isArray(header)
+                    ? header[0]
+                    : typeof header === 'string'
+                        ? header
+                        : null;
+
+        if (!raw) return null;
+        return raw.startsWith('Bearer ') ? raw.slice(7) : raw;
     }
 }

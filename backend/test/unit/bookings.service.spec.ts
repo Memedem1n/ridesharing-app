@@ -8,15 +8,18 @@ describe('BookingsService', () => {
     let service: BookingsService;
 
     const mockPrismaService = {
+        $transaction: jest.fn(),
         booking: {
             findMany: jest.fn(),
             findUnique: jest.fn(),
             create: jest.fn(),
             update: jest.fn(),
+            updateMany: jest.fn(),
         },
         trip: {
             findUnique: jest.fn(),
             update: jest.fn(),
+            updateMany: jest.fn(),
         },
     };
 
@@ -64,13 +67,14 @@ describe('BookingsService', () => {
 
         service = module.get<BookingsService>(BookingsService);
         jest.clearAllMocks();
+        mockPrismaService.$transaction.mockImplementation(async (cb) => cb(mockPrismaService));
     });
 
     describe('create', () => {
         it('should create booking successfully', async () => {
             mockPrismaService.trip.findUnique.mockResolvedValue(mockTrip);
             mockPrismaService.booking.create.mockResolvedValue(mockBooking);
-            mockPrismaService.trip.update.mockResolvedValue({});
+            mockPrismaService.trip.updateMany.mockResolvedValue({ count: 1 });
 
             const result = await service.create('passenger-1', {
                 tripId: 'trip-1',
@@ -102,6 +106,7 @@ describe('BookingsService', () => {
                 ...mockTrip,
                 availableSeats: 1,
             });
+            mockPrismaService.trip.updateMany.mockResolvedValue({ count: 0 });
 
             await expect(
                 service.create('passenger-1', { tripId: 'trip-1', seats: 3 }),
@@ -115,6 +120,7 @@ describe('BookingsService', () => {
                 ...mockBooking,
                 paymentStatus: 'pending',
                 status: 'pending',
+                expiresAt: null,
             });
             mockIyzicoService.processPayment.mockResolvedValue({
                 success: true,
@@ -138,6 +144,8 @@ describe('BookingsService', () => {
             mockPrismaService.booking.findUnique.mockResolvedValue({
                 ...mockBooking,
                 paymentStatus: 'pending',
+                status: 'pending',
+                expiresAt: null,
             });
             mockIyzicoService.processPayment.mockResolvedValue({
                 success: false,

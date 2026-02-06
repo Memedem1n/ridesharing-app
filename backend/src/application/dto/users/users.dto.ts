@@ -100,6 +100,7 @@ export class UserProfileDto {
         email: boolean;
         identity: boolean;
         selfie: boolean;
+        vehicle: boolean;
     };
 
     @ApiPropertyOptional()

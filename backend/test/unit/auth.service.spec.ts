@@ -68,7 +68,9 @@ describe('AuthService', () => {
                 referralCode: 'ABC12345',
                 ratingAvg: 0,
                 totalTrips: 0,
-                verificationStatus: { phone: false, email: false },
+                verified: false,
+                identityStatus: 'pending',
+                licenseStatus: 'pending',
             });
 
             const result = await service.register(registerDto);
@@ -102,7 +104,9 @@ describe('AuthService', () => {
                 ratingAvg: 0,
                 totalTrips: 0,
                 bannedUntil: null,
-                verificationStatus: {},
+                verified: false,
+                identityStatus: 'pending',
+                licenseStatus: 'pending',
             });
 
             const result = await service.login(loginDto);
@@ -142,7 +146,9 @@ describe('AuthService', () => {
         it('should verify OTP successfully', async () => {
             mockPrismaService.user.findFirst.mockResolvedValue({
                 id: 'user-1',
-                verificationStatus: { phone: false },
+                verified: false,
+                identityStatus: 'pending',
+                licenseStatus: 'pending',
             });
             mockPrismaService.user.update.mockResolvedValue({});
 

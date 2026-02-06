@@ -18,9 +18,19 @@ export interface PushPayload {
 export class FcmService {
     private readonly logger = new Logger(FcmService.name);
     private readonly projectId: string;
+    private readonly useMock: boolean;
 
     constructor(private configService: ConfigService) {
         this.projectId = this.configService.get('FIREBASE_PROJECT_ID') || '';
+        this.useMock = this.configService.get('USE_MOCK_INTEGRATIONS') !== 'false';
+
+        if (process.env.NODE_ENV === 'production' && this.useMock) {
+            throw new Error('USE_MOCK_INTEGRATIONS must be false in production');
+        }
+
+        if (!this.useMock && !this.projectId) {
+            throw new Error('Missing Firebase configuration');
+        }
     }
 
     async sendToDevice(deviceToken: string, payload: PushPayload): Promise<PushResult> {
@@ -78,21 +88,27 @@ export class FcmService {
         }
         */
 
-        // Mock implementation
-        return {
-            success: true,
-            messageId: `FCM_${Date.now()}`,
-        };
+        if (this.useMock) {
+            return {
+                success: true,
+                messageId: `FCM_${Date.now()}`,
+            };
+        }
+
+        throw new Error('FCM integration is not implemented');
     }
 
     async sendToTopic(topic: string, payload: PushPayload): Promise<PushResult> {
         this.logger.log(`Sending push to topic ${topic}`);
 
-        // TODO: Implement topic-based messaging
-        return {
-            success: true,
-            messageId: `FCM_TOPIC_${Date.now()}`,
-        };
+        if (this.useMock) {
+            return {
+                success: true,
+                messageId: `FCM_TOPIC_${Date.now()}`,
+            };
+        }
+
+        throw new Error('FCM topic messaging is not implemented');
     }
 
     // Pre-built notification templates

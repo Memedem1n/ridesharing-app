@@ -4,18 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
+import '../../../core/api/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/animated_buttons.dart';
 import '../../../core/providers/auth_provider.dart';
 
 // Verification status provider
 final verificationStatusProvider = FutureProvider<Map<String, dynamic>>((ref) async {
-  final dio = Dio();
+  final dio = ref.read(dioProvider);
   final token = await ref.read(authTokenProvider.future);
   
   try {
     final response = await dio.get(
-      'http://localhost:3000/api/verification/status',
+      '/verification/status',
       options: Options(headers: {'Authorization': 'Bearer $token'}),
     );
     return response.data;
@@ -81,7 +82,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
     });
 
     try {
-      final dio = Dio();
+      final dio = ref.read(dioProvider);
       final token = await ref.read(authTokenProvider.future);
       
       String endpoint;
@@ -103,7 +104,7 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
       });
 
       await dio.post(
-        'http://localhost:3000/api/verification/$endpoint',
+        '/verification/$endpoint',
         data: formData,
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );

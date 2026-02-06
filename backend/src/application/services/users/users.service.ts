@@ -36,7 +36,7 @@ export class UsersService {
                 ...(dto.gender && { gender: dto.gender as any }),
                 ...(dto.womenOnlyMode !== undefined && { womenOnlyMode: dto.womenOnlyMode }),
                 ...(dto.preferences && {
-                    preferences: { ...(user.preferences as any), ...dto.preferences }
+                    preferences: { ...this.parsePreferences(user.preferences), ...dto.preferences }
                 }),
             },
         });
@@ -90,12 +90,34 @@ export class UsersService {
             ratingAvg: Number(user.ratingAvg),
             ratingCount: user.ratingCount,
             totalTrips: user.totalTrips,
-            verificationStatus: user.verificationStatus,
-            preferences: user.preferences,
+            verificationStatus: this.buildVerificationStatus(user),
+            preferences: this.parsePreferences(user.preferences),
             womenOnlyMode: user.womenOnlyMode,
             walletBalance: Number(user.walletBalance),
             referralCode: user.referralCode,
             createdAt: user.createdAt,
+        };
+    }
+
+    private parsePreferences(preferences: any) {
+        if (!preferences) return {};
+        if (typeof preferences === 'string') {
+            try {
+                return JSON.parse(preferences);
+            } catch {
+                return {};
+            }
+        }
+        return preferences;
+    }
+
+    private buildVerificationStatus(user: any) {
+        return {
+            phone: Boolean(user.verified),
+            email: Boolean(user.verified),
+            identity: user.identityStatus === 'verified',
+            selfie: false,
+            vehicle: user.licenseStatus === 'verified',
         };
     }
 }

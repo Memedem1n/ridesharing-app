@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -28,7 +28,7 @@ model User {
   criminalRecordDocumentUrl String? @map("criminal_record_document_url")
   criminalRecordStatus String    @default("none") @map("criminal_record_status")
   verified         Boolean   @default(false)
-  preferences      String    @default("{}")
+  preferences      Json      @default("{}")
   womenOnlyMode    Boolean   @default(false) @map("women_only_mode")
   bannedUntil      DateTime? @map("banned_until")
   penaltyScore     Float     @default(0) @map("penalty_score")
@@ -123,6 +123,7 @@ model Booking {
   checkedInAt          DateTime? @map("checked_in_at")
   paymentStatus        String    @default("pending") @map("payment_status")
   paymentId            String?   @map("payment_id")
+  expiresAt            DateTime? @map("expires_at")
   cancellationTime     DateTime? @map("cancellation_time")
   cancellationPenalty  Float?    @map("cancellation_penalty")
   createdAt            DateTime  @default(now()) @map("created_at")

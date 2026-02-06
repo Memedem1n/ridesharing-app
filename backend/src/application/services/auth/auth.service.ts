@@ -44,7 +44,7 @@ export class AuthService {
                 identityStatus: 'pending',
                 licenseStatus: 'pending',
                 verified: false,
-                preferences: JSON.stringify({}),
+                preferences: {},
             },
         });
 
@@ -109,7 +109,13 @@ export class AuthService {
             throw new BadRequestException('Kullanıcı bulunamadı');
         }
 
-        // OTP verified - the identity/license verification happens through VerificationController
+        // Mark contact verification (single flag for now)
+        await this.prisma.user.update({
+            where: { id: user.id },
+            data: { verified: true },
+        });
+
+        // OTP verified - identity/license verification happens through VerificationController
         return { verified: true };
     }
 
@@ -125,7 +131,7 @@ export class AuthService {
         }
     }
 
-    async validateUser(userId: string): Promise<any> {
+    async validateUser(userId: string): Promise<UserResponseDto> {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
         });
@@ -134,7 +140,7 @@ export class AuthService {
             throw new UnauthorizedException('Kullanıcı bulunamadı');
         }
 
-        return user;
+        return this.mapUserResponse(user);
     }
 
     private async generateTokens(userId: string, email: string) {
@@ -176,7 +182,17 @@ export class AuthService {
             profilePhotoUrl: user.profilePhotoUrl,
             ratingAvg: user.ratingAvg,
             totalTrips: user.totalTrips,
-            verificationStatus: user.verificationStatus,
+            verificationStatus: this.buildVerificationStatus(user),
+        };
+    }
+
+    private buildVerificationStatus(user: any) {
+        return {
+            phone: Boolean(user.verified),
+            email: Boolean(user.verified),
+            identity: user.identityStatus === 'verified',
+            selfie: false,
+            vehicle: user.licenseStatus === 'verified',
         };
     }
 }

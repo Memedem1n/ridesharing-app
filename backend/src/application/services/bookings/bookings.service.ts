@@ -1,86 +1,97 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '@infrastructure/database/prisma.service';
 import { IyzicoService } from '@infrastructure/payment/iyzico.service';
+import { ConfigService } from '@nestjs/config';
 import {
     CreateBookingDto,
     ProcessPaymentDto,
     BookingResponseDto,
     BookingListResponseDto,
-    BookingStatus,
-    PaymentStatus,
 } from '@application/dto/bookings/bookings.dto';
 import { v4 as uuid } from 'uuid';
 
 @Injectable()
 export class BookingsService {
+    private readonly holdMinutes: number;
+
     constructor(
         private readonly prisma: PrismaService,
         private readonly iyzicoService: IyzicoService,
-    ) { }
+        private readonly configService: ConfigService,
+    ) {
+        this.holdMinutes = Number(this.configService.get('BOOKING_HOLD_MINUTES') || 15);
+    }
 
     async create(userId: string, dto: CreateBookingDto): Promise<BookingResponseDto> {
-        // Get trip
-        const trip = await this.prisma.trip.findUnique({
-            where: { id: dto.tripId },
-            include: { driver: true },
-        });
+        return this.prisma.$transaction(async (tx) => {
+            const trip = await tx.trip.findUnique({
+                where: { id: dto.tripId },
+                include: { driver: true },
+            });
 
-        if (!trip) {
-            throw new NotFoundException('Yolculuk bulunamadı');
-        }
+            if (!trip) {
+                throw new NotFoundException('Yolculuk bulunamad??');
+            }
 
-        if (trip.status !== 'published') {
-            throw new BadRequestException('Bu yolculuk artık müsait değil');
-        }
+            if (trip.status !== 'published') {
+                throw new BadRequestException('Bu yolculuk art??k m??sait de??il');
+            }
 
-        if (trip.availableSeats < dto.seats) {
-            throw new BadRequestException('Yeterli koltuk yok');
-        }
+            if (trip.driverId === userId) {
+                throw new BadRequestException('Kendi ilan??n??za rezervasyon yapamazs??n??z');
+            }
 
-        if (trip.driverId === userId) {
-            throw new BadRequestException('Kendi ilanınıza rezervasyon yapamazsınız');
-        }
+            if (trip.availableSeats < dto.seats) {
+                throw new BadRequestException('Yeterli koltuk yok');
+            }
 
-        // Calculate price
-        const priceTotal = Number(trip.pricePerSeat) * dto.seats;
-        const commissionAmount = this.iyzicoService.calculateCommission(priceTotal);
+            const priceTotal = Number(trip.pricePerSeat) * dto.seats;
+            const commissionAmount = this.iyzicoService.calculateCommission(priceTotal);
+            const qrCode = this.generateQRCode();
+            const expiresAt = new Date(Date.now() + this.holdMinutes * 60 * 1000);
+            const remainingSeats = trip.availableSeats - dto.seats;
 
-        // Generate QR code
-        const qrCode = this.generateQRCode();
-
-        // Create booking
-        const booking = await this.prisma.booking.create({
-            data: {
-                id: uuid(),
-                tripId: dto.tripId,
-                passengerId: userId,
-                status: 'pending',
-                seats: dto.seats,
-                priceTotal,
-                commissionAmount,
-                itemType: dto.itemType as any || 'person',
-                itemDetails: dto.itemDetails ? JSON.stringify(dto.itemDetails) : null,
-                qrCode,
-                paymentStatus: 'pending',
-            },
-            include: {
-                trip: {
-                    include: { driver: true },
+            const updated = await tx.trip.updateMany({
+                where: {
+                    id: dto.tripId,
+                    status: 'published',
+                    availableSeats: { gte: dto.seats },
                 },
-                passenger: true,
-            },
-        });
+                data: {
+                    availableSeats: { decrement: dto.seats },
+                    status: remainingSeats === 0 ? 'full' : 'published',
+                },
+            });
 
-        // Update available seats
-        await this.prisma.trip.update({
-            where: { id: dto.tripId },
-            data: {
-                availableSeats: trip.availableSeats - dto.seats,
-                status: trip.availableSeats - dto.seats === 0 ? 'full' : 'published',
-            },
-        });
+            if (updated.count === 0) {
+                throw new BadRequestException('Yeterli koltuk yok');
+            }
 
-        return this.mapToResponse(booking);
+            const booking = await tx.booking.create({
+                data: {
+                    id: uuid(),
+                    tripId: dto.tripId,
+                    passengerId: userId,
+                    status: 'pending',
+                    seats: dto.seats,
+                    priceTotal,
+                    commissionAmount,
+                    itemType: (dto.itemType as any) || 'person',
+                    itemDetails: dto.itemDetails ? JSON.stringify(dto.itemDetails) : null,
+                    qrCode,
+                    paymentStatus: 'pending',
+                    expiresAt,
+                },
+                include: {
+                    trip: {
+                        include: { driver: true },
+                    },
+                    passenger: true,
+                },
+            });
+
+            return this.mapToResponse(booking);
+        });
     }
 
     async processPayment(userId: string, dto: ProcessPaymentDto): Promise<BookingResponseDto> {
@@ -93,18 +104,26 @@ export class BookingsService {
         });
 
         if (!booking) {
-            throw new NotFoundException('Rezervasyon bulunamadı');
+            throw new NotFoundException('Rezervasyon bulunamad??');
         }
 
         if (booking.passengerId !== userId) {
-            throw new ForbiddenException('Bu rezervasyona erişim yetkiniz yok');
+            throw new ForbiddenException('Bu rezervasyona eri??im yetkiniz yok');
         }
 
         if (booking.paymentStatus === 'paid') {
-            throw new BadRequestException('Bu rezervasyon zaten ödendi');
+            throw new BadRequestException('Bu rezervasyon zaten ??dendi');
         }
 
-        // Process payment via İyzico
+        if (booking.status !== 'pending') {
+            throw new BadRequestException('Bu rezervasyon ??deme beklemiyor');
+        }
+
+        if (booking.expiresAt && booking.expiresAt.getTime() < Date.now()) {
+            await this.expireBooking(booking);
+            throw new BadRequestException('Rezervasyon s??resi dolmu??');
+        }
+
         const result = await this.iyzicoService.processPayment(
             userId,
             Number(booking.priceTotal),
@@ -113,16 +132,40 @@ export class BookingsService {
         );
 
         if (!result.success) {
-            throw new BadRequestException(result.errorMessage || 'Ödeme işlemi başarısız');
+            await this.prisma.$transaction(async (tx) => {
+                await tx.booking.update({
+                    where: { id: dto.bookingId },
+                    data: {
+                        status: 'cancelled_by_passenger',
+                        cancellationTime: new Date(),
+                        cancellationPenalty: 0,
+                        paymentStatus: 'pending',
+                        expiresAt: null,
+                    },
+                });
+
+                await tx.trip.updateMany({
+                    where: {
+                        id: booking.tripId,
+                        status: { in: ['published', 'full'] },
+                    },
+                    data: {
+                        availableSeats: { increment: booking.seats },
+                        status: 'published',
+                    },
+                });
+            });
+
+            throw new BadRequestException(result.errorMessage || '??deme i??lemi ba??ar??s??z');
         }
 
-        // Update booking
         const updated = await this.prisma.booking.update({
             where: { id: dto.bookingId },
             data: {
                 paymentStatus: 'paid',
                 paymentId: result.paymentId,
                 status: 'confirmed',
+                expiresAt: null,
             },
             include: {
                 trip: true,
@@ -220,6 +263,7 @@ export class BookingsService {
                 cancellationPenalty: penalty,
                 paymentStatus: refundPercentage === 100 ? 'refunded' :
                     refundPercentage > 0 ? 'partially_refunded' : 'paid',
+                expiresAt: null,
             },
         });
 
@@ -282,6 +326,32 @@ export class BookingsService {
         return code;
     }
 
+    private async expireBooking(booking: any): Promise<void> {
+        await this.prisma.$transaction(async (tx) => {
+            await tx.booking.update({
+                where: { id: booking.id },
+                data: {
+                    status: 'expired',
+                    cancellationTime: new Date(),
+                    cancellationPenalty: 0,
+                    paymentStatus: 'pending',
+                    expiresAt: null,
+                },
+            });
+
+            await tx.trip.updateMany({
+                where: {
+                    id: booking.tripId,
+                    status: { in: ['published', 'full'] },
+                },
+                data: {
+                    availableSeats: { increment: booking.seats },
+                    status: 'published',
+                },
+            });
+        });
+    }
+
     private mapToResponse(booking: any): BookingResponseDto {
         return {
             id: booking.id,
@@ -306,6 +376,7 @@ export class BookingsService {
             itemDetails: booking.itemDetails,
             qrCode: booking.qrCode,
             checkedInAt: booking.checkedInAt,
+            expiresAt: booking.expiresAt,
             paymentStatus: booking.paymentStatus,
             createdAt: booking.createdAt,
         };

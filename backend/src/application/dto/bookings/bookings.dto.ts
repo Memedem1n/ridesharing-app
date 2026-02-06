@@ -6,6 +6,7 @@ export enum BookingStatus {
     CONFIRMED = 'confirmed',
     CHECKED_IN = 'checked_in',
     COMPLETED = 'completed',
+    EXPIRED = 'expired',
     CANCELLED_BY_PASSENGER = 'cancelled_by_passenger',
     CANCELLED_BY_DRIVER = 'cancelled_by_driver',
 }
@@ -145,6 +146,9 @@ export class BookingResponseDto {
 
     @ApiPropertyOptional()
     checkedInAt?: Date;
+
+    @ApiPropertyOptional()
+    expiresAt?: Date;
 
     @ApiProperty({ enum: PaymentStatus })
     paymentStatus: PaymentStatus;

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'auth_provider.dart';
+import '../api/api_client.dart';
 
 // Trip Model
 class Trip {
@@ -106,7 +107,7 @@ class TripSearchParams {
 
 // Trip Service
 class TripService {
-  final Dio _dio = Dio(BaseOptions(baseUrl: 'http://localhost:3000/v1'));
+  final Dio _dio = Dio(BaseOptions(baseUrl: baseUrl));
 
   Future<List<Trip>> searchTrips(TripSearchParams params) async {
     try {

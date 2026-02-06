@@ -2,11 +2,12 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'auth_provider.dart';
+import '../api/api_client.dart';
 import '../../features/vehicles/domain/vehicle_models.dart';
 
 class VehicleService {
-  final Dio _dio = Dio(BaseOptions(baseUrl: 'http://localhost:3000/v1')); // Normal API
-  final Dio _uploadDio = Dio(BaseOptions(baseUrl: 'http://localhost:3000')); // Uploads are at root usually or adjusted path
+  final Dio _dio = Dio(BaseOptions(baseUrl: baseUrl));
+  final Dio _uploadDio = Dio(BaseOptions(baseUrl: baseUrl));
 
   Future<List<Vehicle>> getMyVehicles(String token) async {
     try {
@@ -28,7 +29,7 @@ class VehicleService {
       });
 
       final response = await _uploadDio.post(
-        '/api/verification/upload-vehicle-registration', // verification controller path
+        '/verification/upload-vehicle-registration',
         data: formData,
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );

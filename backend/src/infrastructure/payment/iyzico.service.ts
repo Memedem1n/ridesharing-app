@@ -28,11 +28,21 @@ export class IyzicoService {
     private readonly baseUrl: string;
     private readonly apiKey: string;
     private readonly secretKey: string;
+    private readonly useMock: boolean;
 
     constructor(private configService: ConfigService) {
         this.baseUrl = this.configService.get('IYZICO_BASE_URL') || 'https://sandbox-api.iyzipay.com';
         this.apiKey = this.configService.get('IYZICO_API_KEY') || '';
         this.secretKey = this.configService.get('IYZICO_SECRET_KEY') || '';
+        this.useMock = this.configService.get('USE_MOCK_INTEGRATIONS') !== 'false';
+
+        if (process.env.NODE_ENV === 'production' && this.useMock) {
+            throw new Error('USE_MOCK_INTEGRATIONS must be false in production');
+        }
+
+        if (!this.useMock && (!this.apiKey || !this.secretKey)) {
+            throw new Error('Missing Iyzico credentials');
+        }
     }
 
     async processPayment(
@@ -97,11 +107,14 @@ export class IyzicoService {
         });
         */
 
-        // Mock implementation for development
-        return {
-            success: true,
-            paymentId: `PAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        };
+        if (this.useMock) {
+            return {
+                success: true,
+                paymentId: `PAY_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            };
+        }
+
+        throw new Error('Iyzico integration is not implemented');
     }
 
     async refundPayment(
@@ -138,11 +151,14 @@ export class IyzicoService {
         });
         */
 
-        // Mock implementation
-        return {
-            success: true,
-            refundId: `REF_${Date.now()}`,
-        };
+        if (this.useMock) {
+            return {
+                success: true,
+                refundId: `REF_${Date.now()}`,
+            };
+        }
+
+        throw new Error('Iyzico refund integration is not implemented');
     }
 
     async createCardToken(userId: string, cardInfo: CardInfo): Promise<string> {
@@ -151,7 +167,11 @@ export class IyzicoService {
         // TODO: Implement actual card tokenization
         // This should be done client-side with İyzico's checkout form
 
-        return `TOKEN_${Date.now()}`;
+        if (this.useMock) {
+            return `TOKEN_${Date.now()}`;
+        }
+
+        throw new Error('Iyzico card tokenization is not implemented');
     }
 
     calculateCommission(amount: number): number {

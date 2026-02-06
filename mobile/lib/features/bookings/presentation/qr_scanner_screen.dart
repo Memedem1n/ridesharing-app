@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/animated_buttons.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/api/api_client.dart';
 import 'package:dio/dio.dart';
 
 class QRScannerScreen extends ConsumerStatefulWidget {
@@ -42,10 +43,10 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> with SingleTi
 
     try {
       final token = await ref.read(authTokenProvider.future);
-      final dio = Dio();
+      final dio = ref.read(dioProvider);
       
       await dio.post(
-        'http://localhost:3000/v1/bookings/verify-boarding',
+        '/bookings/verify-boarding',
         data: {
           'tripId': widget.tripId,
           isPNR ? 'pnrCode' : 'qrCode': code,
