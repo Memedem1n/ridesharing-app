@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Paylaşımlı Yolculuk - Demo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #818CF8;
+            --primary-dark: #6366F1;
+            --secondary: #34D399;
+            --warning: #FBBF24;
+            --error: #F87171;
+            --bg: #0F172A;
+            --bg-card: #1E293B;
+            --surface: #1E293B;
+            --text: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --border: #334155;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 100%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .phone-frame {
+            width: 375px;
+            height: 812px;
+            background: var(--bg);
+            border-radius: 40px;
+            box-shadow: 0 25px 80px rgba(99, 102, 241, 0.3);
+            overflow: hidden;
+            position: relative;
+            border: 8px solid #0a0a0a;
+        }
+
+        .status-bar {
+            height: 44px;
+            background: var(--bg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .screen {
+            display: none;
+            height: calc(100% - 44px - 80px);
+            overflow-y: auto;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        .app-bar {
+            background: var(--surface);
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .app-bar h1 {
+            font-size: 18px;
+            flex: 1;
+            font-weight: 600;
+        }
+
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            background: var(--surface);
+            display: flex;
+            border-top: 1px solid var(--border);
+            padding-bottom: 16px;
+        }
+
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .nav-item.active {
+            color: var(--primary);
+        }
+
+        .nav-item span:last-child {
+            font-size: 10px;
+            margin-top: 4px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            padding: 16px;
+            margin: 16px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, var(--secondary) 0%, #10B981 100%);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, var(--error) 0%, #EF4444 100%);
+        }
+
+        .btn-sm {
+            padding: 10px 16px;
+            font-size: 14px;
+            width: auto;
+        }
+
+        .input-group {
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            font-size: 16px;
+            color: var(--text);
+            outline: none;
+        }
+
+        .input-group input:focus {
+            border-color: var(--primary);
+        }
+
+        .input-group input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .autocomplete-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 100;
+            display: none;
+        }
+
+        .autocomplete-list.show {
+            display: block;
+        }
+
+        .autocomplete-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .autocomplete-item:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .autocomplete-item .type {
+            font-size: 10px;
+            padding: 2px 6px;
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        .categories {
+            display: flex;
+            justify-content: space-around;
+            padding: 16px;
+            gap: 8px;
+        }
+
+        .category {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .category-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+
+        .category-icon.people {
+            background: rgba(129, 140, 248, 0.2);
+            color: var(--primary);
+        }
+
+        .category-icon.pets {
+            background: rgba(52, 211, 153, 0.2);
+            color: var(--secondary);
+        }
+
+        .category-icon.cargo {
+            background: rgba(251, 191, 36, 0.2);
+            color: var(--warning);
+        }
+
+        .category-icon.food {
+            background: rgba(248, 113, 113, 0.2);
+            color: var(--error);
+        }
+
+        .trip-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            margin: 8px 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .trip-card:hover {
+            border-color: var(--primary);
+        }
+
+        .avatar {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(135deg, var(--primary) 0%, #A78BFA 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .tags {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            background: var(--bg);
+            padding: 6px 10px;
+            border-radius: 8px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            border: 1px solid var(--border);
+        }
+
+        .chip {
+            padding: 8px 14px;
+            border-radius: 20px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+
+        .chip.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .status-pending {
+            background: rgba(251, 191, 36, 0.2);
+            color: var(--warning);
+        }
+
+        .status-confirmed {
+            background: rgba(52, 211, 153, 0.2);
+            color: var(--secondary);
+        }
+
+        .status-rejected {
+            background: rgba(248, 113, 113, 0.2);
+            color: var(--error);
+        }
+
+        .status-completed {
+            background: rgba(129, 140, 248, 0.2);
+            color: var(--primary);
+        }
+
+        .menu-item {
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+        }
+
+        .menu-item:hover {
+            background: var(--bg-card);
+        }
+
+        .menu-item .material-icons {
+            color: var(--text-secondary);
+        }
+
+        .menu-item>span:nth-child(2) {
+            flex: 1;
+        }
+
+        .profile-header {
+            text-align: center;
+            padding: 24px;
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            background: linear-gradient(135deg, var(--primary) 0%, #A78BFA 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 50px;
+        }
+
+        .profile-stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat .value {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .stat .label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 14px;
+            text-align: center;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+        }
+
+        .reservation-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 16px;
+            margin: 8px 16px;
+        }
+
+        .about-section {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 16px;
+            margin: 16px;
+            border: 1px solid var(--border);
+        }
+
+        .about-section h4 {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .about-section p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 24px;
+            max-width: 320px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .qr-code {
+            width: 160px;
+            height: 160px;
+            background: white;
+            margin: 16px auto;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .badge-nav {
+            position: absolute;
+            top: 4px;
+            right: 12px;
+            background: var(--error);
+            color: white;
+            font-size: 9px;
+            padding: 2px 5px;
+            border-radius: 10px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state .material-icons {
+            font-size: 64px;
+            opacity: 0.5;
+            margin-bottom: 16px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="phone-frame">
+        <div class="status-bar"><span>09:41</span><span>🔋 100%</span></div>
+
+        <!-- Login -->
+        <div class="screen active" id="login-screen">
+            <div style="padding: 24px; text-align: center;">
+                <div style="font-size: 80px; color: var(--primary); margin: 40px 0 24px;" class="material-icons">
+                    directions_car</div>
+                <h1 style="font-size: 28px; margin-bottom: 8px;">Hoş Geldiniz</h1>
+                <p style="color: var(--text-secondary); margin-bottom: 32px;">Hesabınıza giriş yapın</p>
+                <div class="input-group"><input placeholder="E-posta veya Telefon"></div>
+                <div class="input-group"><input type="password" placeholder="Şifre"></div>
+                <button class="btn" onclick="showScreen('home-screen')"><span class="material-icons">login</span> Giriş
+                    Yap</button>
+                <p style="margin-top: 24px; color: var(--text-secondary);">Hesabınız yok mu? <a href="#"
+                        style="color: var(--primary);">Kayıt Ol</a></p>
+            </div>
+        </div>
+
+        <!-- Home -->
+        <div class="screen" id="home-screen">
+            <div class="app-bar">
+                <h1>Paylaşımlı Yolculuk</h1>
+                <div style="position: relative;"><span class="material-icons">notifications</span><span
+                        class="badge-nav">3</span></div>
+            </div>
+            <div class="card">
+                <h3 style="margin-bottom: 16px;">Nereye gitmek istiyorsun?</h3>
+                <div style="background: var(--bg); padding: 14px 16px; border-radius: 12px; display: flex; gap: 12px; cursor: pointer; border: 1px solid var(--border);"
+                    onclick="showScreen('search-screen')">
+                    <span class="material-icons" style="color: var(--text-secondary);">search</span>
+                    <span style="color: var(--text-secondary);">Şehir veya güzergah ara...</span>
+                </div>
+            </div>
+            <h3 style="padding: 0 16px;">Kategoriler</h3>
+            <div class="categories">
+                <div class="category" onclick="showScreen('search-screen')">
+                    <div class="category-icon people"><span class="material-icons">group</span></div><span
+                        style="font-size: 12px;">İnsan</span>
+                </div>
+                <div class="category" onclick="showScreen('search-screen')">
+                    <div class="category-icon pets"><span class="material-icons">pets</span></div><span
+                        style="font-size: 12px;">Hayvan</span>
+                </div>
+                <div class="category" onclick="showScreen('search-screen')">
+                    <div class="category-icon cargo"><span class="material-icons">inventory_2</span></div><span
+                        style="font-size: 12px;">Kargo</span>
+                </div>
+                <div class="category" onclick="showScreen('search-screen')">
+                    <div class="category-icon food"><span class="material-icons">restaurant</span></div><span
+                        style="font-size: 12px;">Gıda</span>
+                </div>
+            </div>
+            <div style="padding: 0 16px; display: flex; justify-content: space-between;">
+                <h3>Popüler Güzergahlar</h3><a href="#" style="color: var(--primary);"
+                    onclick="showScreen('search-screen')">Tümü</a>
+            </div>
+            <div class="trip-card" onclick="showScreen('trip-detail-screen')">
+                <div style="display: flex; justify-content: space-between;"><span style="font-weight: 600;">İstanbul →
+                        Ankara</span><span style="color: var(--primary); font-weight: 700;">150 ₺</span></div>
+                <span style="font-size: 12px; color: var(--text-secondary);">Günlük 12 sefer</span>
+            </div>
+        </div>
+
+        <!-- Search -->
+        <div class="screen" id="search-screen">
+            <div class="app-bar"><span class="material-icons" onclick="showScreen('home-screen')"
+                    style="cursor: pointer;">arrow_back</span>
+                <h1>Yolculuk Ara</h1>
+            </div>
+            <div style="padding: 16px; background: var(--surface); border-bottom: 1px solid var(--border);">
+                <div class="input-group"><input id="from-input" placeholder="Nereden"
+                        oninput="showAutocomplete(this, 'from-autocomplete')">
+                    <div class="autocomplete-list" id="from-autocomplete"></div>
+                </div>
+                <div class="input-group"><input id="to-input" placeholder="Nereye"
+                        oninput="showAutocomplete(this, 'to-autocomplete')">
+                    <div class="autocomplete-list" id="to-autocomplete"></div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <div class="input-group" style="flex: 1; margin-bottom: 0;"><input type="date" value="2026-02-15">
+                    </div>
+                    <div class="input-group" style="width: 80px; margin-bottom: 0;"><input type="number" value="1"
+                            min="1" max="8"></div>
+                </div>
+                <div style="display: flex; gap: 8px; margin-top: 12px;">
+                    <div class="chip active"><span class="material-icons" style="font-size: 16px;">group</span> İnsan
+                    </div>
+                    <div class="chip"><span class="material-icons" style="font-size: 16px;">pets</span> Hayvan</div>
+                </div>
+            </div>
+            <div class="trip-card" onclick="showScreen('trip-detail-screen')">
+                <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                    <div class="avatar"><span class="material-icons">person</span></div>
+                    <div style="flex: 1;"><strong>Ahmet Y.</strong>
+                        <div style="font-size: 12px; color: var(--text-secondary);"><span class="material-icons"
+                                style="font-size: 14px; color: var(--warning);">star</span> 4.8 (32)</div>
+                    </div>
+                    <div style="color: var(--primary); font-size: 22px; font-weight: 700;">150 ₺</div>
+                </div>
+                <div style="font-size: 14px; display: flex; gap: 12px;">
+                    <div style="display: flex; flex-direction: column; align-items: center;"><span
+                            class="material-icons" style="font-size: 14px; color: var(--primary);">trip_origin</span>
+                        <div style="width: 2px; height: 20px; background: var(--border);"></div><span
+                            class="material-icons" style="font-size: 14px; color: var(--secondary);">location_on</span>
+                    </div>
+                    <div style="flex: 1;">
+                        <div style="margin-bottom: 16px;">İstanbul, Kadıköy <span
+                                style="float: right; color: var(--text-secondary); font-size: 12px;">08:00</span></div>
+                        <div>Ankara, Kızılay <span
+                                style="float: right; color: var(--text-secondary); font-size: 12px;">12:30</span></div>
+                    </div>
+                </div>
+                <div class="tags">
+                    <div class="tag"><span class="material-icons"
+                            style="font-size: 14px;">airline_seat_recline_normal</span> 3 koltuk</div>
+                    <div class="tag"><span class="material-icons" style="font-size: 14px;">ac_unit</span> Klima</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trip Detail -->
+        <div class="screen" id="trip-detail-screen">
+            <div class="app-bar"><span class="material-icons" onclick="showScreen('search-screen')"
+                    style="cursor: pointer;">arrow_back</span>
+                <h1>Yolculuk Detayı</h1><span class="material-icons">share</span>
+            </div>
+            <div style="padding: 16px; background: var(--surface);">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <div class="avatar" style="width: 64px; height: 64px;"><span class="material-icons"
+                            style="font-size: 32px;">person</span></div>
+                    <div style="flex: 1;">
+                        <strong style="font-size: 18px;">Ahmet Yılmaz</strong>
+                        <div style="font-size: 12px; color: var(--text-secondary);"><span class="material-icons"
+                                style="font-size: 14px; color: var(--warning);">star</span> 4.8 • 47 yolculuk</div>
+                        <div style="font-size: 12px; color: var(--secondary);"><span class="material-icons"
+                                style="font-size: 14px;">verified</span> Onaylı Profil</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="about-section">
+                <h4><span class="material-icons" style="font-size: 18px;">info</span> Hakkımda</h4>
+                <p>5 yıldır düzenli olarak İstanbul-Ankara seferleri yapıyorum. Temiz ve konforlu araç, güvenli sürüş.
+                    Müzik dinlemeyi ve sohbet etmeyi severim. 🚗</p>
+            </div>
+
+            <div class="about-section">
+                <h4><span class="material-icons" style="font-size: 18px;">description</span> Yolculuk Açıklaması</h4>
+                <p>Kadıköy iskelesinden hareket ediyoruz. Bolu'da mola vereceğiz. Sigara içilmez, isterseniz müzik
+                    açabiliriz. Bagaj için yeterli yer var.</p>
+            </div>
+
+            <div class="card">
+                <h4 style="margin-bottom: 8px;">Fiyat Karşılaştırma</h4>
+                <div
+                    style="display: flex; justify-content: space-around; text-align: center; padding: 12px; background: var(--bg); border-radius: 12px;">
+                    <div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">Bu İlan</div>
+                        <div style="font-size: 18px; font-weight: 700; color: var(--primary);">150 ₺</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">Otobüs</div>
+                        <div style="font-size: 18px; font-weight: 700;">350 ₺</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">Tasarruf</div>
+                        <div style="font-size: 18px; font-weight: 700; color: var(--secondary);">200 ₺</div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="height: 100px;"></div>
+            <div
+                style="position: absolute; bottom: 80px; left: 0; right: 0; padding: 16px; background: var(--surface); border-top: 1px solid var(--border);">
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <div>
+                        <div style="font-size: 12px; color: var(--text-secondary);">Koltuk başı</div>
+                        <div style="font-size: 24px; font-weight: 700; color: var(--primary);">150 ₺</div>
+                    </div>
+                    <button class="btn" style="flex: 1;" onclick="showScreen('booking-screen')"><span
+                            class="material-icons">confirmation_number</span> Rezervasyon Yap</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Booking -->
+        <div class="screen" id="booking-screen">
+            <div class="app-bar"><span class="material-icons" onclick="showScreen('trip-detail-screen')"
+                    style="cursor: pointer;">arrow_back</span>
+                <h1>Rezervasyon</h1>
+            </div>
+            <div class="card">
+                <h4>Yolculuk Özeti</h4>
+                <div style="margin-top: 12px; font-size: 14px;">
+                    <div style="display: flex; align-items: center; gap: 8px;"><span class="material-icons"
+                            style="color: var(--primary); font-size: 16px;">trip_origin</span> İstanbul, Kadıköy</div>
+                    <div style="margin-left: 7px; width: 2px; height: 20px; background: var(--border);"></div>
+                    <div style="display: flex; align-items: center; gap: 8px;"><span class="material-icons"
+                            style="color: var(--secondary); font-size: 16px;">location_on</span> Ankara, Kızılay</div>
+                </div>
+            </div>
+            <div class="card">
+                <h4>Koltuk Sayısı</h4>
+                <div style="display: flex; justify-content: center; align-items: center; gap: 24px; margin-top: 16px;">
+                    <button class="btn btn-secondary btn-sm"
+                        style="width: 48px; height: 48px; padding: 0; border-radius: 50%;">−</button>
+                    <span style="font-size: 32px; font-weight: 700;">1</span>
+                    <button class="btn btn-sm"
+                        style="width: 48px; height: 48px; padding: 0; border-radius: 50%;">+</button>
+                </div>
+            </div>
+            <div class="card" style="background: rgba(251,191,36,0.1); border-color: var(--warning);">
+                <div style="display: flex; gap: 12px;"><span class="material-icons"
+                        style="color: var(--warning);">info</span>
+                    <div><strong style="color: var(--warning);">Sürücü Onayı Gerekli</strong>
+                        <p style="font-size: 12px; color: var(--text-secondary); margin-top: 4px;">Rezervasyonunuz
+                            sürücü onayından sonra kesinleşir.</p>
+                    </div>
+                </div>
+            </div>
+            <div style="padding: 16px;"><button class="btn" onclick="showModal('reservation-sent-modal')"><span
+                        class="material-icons">send</span> Talep Gönder</button></div>
+        </div>
+
+        <!-- My Reservations -->
+        <div class="screen" id="my-reservations-screen">
+            <div class="app-bar">
+                <h1>Rezervasyonlarım</h1>
+            </div>
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab(this, 'upcoming')">Yaklaşan</div>
+                <div class="tab" onclick="switchTab(this, 'past')">Geçmiş</div>
+            </div>
+
+            <div id="upcoming-tab">
+                <div class="reservation-card">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        <span class="status-badge status-confirmed">Onaylandı</span>
+                        <span style="font-size: 12px; color: var(--text-secondary);">15 Şub 2026</span>
+                    </div>
+                    <div style="display: flex; gap: 12px; margin-bottom: 12px;">
+                        <div style="display: flex; flex-direction: column; align-items: center;"><span
+                                class="material-icons"
+                                style="font-size: 14px; color: var(--primary);">trip_origin</span>
+                            <div style="width: 2px; height: 16px; background: var(--border);"></div><span
+                                class="material-icons"
+                                style="font-size: 14px; color: var(--secondary);">location_on</span>
+                        </div>
+                        <div>
+                            <div style="margin-bottom: 12px;">İstanbul, Kadıköy <span
+                                    style="color: var(--text-secondary);">08:00</span></div>
+                            <div>Ankara, Kızılay <span style="color: var(--text-secondary);">12:30</span></div>
+                        </div>
+                    </div>
+                    <div
+                        style="display: flex; align-items: center; gap: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                        <div class="avatar" style="width: 36px; height: 36px;"><span class="material-icons"
+                                style="font-size: 18px;">person</span></div>
+                        <div style="flex: 1;"><strong style="font-size: 14px;">Ahmet Y.</strong>
+                            <div style="font-size: 11px; color: var(--text-secondary);">Toyota Corolla • 34 ABC 123
+                            </div>
+                        </div>
+                        <span style="color: var(--primary); font-weight: 700;">150 ₺</span>
+                    </div>
+                    <div style="display: flex; gap: 8px; margin-top: 12px;">
+                        <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="showModal('qr-modal')"><span
+                                class="material-icons" style="font-size: 16px;">qr_code_2</span> QR Kod</button>
+                        <button class="btn btn-sm" style="flex: 1;"><span class="material-icons"
+                                style="font-size: 16px;">chat</span> Mesaj</button>
+                    </div>
+                </div>
+
+                <div class="reservation-card">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        <span class="status-badge status-pending">Onay Bekliyor</span>
+                        <span style="font-size: 12px; color: var(--text-secondary);">18 Şub 2026</span>
+                    </div>
+                    <div style="display: flex; gap: 12px;">
+                        <div style="display: flex; flex-direction: column; align-items: center;"><span
+                                class="material-icons"
+                                style="font-size: 14px; color: var(--primary);">trip_origin</span>
+                            <div style="width: 2px; height: 16px; background: var(--border);"></div><span
+                                class="material-icons"
+                                style="font-size: 14px; color: var(--secondary);">location_on</span>
+                        </div>
+                        <div>
+                            <div style="margin-bottom: 12px;">İstanbul → İzmir</div>
+                            <div style="font-size: 12px; color: var(--text-secondary);">Zeynep K. ile</div>
+                        </div>
+                        <span style="margin-left: auto; color: var(--primary); font-weight: 700;">130 ₺</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="past-tab" style="display: none;">
+                <div class="reservation-card">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        <span class="status-badge status-completed">Tamamlandı</span>
+                        <span style="font-size: 12px; color: var(--text-secondary);">10 Şub 2026</span>
+                    </div>
+                    <div>İstanbul → Bursa • Mehmet A. ile • <span style="color: var(--primary);">100 ₺</span></div>
+                    <button class="btn btn-secondary btn-sm" style="margin-top: 12px;"><span class="material-icons"
+                            style="font-size: 16px;">star</span> Değerlendir</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Driver Reservations -->
+        <div class="screen" id="driver-reservations-screen">
+            <div class="app-bar"><span class="material-icons" onclick="showScreen('profile-screen')"
+                    style="cursor: pointer;">arrow_back</span>
+                <h1>Gelen Talepler</h1>
+            </div>
+            <div class="reservation-card">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div class="avatar" style="width: 40px; height: 40px;"><span class="material-icons"
+                                style="font-size: 20px;">person</span></div>
+                        <div><strong>Ayşe K.</strong>
+                            <div style="font-size: 12px; color: var(--text-secondary);"><span class="material-icons"
+                                    style="font-size: 12px; color: var(--warning);">star</span> 4.9 • 12 yolculuk</div>
+                        </div>
+                    </div>
+                    <span class="status-badge status-pending">Bekliyor</span>
+                </div>
+                <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">İstanbul → Ankara • 15
+                    Şub 08:00 • 1 koltuk</div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-success btn-sm" onclick="approveRes(this)"><span class="material-icons"
+                            style="font-size: 16px;">check</span> Onayla</button>
+                    <button class="btn btn-danger btn-sm" onclick="rejectRes(this)"><span class="material-icons"
+                            style="font-size: 16px;">close</span> Reddet</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="screen" id="messages-screen">
+            <div class="app-bar">
+                <h1>Mesajlar</h1>
+            </div>
+            <div class="menu-item" onclick="showScreen('chat-screen')">
+                <div class="avatar"><span class="material-icons">person</span></div>
+                <div style="flex: 1;">
+                    <div style="display: flex; justify-content: space-between;"><strong>Ahmet Y.</strong><span
+                            style="font-size: 12px; color: var(--text-secondary);">14:32</span></div>
+                    <div style="font-size: 14px; color: var(--text-secondary);">Kadıköy'de buluşalım.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat -->
+        <div class="screen" id="chat-screen">
+            <div class="app-bar"><span class="material-icons" onclick="showScreen('messages-screen')"
+                    style="cursor: pointer;">arrow_back</span>
+                <div class="avatar" style="width: 32px; height: 32px;"><span class="material-icons"
+                        style="font-size: 16px;">person</span></div>
+                <div style="flex: 1;">
+                    <div style="font-size: 14px; font-weight: 600;">Ahmet Y.</div>
+                    <div style="font-size: 10px; color: var(--secondary);">Çevrimiçi</div>
+                </div>
+            </div>
+            <div style="flex: 1; padding: 16px;">
+                <div
+                    style="max-width: 70%; padding: 12px 16px; background: var(--primary); color: white; border-radius: 16px 16px 4px 16px; margin-left: auto; margin-bottom: 8px;">
+                    Merhaba, uygun musunuz?</div>
+                <div
+                    style="max-width: 70%; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px 16px 16px 4px;">
+                    Evet, Kadıköy'de buluşalım.</div>
+            </div>
+            <div style="padding: 12px 16px; display: flex; gap: 8px; border-top: 1px solid var(--border);"><input
+                    style="flex: 1; padding: 12px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 24px; color: var(--text);"
+                    placeholder="Mesaj..."><button class="btn"
+                    style="width: 48px; height: 48px; padding: 0; border-radius: 50%;"><span
+                        class="material-icons">send</span></button></div>
+        </div>
+
+        <!-- Profile -->
+        <div class="screen" id="profile-screen">
+            <div class="app-bar">
+                <h1>Profil</h1><span class="material-icons">settings</span>
+            </div>
+            <div class="profile-header">
+                <div class="profile-avatar"><span class="material-icons">person</span></div>
+                <div style="font-size: 24px; font-weight: 700;">Mehmet Yılmaz</div>
+                <div style="font-size: 12px; color: var(--secondary); margin-top: 4px;"><span class="material-icons"
+                        style="font-size: 14px;">verified</span> Onaylı Profil</div>
+                <div class="profile-stats">
+                    <div class="stat">
+                        <div class="value">23</div>
+                        <div class="label">Yolculuk</div>
+                    </div>
+                    <div class="stat">
+                        <div class="value">4.8</div>
+                        <div class="label">Puan</div>
+                    </div>
+                    <div class="stat">
+                        <div class="value">2 yıl</div>
+                        <div class="label">Üyelik</div>
+                    </div>
+                </div>
+            </div>
+            <div class="about-section">
+                <h4><span class="material-icons" style="font-size: 18px;">edit</span> Hakkımda</h4>
+                <p>İstanbul'da yaşıyorum. Hafta sonları seyahat etmeyi seviyorum. Güvenli sürüş, keyifli sohbet! 🚗✨</p>
+            </div>
+            <div class="menu-item" onclick="showScreen('driver-reservations-screen')"><span
+                    class="material-icons">pending_actions</span><span>Gelen Talepler</span><span
+                    class="status-badge status-pending">2</span></div>
+            <div class="menu-item"><span class="material-icons">directions_car</span><span>Araçlarım</span><span
+                    class="material-icons">chevron_right</span></div>
+            <div class="menu-item"><span class="material-icons">history</span><span>Yolculuk Geçmişi</span><span
+                    class="material-icons">chevron_right</span></div>
+            <div class="menu-item"><span class="material-icons">account_balance_wallet</span><span>Cüzdan</span><span
+                    style="color: var(--text-secondary);">₺ 0,00</span></div>
+            <div class="menu-item" style="color: var(--error);" onclick="showScreen('login-screen')"><span
+                    class="material-icons" style="color: var(--error);">logout</span><span>Çıkış Yap</span></div>
+        </div>
+
+        <!-- Bottom Nav -->
+        <div class="bottom-nav">
+            <div class="nav-item active" id="nav-home" onclick="showScreen('home-screen')"><span
+                    class="material-icons">home</span><span>Ana Sayfa</span></div>
+            <div class="nav-item" id="nav-search" onclick="showScreen('search-screen')"><span
+                    class="material-icons">search</span><span>Ara</span></div>
+            <div class="nav-item" id="nav-reservations" onclick="showScreen('my-reservations-screen')"><span
+                    class="material-icons">confirmation_number</span><span>Rezervasyonlar</span><span
+                    class="badge-nav">2</span></div>
+            <div class="nav-item" id="nav-messages" onclick="showScreen('messages-screen')"><span
+                    class="material-icons">chat_bubble</span><span>Mesajlar</span></div>
+            <div class="nav-item" id="nav-profile" onclick="showScreen('profile-screen')"><span
+                    class="material-icons">person</span><span>Profil</span></div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div class="modal" id="reservation-sent-modal">
+        <div class="modal-content">
+            <span class="material-icons" style="font-size: 64px; color: var(--primary);">schedule_send</span>
+            <h2 style="margin: 16px 0;">Talep Gönderildi!</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">Sürücü onayladığında bildirim alacaksınız.</p>
+            <button class="btn"
+                onclick="closeModal('reservation-sent-modal'); showScreen('my-reservations-screen');">Rezervasyonlarıma
+                Git</button>
+        </div>
+    </div>
+
+    <div class="modal" id="qr-modal">
+        <div class="modal-content">
+            <span class="material-icons" style="font-size: 64px; color: var(--secondary);">check_circle</span>
+            <h2 style="margin: 16px 0;">QR Kodunuz</h2>
+            <p style="color: var(--text-secondary);">Yolculuk günü sürücüye gösterin.</p>
+            <div class="qr-code"></div>
+            <div style="font-family: monospace; font-weight: 700;">BK-ABC123456</div>
+            <button class="btn" style="margin-top: 16px;" onclick="closeModal('qr-modal')">Kapat</button>
+        </div>
+    </div>
+
+    <script>
+        const locations = [
+            { name: 'İstanbul', type: 'İl' }, { name: 'İstanbul, Kadıköy', type: 'İlçe' }, { name: 'İstanbul, Beşiktaş', type: 'İlçe' },
+            { name: 'İstanbul, Üsküdar', type: 'İlçe' }, { name: 'İstanbul, Şişli', type: 'İlçe' }, { name: 'Ankara', type: 'İl' },
+            { name: 'Ankara, Kızılay', type: 'İlçe' }, { name: 'Ankara, Çankaya', type: 'İlçe' }, { name: 'İzmir', type: 'İl' },
+            { name: 'İzmir, Konak', type: 'İlçe' }, { name: 'Antalya', type: 'İl' }, { name: 'Bursa', type: 'İl' }
+        ];
+
+        function showAutocomplete(input, listId) {
+            const list = document.getElementById(listId);
+            const query = input.value.toLowerCase();
+            if (query.length < 1) { list.classList.remove('show'); return; }
+            const filtered = locations.filter(l => l.name.toLowerCase().includes(query)).slice(0, 5);
+            if (filtered.length === 0) { list.classList.remove('show'); return; }
+            list.innerHTML = filtered.map(l => `<div class="autocomplete-item" onclick="document.getElementById('${input.id}').value='${l.name}'; document.getElementById('${listId}').classList.remove('show');"><span class="material-icons" style="font-size: 16px; color: var(--text-secondary);">location_on</span><span style="flex: 1;">${l.name}</span><span class="type">${l.type}</span></div>`).join('');
+            list.classList.add('show');
+        }
+
+        document.addEventListener('click', e => { if (!e.target.closest('.input-group')) document.querySelectorAll('.autocomplete-list').forEach(l => l.classList.remove('show')); });
+
+        function showScreen(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            if (id === 'home-screen') document.getElementById('nav-home').classList.add('active');
+            if (id === 'search-screen') document.getElementById('nav-search').classList.add('active');
+            if (id === 'my-reservations-screen') document.getElementById('nav-reservations').classList.add('active');
+            if (id.includes('messages') || id === 'chat-screen') document.getElementById('nav-messages').classList.add('active');
+            if (id === 'profile-screen' || id === 'driver-reservations-screen') document.getElementById('nav-profile').classList.add('active');
+            document.querySelector('.bottom-nav').style.display = id === 'login-screen' ? 'none' : 'flex';
+        }
+
+        function showModal(id) { document.getElementById(id).classList.add('active'); }
+        function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+        function switchTab(el, tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            el.classList.add('active');
+            document.getElementById('upcoming-tab').style.display = tab === 'upcoming' ? 'block' : 'none';
+            document.getElementById('past-tab').style.display = tab === 'past' ? 'block' : 'none';
+        }
+
+        function approveRes(btn) {
+            const card = btn.closest('.reservation-card');
+            card.querySelector('.status-badge').className = 'status-badge status-confirmed';
+            card.querySelector('.status-badge').textContent = 'Onaylandı';
+            btn.parentElement.innerHTML = '<span style="color: var(--secondary);">✓ Onaylandı</span>';
+        }
+        function rejectRes(btn) {
+            const card = btn.closest('.reservation-card');
+            card.querySelector('.status-badge').className = 'status-badge status-rejected';
+            card.querySelector('.status-badge').textContent = 'Reddedildi';
+            btn.parentElement.innerHTML = '<span style="color: var(--error);">✗ Reddedildi</span>';
+        }
+    </script>
+</body>
+
+</html>

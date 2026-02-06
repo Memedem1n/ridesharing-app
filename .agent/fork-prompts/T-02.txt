@@ -1,0 +1,10 @@
+Role: coding agent (Codex).
+Repo root: C:\Users\barut\.gemini\antigravity\playground\crystal-newton\ridesharing-app
+Skills to use: nestjs-expert, typescript-expert
+
+Task: Fix VerificationController syntax and ensure route wiring works.
+
+Goals:
+1) Repair syntax errors and braces.
+2) Ensure controller is imported and wired correctly.
+3) Add minimal tests if possible (optional).

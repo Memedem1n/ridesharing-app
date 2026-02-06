@@ -1,0 +1,177 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: '20'
+  FLUTTER_VERSION: '3.19.0'
+
+jobs:
+  backend-lint-test:
+    name: Backend Lint & Test
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ridesharing_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Run linter
+        working-directory: backend
+        run: npm run lint
+
+      - name: Run type check
+        working-directory: backend
+        run: npm run type-check
+
+      - name: Run database migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ridesharing_test
+        run: npm run db:migrate
+
+      - name: Run tests
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ridesharing_test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-secret-key
+        run: npm test -- --coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          directory: backend/coverage
+          flags: backend
+
+  mobile-lint-test:
+    name: Mobile Lint & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Get dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Run analyzer
+        working-directory: mobile
+        run: flutter analyze
+
+      - name: Run tests
+        working-directory: mobile
+        run: flutter test --coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          directory: mobile/coverage
+          flags: mobile
+
+  build-backend:
+    name: Build Backend
+    runs-on: ubuntu-latest
+    needs: backend-lint-test
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Build
+        working-directory: backend
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-dist
+          path: backend/dist
+
+  build-mobile:
+    name: Build Mobile Apps
+    runs-on: ubuntu-latest
+    needs: mobile-lint-test
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Get dependencies
+        working-directory: mobile
+        run: flutter pub get
+
+      - name: Build APK
+        working-directory: mobile
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: mobile/build/app/outputs/flutter-apk/app-release.apk

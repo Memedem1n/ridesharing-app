@@ -1,0 +1,15 @@
+Role: coding agent (Codex).
+Repo root: C:\Users\barut\.gemini\antigravity\playground\crystal-newton\ridesharing-app
+Skills to use: prisma-expert, postgres-best-practices, backend-architect, verification-before-completion
+
+Task: Align Prisma provider with Postgres and keep config consistent.
+
+Goals:
+1) Update prisma provider and datasource to match Postgres.
+2) Align .env.example and docker-compose configs.
+3) Add or update migrations safely if needed.
+4) Update TASKS.md line notes if required.
+
+Constraints:
+- Do not break existing data or remove models.
+- Keep changes minimal and scoped.

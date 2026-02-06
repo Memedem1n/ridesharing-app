@@ -1,0 +1,172 @@
+// Prisma Schema for Paylaşımlı Yolculuk - SQLite (Local Dev)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String    @id @default(uuid())
+  phone            String    @unique
+  email            String    @unique
+  passwordHash     String    @map("password_hash")
+  fullName         String    @map("full_name")
+  dateOfBirth      DateTime? @map("date_of_birth")
+  gender           String?
+  profilePhotoUrl  String?   @map("profile_photo_url")
+  bio              String?
+  ratingAvg        Float     @default(0) @map("rating_avg")
+  ratingCount      Int       @default(0) @map("rating_count")
+  totalTrips       Int       @default(0) @map("total_trips")
+  identityStatus   String    @default("pending") @map("identity_status")
+  licenseStatus    String    @default("pending") @map("license_status") // none, pending, verified, rejected
+  identityDocumentUrl String? @map("identity_document_url")
+  licenseDocumentUrl  String? @map("license_document_url")
+  criminalRecordDocumentUrl String? @map("criminal_record_document_url")
+  criminalRecordStatus String    @default("none") @map("criminal_record_status")
+  verified         Boolean   @default(false)
+  preferences      String    @default("{}")
+  womenOnlyMode    Boolean   @default(false) @map("women_only_mode")
+  bannedUntil      DateTime? @map("banned_until")
+  penaltyScore     Float     @default(0) @map("penalty_score")
+  walletBalance    Float     @default(0) @map("wallet_balance")
+  referralCode     String    @unique @map("referral_code")
+  referredBy       String?   @map("referred_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  
+  vehicles         Vehicle[]
+  tripsAsDriver    Trip[]      @relation("DriverTrips")
+  bookings         Booking[]
+  sentMessages     Message[]   @relation("SentMessages")
+  receivedMessages Message[]   @relation("ReceivedMessages")
+  reviewsGiven     Review[]    @relation("ReviewsGiven")
+  reviewsReceived  Review[]    @relation("ReviewsReceived")
+  
+  @@map("users")
+}
+
+model Vehicle {
+  id                 String    @id @default(uuid())
+  userId             String    @map("user_id")
+  licensePlate       String    @unique @map("license_plate")
+  brand              String
+  model              String
+  year               Int
+  color              String?
+  seats              Int
+  hasAc              Boolean   @default(false) @map("has_ac")
+  allowsPets         Boolean   @default(false) @map("allows_pets")
+  allowsSmoking      Boolean   @default(false) @map("allows_smoking")
+  verified           Boolean   @default(false)
+  registrationImage  String?   @map("registration_image")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trips              Trip[]
+  
+  @@map("vehicles")
+}
+
+model Trip {
+  id                   String   @id @default(uuid())
+  driverId             String   @map("driver_id")
+  vehicleId            String   @map("vehicle_id")
+  status               String   @default("draft")
+  type                 String   @default("people")
+  departureCity        String   @map("departure_city")
+  arrivalCity          String   @map("arrival_city")
+  departureAddress     String?  @map("departure_address")
+  arrivalAddress       String?  @map("arrival_address")
+  departureLat         Float?   @map("departure_lat")
+  departureLng         Float?   @map("departure_lng")
+  arrivalLat           Float?   @map("arrival_lat")
+  arrivalLng           Float?   @map("arrival_lng")
+  departureTime        DateTime @map("departure_time")
+  estimatedArrivalTime DateTime? @map("estimated_arrival_time")
+  availableSeats       Int      @map("available_seats")
+  pricePerSeat         Float    @map("price_per_seat")
+  allowsPets           Boolean  @default(false) @map("allows_pets")
+  allowsCargo          Boolean  @default(false) @map("allows_cargo")
+  maxCargoWeight       Int?     @map("max_cargo_weight")
+  recurring            Boolean  @default(false)
+  distanceKm           Float?   @map("distance_km")
+  preferences          String   @default("{}")
+  womenOnly            Boolean  @default(false) @map("women_only")
+  instantBooking       Boolean  @default(true) @map("instant_booking")
+  description          String?
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  
+  driver               User     @relation("DriverTrips", fields: [driverId], references: [id], onDelete: Cascade)
+  vehicle              Vehicle  @relation(fields: [vehicleId], references: [id])
+  bookings             Booking[]
+  reviews              Review[]
+  
+  @@map("trips")
+}
+
+model Booking {
+  id                   String    @id @default(uuid())
+  tripId               String    @map("trip_id")
+  passengerId          String    @map("passenger_id")
+  status               String    @default("pending")
+  seats                Int       @default(1)
+  priceTotal           Float     @map("price_total")
+  commissionAmount     Float     @default(0) @map("commission_amount")
+  itemType             String    @default("person") @map("item_type")
+  itemDetails          String?   @map("item_details")
+  qrCode               String    @unique @map("qr_code")
+  checkedInAt          DateTime? @map("checked_in_at")
+  paymentStatus        String    @default("pending") @map("payment_status")
+  paymentId            String?   @map("payment_id")
+  cancellationTime     DateTime? @map("cancellation_time")
+  cancellationPenalty  Float?    @map("cancellation_penalty")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  
+  trip                 Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  passenger            User      @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+  messages             Message[]
+  reviews              Review[]
+  
+  @@map("bookings")
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  bookingId  String   @map("booking_id")
+  senderId   String   @map("sender_id")
+  receiverId String   @map("receiver_id")
+  message    String
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+  
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  
+  @@map("messages")
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  tripId      String   @map("trip_id")
+  bookingId   String   @map("booking_id")
+  reviewerId  String   @map("reviewer_id")
+  revieweeId  String   @map("reviewee_id")
+  rating      Int
+  comment     String?
+  categories  String   @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  trip        Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  reviewer    User     @relation("ReviewsGiven", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewee    User     @relation("ReviewsReceived", fields: [revieweeId], references: [id], onDelete: Cascade)
+  
+  @@map("reviews")
+}

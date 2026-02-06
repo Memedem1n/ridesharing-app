@@ -1,0 +1,794 @@
+openapi: 3.1.0
+info:
+  title: Paylaşımlı Yolculuk API
+  description: |
+    REST API for ride-sharing application supporting people, pets, cargo, and food transportation.
+    
+    ## Authentication
+    All endpoints (except auth endpoints) require JWT Bearer token in Authorization header.
+    
+    ## Rate Limiting
+    - 100 requests per 15 minutes per IP
+    - 1000 requests per hour per authenticated user
+    
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: api@ridesharing.com
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.ridesharing.com/v1
+    description: Production server
+  - url: https://staging-api.ridesharing.com/v1
+    description: Staging server
+  - url: http://localhost:3000/v1
+    description: Development server
+
+tags:
+  - name: Authentication
+    description: User authentication and registration
+  - name: Users
+    description: User profile management
+  - name: Verification
+    description: Identity verification
+  - name: Vehicles
+    description: Vehicle management
+  - name: Trips
+    description: Trip creation and search
+  - name: Bookings
+    description: Booking management
+  - name: Payments
+    description: Payment processing
+  - name: Messages
+    description: Real-time messaging
+  - name: Reviews
+    description: Rating and review system
+  - name: Support
+    description: Customer support tickets
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        statusCode:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        fullName:
+          type: string
+        dateOfBirth:
+          type: string
+          format: date
+        gender:
+          type: string
+          enum: [male, female, other, prefer_not_to_say]
+        profilePhotoUrl:
+          type: string
+          format: uri
+        bio:
+          type: string
+        ratingAvg:
+          type: number
+          format: float
+        ratingCount:
+          type: integer
+        totalTrips:
+          type: integer
+        verificationStatus:
+          type: object
+          properties:
+            phone: 
+              type: boolean
+            email: 
+              type: boolean
+            identity: 
+              type: boolean
+            selfie: 
+              type: boolean
+            vehicle: 
+              type: boolean
+        preferences:
+          type: object
+          properties:
+            music:
+              type: string
+            smoking:
+              type: boolean
+            pets:
+              type: boolean
+            chattiness:
+              type: string
+              enum: [quiet, normal, chatty]
+            ac:
+              type: boolean
+        womenOnlyMode:
+          type: boolean
+        walletBalance:
+          type: number
+          format: decimal
+        createdAt:
+          type: string
+          format: date-time
+
+    Vehicle:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        licensePlate:
+          type: string
+        brand:
+          type: string
+        model:
+          type: string
+        year:
+          type: integer
+        color:
+          type: string
+        seats:
+          type: integer
+        hasAc:
+          type: boolean
+        allowsPets:
+          type: boolean
+        allowsSmoking:
+          type: boolean
+        verified:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    Trip:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        driverId:
+          type: string
+          format: uuid
+        vehicleId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [draft, published, full, in_progress, completed, cancelled]
+        type:
+          type: string
+          enum: [people, pets, cargo, food]
+        departureCity:
+          type: string
+        arrivalCity:
+          type: string
+        departureAddress:
+          type: string
+        arrivalAddress:
+          type: string
+        departureTime:
+          type: string
+          format: date-time
+        estimatedArrivalTime:
+          type: string
+          format: date-time
+        availableSeats:
+          type: integer
+        pricePerSeat:
+          type: number
+          format: decimal
+        allowsPets:
+          type: boolean
+        petLocation:
+          type: string
+          enum: [front, back, trunk]
+          nullable: true
+        allowsCargo:
+          type: boolean
+        maxCargoWeight:
+          type: integer
+          nullable: true
+        recurring:
+          type: boolean
+        womenOnly:
+          type: boolean
+        distanceKm:
+          type: number
+          format: decimal
+        createdAt:
+          type: string
+          format: date-time
+
+    Booking:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tripId:
+          type: string
+          format: uuid
+        passengerId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, confirmed, checked_in, completed, cancelled_by_passenger, cancelled_by_driver]
+        seats:
+          type: integer
+        priceTotal:
+          type: number
+          format: decimal
+        commissionAmount:
+          type: number
+          format: decimal
+        itemType:
+          type: string
+          enum: [person, pet, cargo, food]
+        qrCode:
+          type: string
+        paymentStatus:
+          type: string
+          enum: [pending, paid, refunded, partially_refunded]
+        createdAt:
+          type: string
+          format: date-time
+
+paths:
+  # Authentication Endpoints
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, email, password, fullName]
+              properties:
+                phone:
+                  type: string
+                  example: "+905551234567"
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                fullName:
+                  type: string
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier, password]
+              properties:
+                identifier:
+                  type: string
+                  description: Email or phone
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
+        '401':
+          description: Invalid credentials
+
+  /auth/verify-otp:
+    post:
+      tags: [Authentication]
+      summary: Verify OTP code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identifier, code, type]
+              properties:
+                identifier:
+                  type: string
+                code:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+                type:
+                  type: string
+                  enum: [phone, email]
+      responses:
+        '200':
+          description: OTP verified
+        '400':
+          description: Invalid or expired OTP
+
+  # User Endpoints
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Get current user profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    
+    put:
+      tags: [Users]
+      summary: Update current user profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                bio:
+                  type: string
+                preferences:
+                  type: object
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: Get user by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  # Vehicle Endpoints
+  /vehicles:
+    get:
+      tags: [Vehicles]
+      summary: Get user's vehicles
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of vehicles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Vehicle'
+    
+    post:
+      tags: [Vehicles]
+      summary: Add new vehicle
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [licensePlate, brand, model, year, seats]
+              properties:
+                licensePlate:
+                  type: string
+                brand:
+                  type: string
+                model:
+                  type: string
+                year:
+                  type: integer
+                color:
+                  type: string
+                seats:
+                  type: integer
+                hasAc:
+                  type: boolean
+                allowsPets:
+                  type: boolean
+                allowsSmoking:
+                  type: boolean
+      responses:
+        '201':
+          description: Vehicle added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+
+  # Trip Endpoints
+  /trips:
+    get:
+      tags: [Trips]
+      summary: Search trips
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+          description: Departure city
+        - name: to
+          in: query
+          schema:
+            type: string
+          description: Arrival city
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: seats
+          in: query
+          schema:
+            type: integer
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [people, pets, cargo, food]
+      responses:
+        '200':
+          description: List of trips
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trips:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Trip'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+    
+    post:
+      tags: [Trips]
+      summary: Create new trip
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [vehicleId, departureCity, arrivalCity, departureTime, availableSeats, pricePerSeat]
+              properties:
+                vehicleId:
+                  type: string
+                  format: uuid
+                type:
+                  type: string
+                  enum: [people, pets, cargo, food]
+                departureCity:
+                  type: string
+                arrivalCity:
+                  type: string
+                departureAddress:
+                  type: string
+                arrivalAddress:
+                  type: string
+                departureTime:
+                  type: string
+                  format: date-time
+                availableSeats:
+                  type: integer
+                pricePerSeat:
+                  type: number
+                allowsPets:
+                  type: boolean
+                womenOnly:
+                  type: boolean
+      responses:
+        '201':
+          description: Trip created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+
+  /trips/{id}:
+    get:
+      tags: [Trips]
+      summary: Get trip details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Trip details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Trip'
+
+  # Booking Endpoints
+  /bookings:
+    post:
+      tags: [Bookings]
+      summary: Create booking
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tripId, seats, itemType]
+              properties:
+                tripId:
+                  type: string
+                  format: uuid
+                seats:
+                  type: integer
+                itemType:
+                  type: string
+                  enum: [person, pet, cargo, food]
+                itemDetails:
+                  type: object
+      responses:
+        '201':
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+
+  /bookings/{id}/checkin:
+    post:
+      tags: [Bookings]
+      summary: Check-in with QR code
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [qrCode]
+              properties:
+                qrCode:
+                  type: string
+      responses:
+        '200':
+          description: Check-in successful
+
+  # Payment Endpoints
+  /payments/initiate:
+    post:
+      tags: [Payments]
+      summary: Initiate payment
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bookingId]
+              properties:
+                bookingId:
+                  type: string
+                  format: uuid
+                paymentMethod:
+                  type: string
+                  enum: [credit_card, wallet]
+      responses:
+        '200':
+          description: Payment initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  paymentId:
+                    type: string
+                  threeDSUrl:
+                    type: string
+                    format: uri
+
+  # Messages Endpoints
+  /messages/conversations:
+    get:
+      tags: [Messages]
+      summary: Get conversation list
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    bookingId:
+                      type: string
+                    otherUser:
+                      $ref: '#/components/schemas/User'
+                    lastMessage:
+                      type: string
+                    unreadCount:
+                      type: integer
+
+  /messages/{bookingId}:
+    get:
+      tags: [Messages]
+      summary: Get messages for booking
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    senderId:
+                      type: string
+                    message:
+                      type: string
+                    read:
+                      type: boolean
+                    createdAt:
+                      type: string
+                      format: date-time
+
+  # Support Endpoints
+  /support/tickets:
+    post:
+      tags: [Support]
+      summary: Create support ticket
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, subject, description]
+              properties:
+                type:
+                  type: string
+                  enum: [technical, payment, dispute, other]
+                subject:
+                  type: string
+                description:
+                  type: string
+                tripId:
+                  type: string
+                  format: uuid
+                bookingId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Ticket created
