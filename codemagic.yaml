@@ -1,0 +1,55 @@
+workflows:
+  ios_release:
+    name: iOS Release
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.example.ridesharing_app
+      vars:
+        BUNDLE_ID: com.example.ridesharing_app
+    scripts:
+      - name: Install dependencies
+        script: |
+          cd mobile
+          flutter pub get
+      - name: Set up code signing
+        script: |
+          cd mobile
+          xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          cd mobile
+          flutter build ipa --release
+    artifacts:
+      - mobile/build/ios/ipa/*.ipa
+      - mobile/build/ios/ipa/*.dSYM.zip
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
+  ios_simulator:
+    name: iOS Simulator (Free)
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install dependencies
+        script: |
+          cd mobile
+          flutter pub get
+      - name: Build iOS Simulator app
+        script: |
+          cd mobile
+          flutter build ios --simulator
+    artifacts:
+      - mobile/build/ios/iphonesimulator/*.app
