@@ -303,3 +303,11 @@ Task: Trip detail + address docs
 Summary: Added address fallback on trip detail, updated sample trip addresses, refreshed agent/readme docs.
 Commands: Invoke-RestMethod /auth/login; Invoke-RestMethod PUT /trips/:id
 Files: mobile/lib/features/trips/presentation/trip_detail_screen.dart, README.md, docs/README.md, docs/AGENT_HANDOFF.md, docs/AGENT_CONTEXT.md
+
+## 2026-02-07 05:47
+Level: agent
+Agent: codex
+Task: Add long conversation summary
+Summary: Added detailed conversation summary to AGENT_HANDOFF for next agents.
+Commands: apply_patch
+Files: docs/AGENT_HANDOFF.md

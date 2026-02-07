@@ -54,6 +54,26 @@ C:\Users\barut\workspace\ridesharing-app
 2) Bus price scraping is disabled by default (BUS_SCRAPER_ENABLED=false); fallback prices used unless enabled.
 3) FCM/Netgsm require credentials and USE_MOCK_INTEGRATIONS=false to send real notifications.
 
+## Conversation summary (2026-02-07)
+- Flutter web dev server was run on `http://localhost:5000` using `C:\Users\barut\Downloads\flutter_windows_3.38.9-stable\flutter\bin\flutter.bat`.
+- Riverpod build-time errors were fixed:
+  - `ref.listen` moved to widget `build` (was previously in `initState`).
+  - search results now update `tripSearchParamsProvider` inside `addPostFrameCallback`.
+- Driver flows improved:
+  - Added “Yolculuklarım” screen wired to `/trips/my`.
+  - Vehicle create now shows API error messages; create-trip redirects to `/vehicle-create` if missing.
+  - Vehicle verification screen includes “Araç Ekle” CTA.
+- Address autocomplete is live (Nominatim, Turkey-only) for home, search, and create-trip. Trip creation now stores address + lat/lng.
+- Trip detail shows “Adres bilgisi yok” if address is missing.
+- Demo/mock trips filtered from UI (driverName starting with `test`), and Redis cache was flushed once to remove stale search results.
+- Sample data used for QA:
+  - Driver account: `driver_20260207051820@demo.local` / `Test1234!`
+  - Passenger account: `pass_20260207051820@demo.local` / `Test1234!`
+  - Vehicle: `93b8a2cf-e36f-45a4-a79f-52c0064556a4` (Toyota Corolla, 34QA218)
+  - Trip: `e2d0bb52-53ce-4954-b45a-441c81f03539` (Istanbul → Ankara, 2026-02-09T06:00:00Z, ₺250, 3 seats)
+- Docs updated: `docs/AGENT_CONTEXT.md`, `docs/AGENT_HANDOFF.md`, `docs/AGENT_LOG.md`, `docs/AGENT_SKILLS.md`, `docs/QA_RESULTS.md`, `docs/QA_TREE.md`, `docs/README.md`, root `README.md`.
+- All changes were committed and pushed to `master` (commit: `0ebdabd`).
+
 ## Selected skill set (use for future work)
 Repo skills:
 - ridesharing-backend
