@@ -1,112 +1,75 @@
-// Türkiye illeri ve ilçeleri için autocomplete verisi
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+class LocationSuggestion {
+  final String displayName;
+  final String city;
+  final double lat;
+  final double lon;
+
+  const LocationSuggestion({
+    required this.displayName,
+    required this.city,
+    required this.lat,
+    required this.lon,
+  });
+}
+
 class LocationService {
-  static final List<Location> cities = [
-    // İstanbul
-    Location(name: 'İstanbul', type: LocationType.city),
-    Location(name: 'İstanbul, Kadıköy', type: LocationType.district, parent: 'İstanbul'),
-    Location(name: 'İstanbul, Beşiktaş', type: LocationType.district, parent: 'İstanbul'),
-    Location(name: 'İstanbul, Üsküdar', type: LocationType.district, parent: 'İstanbul'),
-    Location(name: 'İstanbul, Şişli', type: LocationType.district, parent: 'İstanbul'),
-    Location(name: 'İstanbul, Bakırköy', type: LocationType.district, parent: 'İstanbul'),
-    Location(name: 'İstanbul, Fatih', type: LocationType.district, parent: 'İstanbul'),
-    Location(name: 'İstanbul, Beyoğlu', type: LocationType.district, parent: 'İstanbul'),
-    Location(name: 'İstanbul, Ataşehir', type: LocationType.district, parent: 'İstanbul'),
-    Location(name: 'İstanbul, Maltepe', type: LocationType.district, parent: 'İstanbul'),
-    Location(name: 'İstanbul, Kartal', type: LocationType.district, parent: 'İstanbul'),
-    Location(name: 'İstanbul, Pendik', type: LocationType.district, parent: 'İstanbul'),
-    Location(name: 'İstanbul, Sarıyer', type: LocationType.district, parent: 'İstanbul'),
-    
-    // Ankara
-    Location(name: 'Ankara', type: LocationType.city),
-    Location(name: 'Ankara, Kızılay', type: LocationType.district, parent: 'Ankara'),
-    Location(name: 'Ankara, Çankaya', type: LocationType.district, parent: 'Ankara'),
-    Location(name: 'Ankara, Keçiören', type: LocationType.district, parent: 'Ankara'),
-    Location(name: 'Ankara, Yenimahalle', type: LocationType.district, parent: 'Ankara'),
-    Location(name: 'Ankara, Etimesgut', type: LocationType.district, parent: 'Ankara'),
-    Location(name: 'Ankara, Mamak', type: LocationType.district, parent: 'Ankara'),
-    
-    // İzmir
-    Location(name: 'İzmir', type: LocationType.city),
-    Location(name: 'İzmir, Konak', type: LocationType.district, parent: 'İzmir'),
-    Location(name: 'İzmir, Karşıyaka', type: LocationType.district, parent: 'İzmir'),
-    Location(name: 'İzmir, Bornova', type: LocationType.district, parent: 'İzmir'),
-    Location(name: 'İzmir, Buca', type: LocationType.district, parent: 'İzmir'),
-    Location(name: 'İzmir, Alsancak', type: LocationType.district, parent: 'İzmir'),
-    
-    // Antalya
-    Location(name: 'Antalya', type: LocationType.city),
-    Location(name: 'Antalya, Muratpaşa', type: LocationType.district, parent: 'Antalya'),
-    Location(name: 'Antalya, Konyaaltı', type: LocationType.district, parent: 'Antalya'),
-    Location(name: 'Antalya, Kepez', type: LocationType.district, parent: 'Antalya'),
-    Location(name: 'Antalya, Alanya', type: LocationType.district, parent: 'Antalya'),
-    
-    // Bursa
-    Location(name: 'Bursa', type: LocationType.city),
-    Location(name: 'Bursa, Osmangazi', type: LocationType.district, parent: 'Bursa'),
-    Location(name: 'Bursa, Nilüfer', type: LocationType.district, parent: 'Bursa'),
-    Location(name: 'Bursa, Yıldırım', type: LocationType.district, parent: 'Bursa'),
-    
-    // Diğer büyük şehirler
-    Location(name: 'Konya', type: LocationType.city),
-    Location(name: 'Adana', type: LocationType.city),
-    Location(name: 'Gaziantep', type: LocationType.city),
-    Location(name: 'Mersin', type: LocationType.city),
-    Location(name: 'Diyarbakır', type: LocationType.city),
-    Location(name: 'Kayseri', type: LocationType.city),
-    Location(name: 'Eskişehir', type: LocationType.city),
-    Location(name: 'Samsun', type: LocationType.city),
-    Location(name: 'Trabzon', type: LocationType.city),
-    Location(name: 'Denizli', type: LocationType.city),
-    Location(name: 'Malatya', type: LocationType.city),
-    Location(name: 'Erzurum', type: LocationType.city),
-    Location(name: 'Şanlıurfa', type: LocationType.city),
-    Location(name: 'Sakarya', type: LocationType.city),
-    Location(name: 'Kocaeli', type: LocationType.city),
-    Location(name: 'Tekirdağ', type: LocationType.city),
-    Location(name: 'Muğla', type: LocationType.city),
-    Location(name: 'Aydın', type: LocationType.city),
-    Location(name: 'Balıkesir', type: LocationType.city),
-    Location(name: 'Manisa', type: LocationType.city),
-  ];
+  LocationService({http.Client? client}) : _client = client ?? http.Client();
 
-  static List<Location> search(String query) {
-    if (query.isEmpty) return [];
-    final lowerQuery = query.toLowerCase();
-    return cities
-        .where((l) => l.name.toLowerCase().contains(lowerQuery))
-        .take(8)
-        .toList();
-  }
+  final http.Client _client;
 
-  static List<Location> getPopularRoutes() {
-    return [
-      Location(name: 'İstanbul', type: LocationType.city),
-      Location(name: 'Ankara', type: LocationType.city),
-      Location(name: 'İzmir', type: LocationType.city),
-      Location(name: 'Antalya', type: LocationType.city),
-      Location(name: 'Bursa', type: LocationType.city),
-    ];
-  }
-}
+  Future<List<LocationSuggestion>> search(String query) async {
+    if (query.trim().length < 2) return [];
 
-class Location {
-  final String name;
-  final LocationType type;
-  final String? parent;
+    final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
+      'format': 'jsonv2',
+      'q': query,
+      'addressdetails': '1',
+      'limit': '6',
+      'countrycodes': 'tr',
+      'accept-language': 'tr',
+    });
 
-  Location({required this.name, required this.type, this.parent});
+    final response = await _client.get(
+      uri,
+      headers: const {
+        'User-Agent': 'ridesharing-app/1.0 (local-dev)',
+      },
+    );
 
-  String get displayName => name;
-  String get typeLabel {
-    switch (type) {
-      case LocationType.city:
-        return 'İl';
-      case LocationType.district:
-        return 'İlçe';
-      case LocationType.neighborhood:
-        return 'Mahalle';
+    if (response.statusCode != 200) {
+      return [];
     }
+
+    final data = json.decode(response.body);
+    if (data is! List) return [];
+
+    return data.map<LocationSuggestion>((raw) {
+      final map = raw as Map<String, dynamic>;
+      final address = (map['address'] as Map?)?.cast<String, dynamic>() ?? {};
+      final countryCode = (address['country_code'] ?? '').toString().toLowerCase();
+      if (countryCode != 'tr') {
+        return const LocationSuggestion(displayName: '', city: '', lat: 0, lon: 0);
+      }
+      final city = (address['city'] ??
+              address['town'] ??
+              address['village'] ??
+              address['state'] ??
+              address['county'] ??
+              address['suburb'] ??
+              address['neighbourhood'] ??
+              address['neighborhood'] ??
+              '')
+          .toString();
+
+      return LocationSuggestion(
+        displayName: map['display_name']?.toString() ?? '',
+        city: city,
+        lat: double.tryParse(map['lat']?.toString() ?? '') ?? 0,
+        lon: double.tryParse(map['lon']?.toString() ?? '') ?? 0,
+      );
+    }).where((s) => s.displayName.isNotEmpty && s.city.isNotEmpty).toList();
   }
 }
-
-enum LocationType { city, district, neighborhood }

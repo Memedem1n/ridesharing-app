@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ridesharing Ops"
+  short_description: "Docker/Nginx/env/health checks for this repo"
+  default_prompt: "Handle ops and deployment config for ridesharing-app."

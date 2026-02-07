@@ -1,9 +1,12 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/providers/auth_provider.dart';
+import 'core/providers/locale_provider.dart';
+import 'core/providers/notification_provider.dart';
+import 'core/localization/app_strings.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,8 +30,19 @@ class _MyAppState extends ConsumerState<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<AuthState>(authProvider, (previous, next) {
+      if (next.status == AuthStatus.authenticated) {
+        ref.read(notificationProvider.notifier).init();
+      }
+      if (next.status == AuthStatus.unauthenticated) {
+        ref.read(notificationProvider.notifier).reset();
+      }
+    });
+
     final router = ref.watch(routerProvider);
     final authState = ref.watch(authProvider);
+    final locale = ref.watch(localeProvider);
+    final strings = ref.watch(appStringsProvider);
 
     // Show loading while checking auth
     if (authState.status == AuthStatus.initial || authState.status == AuthStatus.loading) {
@@ -46,7 +60,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     }
 
     return MaterialApp.router(
-      title: 'Paylaşımlı Yolculuk',
+      title: strings.appTitle,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
@@ -57,11 +71,8 @@ class _MyAppState extends ConsumerState<MyApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('tr', 'TR'),
-        Locale('en', 'US'),
-      ],
-      locale: const Locale('tr', 'TR'),
+      supportedLocales: AppStrings.supportedLocales,
+      locale: locale,
     );
   }
 }

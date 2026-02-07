@@ -32,19 +32,17 @@ class Booking {
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
+    final statusRaw = json['status']?.toString();
     return Booking(
       id: json['id'],
       tripId: json['tripId'],
       passengerId: json['passengerId'],
-      passengerName: json['passenger']?['name'],
-      passengerAvatar: json['passenger']?['avatar'],
-      seatCount: json['seatCount'],
-      totalPrice: (json['totalPrice']).toDouble(),
-      serviceFee: (json['serviceFee'] ?? 0).toDouble(),
-      status: BookingStatus.values.firstWhere(
-        (s) => s.name == json['status'],
-        orElse: () => BookingStatus.pending,
-      ),
+      passengerName: json['passenger']?['fullName'] ?? json['passengerName'],
+      passengerAvatar: json['passenger']?['profilePhotoUrl'] ?? json['passengerAvatar'],
+      seatCount: json['seats'] ?? json['seatCount'] ?? 1,
+      totalPrice: (json['priceTotal'] ?? json['totalPrice'] ?? 0).toDouble(),
+      serviceFee: (json['commissionAmount'] ?? json['serviceFee'] ?? 0).toDouble(),
+      status: _parseStatus(statusRaw),
       qrCode: json['qrCode'],
       checkedInAt: json['checkedInAt'] != null ? DateTime.parse(json['checkedInAt']) : null,
       createdAt: DateTime.parse(json['createdAt']),
@@ -54,6 +52,28 @@ class Booking {
 }
 
 enum BookingStatus { pending, confirmed, checkedIn, completed, cancelled, rejected }
+
+BookingStatus _parseStatus(String? raw) {
+  switch (raw) {
+    case 'pending':
+      return BookingStatus.pending;
+    case 'confirmed':
+      return BookingStatus.confirmed;
+    case 'checked_in':
+      return BookingStatus.checkedIn;
+    case 'completed':
+      return BookingStatus.completed;
+    case 'cancelled_by_passenger':
+    case 'cancelled_by_driver':
+    case 'cancelled':
+    case 'expired':
+      return BookingStatus.cancelled;
+    case 'rejected':
+      return BookingStatus.rejected;
+    default:
+      return BookingStatus.pending;
+  }
+}
 
 class Trip {
   final String id;
@@ -77,12 +97,12 @@ class Trip {
   factory Trip.fromJson(Map<String, dynamic> json) {
     return Trip(
       id: json['id'],
-      origin: json['origin'],
-      destination: json['destination'],
+      origin: json['departureCity'] ?? json['origin'] ?? '',
+      destination: json['arrivalCity'] ?? json['destination'] ?? '',
       departureTime: DateTime.parse(json['departureTime']),
-      driverName: json['driver']?['name'] ?? '',
-      vehicleName: json['vehicle']?['name'],
-      vehiclePlate: json['vehicle']?['plate'],
+      driverName: json['driver']?['fullName'] ?? json['driverName'] ?? 'Sürücü',
+      vehicleName: json['vehicle']?['brand'] ?? json['vehicleName'],
+      vehiclePlate: json['vehicle']?['licensePlate'] ?? json['vehiclePlate'],
     );
   }
 }
@@ -95,6 +115,6 @@ class CreateBookingRequest {
 
   Map<String, dynamic> toJson() => {
     'tripId': tripId,
-    'seatCount': seatCount,
+    'seats': seatCount,
   };
 }

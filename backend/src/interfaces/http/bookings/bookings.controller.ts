@@ -52,6 +52,13 @@ export class BookingsController {
         return this.bookingsService.findTripBookings(tripId, req.user.sub);
     }
 
+    @Get(':id')
+    @ApiOperation({ summary: 'Get booking by ID' })
+    @ApiResponse({ status: 200, description: 'Booking detail', type: BookingResponseDto })
+    async getById(@Request() req, @Param('id') id: string): Promise<BookingResponseDto> {
+        return this.bookingsService.findById(id, req.user.sub);
+    }
+
     @Delete(':id')
     @ApiOperation({ summary: 'Cancel booking' })
     @ApiResponse({ status: 200, description: 'Booking cancelled' })

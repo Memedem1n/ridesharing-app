@@ -23,14 +23,20 @@ final pastBookingsProvider = FutureProvider<List<Booking>>((ref) async {
   ).toList();
 });
 
-// Driver bookings (reservation requests)
-final driverBookingsProvider = FutureProvider<List<Booking>>((ref) async {
-  return ref.read(bookingRepositoryProvider).getDriverBookings();
+final recentBookingsProvider = FutureProvider<List<Booking>>((ref) async {
+  final bookings = await ref.read(bookingRepositoryProvider).getMyBookings();
+  final withTrip = bookings.where((b) => b.trip != null).toList();
+  withTrip.sort((a, b) {
+    final aDate = a.trip?.departureTime ?? a.createdAt;
+    final bDate = b.trip?.departureTime ?? b.createdAt;
+    return bDate.compareTo(aDate);
+  });
+  return withTrip.take(3).toList();
 });
 
-final pendingRequestsProvider = FutureProvider<List<Booking>>((ref) async {
-  final bookings = await ref.read(bookingRepositoryProvider).getDriverBookings(status: 'pending');
-  return bookings;
+// Driver bookings (reservation requests)
+final driverBookingsProvider = FutureProvider.family<List<Booking>, String>((ref, tripId) async {
+  return ref.read(bookingRepositoryProvider).getDriverBookings(tripId);
 });
 
 // Single booking detail
@@ -60,34 +66,6 @@ class BookingActionsNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  Future<bool> confirmBooking(String id) async {
-    state = const AsyncValue.loading();
-    try {
-      await _repository.confirmBooking(id);
-      state = const AsyncValue.data(null);
-      _ref.invalidate(driverBookingsProvider);
-      _ref.invalidate(pendingRequestsProvider);
-      return true;
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-      return false;
-    }
-  }
-
-  Future<bool> rejectBooking(String id, {String? reason}) async {
-    state = const AsyncValue.loading();
-    try {
-      await _repository.rejectBooking(id, reason: reason);
-      state = const AsyncValue.data(null);
-      _ref.invalidate(driverBookingsProvider);
-      _ref.invalidate(pendingRequestsProvider);
-      return true;
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-      return false;
-    }
-  }
-
   Future<bool> cancelBooking(String id) async {
     state = const AsyncValue.loading();
     try {
@@ -101,11 +79,24 @@ class BookingActionsNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  Future<bool> checkIn(String id, String qrCode) async {
+  Future<bool> checkIn(String qrCode) async {
     state = const AsyncValue.loading();
     try {
-      await _repository.checkIn(id, qrCode);
+      await _repository.checkIn(qrCode);
       state = const AsyncValue.data(null);
+      return true;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
+  Future<bool> processPayment(String bookingId) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.processPayment(bookingId);
+      state = const AsyncValue.data(null);
+      _ref.invalidate(myBookingsProvider);
       return true;
     } catch (e, st) {
       state = AsyncValue.error(e, st);

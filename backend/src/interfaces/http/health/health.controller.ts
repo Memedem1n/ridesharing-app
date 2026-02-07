@@ -13,17 +13,17 @@ export class HealthController {
 
     @Get('health')
     @ApiOperation({ summary: 'Health check' })
-    health() {
-        return {
-            status: 'ok',
-            timestamp: new Date().toISOString(),
-            uptime: process.uptime(),
-        };
+    async health() {
+        return this.buildStatus();
     }
 
     @Get('ready')
     @ApiOperation({ summary: 'Readiness check' })
     async ready() {
+        return this.buildStatus();
+    }
+
+    private async buildStatus() {
         const [dbOk, redisOk] = await Promise.all([
             this.checkDatabase(),
             this.checkRedis(),
@@ -37,6 +37,8 @@ export class HealthController {
             status: dbOk && (redisStatus === 'connected' || redisStatus === 'not_configured')
                 ? 'ok'
                 : 'degraded',
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
             checks: {
                 database: dbOk ? 'connected' : 'down',
                 redis: redisStatus,

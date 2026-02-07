@@ -195,10 +195,10 @@ class AppTheme {
       
       // Navigation bar
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: AppColors.surface.withOpacity(0.9),
+        backgroundColor: AppColors.surface.withValues(alpha: 0.9),
         elevation: 0,
         height: 70,
-        indicatorColor: AppColors.primary.withOpacity(0.2),
+        indicatorColor: AppColors.primary.withValues(alpha: 0.2),
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return GoogleFonts.inter(

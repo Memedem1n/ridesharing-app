@@ -11,9 +11,12 @@ import { BookingsModule } from './interfaces/http/bookings/bookings.module';
 import { VehiclesModule } from './interfaces/http/vehicles/vehicles.module';
 import { MessagesModule } from './interfaces/http/messages/messages.module';
 import { VerificationModule } from './interfaces/http/verification/verification.module';
+import { AdminModule } from './interfaces/http/admin/admin.module';
 import { HealthController } from './interfaces/http/health/health.controller';
-import { RedisService } from './infrastructure/cache/redis.service';
 import { PrismaService } from './infrastructure/database/prisma.service';
+import { CacheModule } from './infrastructure/cache/cache.module';
+import { BusPriceModule } from './infrastructure/scraper/bus-price.module';
+import { LocationModule } from './interfaces/websocket/location.module';
 
 @Module({
     imports: [
@@ -38,6 +41,10 @@ import { PrismaService } from './infrastructure/database/prisma.service';
             serveRoot: '/uploads',
         }),
 
+        // Shared infrastructure
+        CacheModule,
+        BusPriceModule,
+
         // Feature modules
         AuthModule,
         UsersModule,
@@ -46,8 +53,10 @@ import { PrismaService } from './infrastructure/database/prisma.service';
         BookingsModule,
         MessagesModule,
         VerificationModule,
+        AdminModule,
+        LocationModule,
     ],
     controllers: [HealthController],
-    providers: [RedisService, PrismaService],
+    providers: [PrismaService],
 })
 export class AppModule { }

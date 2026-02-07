@@ -15,7 +15,7 @@ C4Context
     System_Ext(payment, "İyzico", "Ödeme işlemleri")
     System_Ext(sms, "Netgsm", "SMS bildirimleri")
     System_Ext(fcm, "Firebase Cloud<br/>Messaging", "Push notifications")
-    System_Ext(maps, "Yandex Maps", "Harita servisleri")
+    System_Ext(maps, "OpenStreetMap", "Harita servisleri")
     System_Ext(scraper_target, "Otobüs Bilet<br/>Siteleri", "Fiyat kaynakları")
     System_Ext(edevlet, "e-Devlet", "Kimlik doğrulama<br/>(V2)")
     
@@ -49,7 +49,7 @@ C4Container
     System_Ext(payment, "İyzico")
     System_Ext(sms, "Netgsm")
     System_Ext(fcm, "FCM")
-    System_Ext(maps, "Yandex Maps")
+    System_Ext(maps, "OpenStreetMap")
     
     Rel(user, mobile, "Kullanır", "HTTPS")
     Rel(mobile, api, "API çağrıları", "REST/WebSocket")
@@ -145,7 +145,7 @@ graph TB
         Iyzico["İyzico"]
         SMS["Netgsm"]
         FCM["Firebase"]
-        Maps["Yandex Maps"]
+        Maps["OpenStreetMap"]
     end
     
     iOS --> CF

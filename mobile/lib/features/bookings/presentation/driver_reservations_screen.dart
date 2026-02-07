@@ -1,18 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/providers/booking_provider.dart';
+import '../../../core/providers/trip_provider.dart' as trip_provider;
 import '../../../core/theme/app_theme.dart';
 
 import '../../../features/bookings/domain/booking_models.dart';
 import 'package:intl/intl.dart';
 
-class DriverReservationsScreen extends ConsumerWidget {
+class DriverReservationsScreen extends ConsumerStatefulWidget {
   const DriverReservationsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final bookingsAsync = ref.watch(pendingRequestsProvider);
+  ConsumerState<DriverReservationsScreen> createState() => _DriverReservationsScreenState();
+}
+
+class _DriverReservationsScreenState extends ConsumerState<DriverReservationsScreen> {
+  String? _selectedTripId;
+
+  @override
+  Widget build(BuildContext context) {
+    final tripsAsync = ref.watch(trip_provider.myTripsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -22,11 +31,11 @@ class DriverReservationsScreen extends ConsumerWidget {
         decoration: const BoxDecoration(
           gradient: AppColors.darkGradient,
         ),
-        child: bookingsAsync.when(
+        child: tripsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(child: Text('Hata: $e', style: const TextStyle(color: AppColors.error))),
-          data: (bookings) {
-            if (bookings.isEmpty) {
+          data: (trips) {
+            if (trips.isEmpty) {
               return Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -45,25 +54,70 @@ class DriverReservationsScreen extends ConsumerWidget {
                       ),
                     ).animate().scale(),
                     const SizedBox(height: 24),
-                    Text('Bekleyen talep yok', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                    Text('Henüz ilan yok', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                     const SizedBox(height: 8),
                     Text(
-                      'Yeni rezervasyon talepleri burada görünecek',
+                      'İlan oluşturduğunuzda talepler burada görünecek',
                       style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: () => context.push('/create-trip'),
+                      icon: const Icon(Icons.add),
+                      label: const Text('İlan Oluştur'),
                     ),
                   ],
                 ),
               );
             }
 
-            return RefreshIndicator(
-              onRefresh: () => ref.refresh(pendingRequestsProvider.future),
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: bookings.length,
-                itemBuilder: (context, index) => _RequestCard(booking: bookings[index])
-                    .animate().fadeIn(delay: (index * 100).ms).slideY(begin: 0.1),
-              ),
+            final selectedId = _selectedTripId ?? trips.first.id;
+            final bookingsAsync = ref.watch(driverBookingsProvider(selectedId));
+
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: _TripSelector(
+                    trips: trips,
+                    selectedTripId: selectedId,
+                    onChanged: (value) => setState(() => _selectedTripId = value),
+                  ),
+                ),
+                Expanded(
+                  child: bookingsAsync.when(
+                    loading: () => const Center(child: CircularProgressIndicator()),
+                    error: (e, _) => Center(child: Text('Hata: $e', style: const TextStyle(color: AppColors.error))),
+                    data: (bookings) {
+                      if (bookings.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.inbox_outlined, size: 64, color: AppColors.textTertiary),
+                              const SizedBox(height: 16),
+                              const Text('Talep yok', style: TextStyle(color: AppColors.textSecondary)),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return RefreshIndicator(
+                        onRefresh: () => ref.refresh(driverBookingsProvider(selectedId).future),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                          itemCount: bookings.length,
+                          itemBuilder: (context, index) => _RequestCard(
+                            booking: bookings[index],
+                            tripId: selectedId,
+                            onRefresh: () => ref.invalidate(driverBookingsProvider(selectedId)),
+                          ).animate().fadeIn(delay: (index * 100).ms).slideY(begin: 0.1),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             );
           },
         ),
@@ -72,15 +126,58 @@ class DriverReservationsScreen extends ConsumerWidget {
   }
 }
 
+class _TripSelector extends StatelessWidget {
+  final List<trip_provider.Trip> trips;
+  final String selectedTripId;
+  final ValueChanged<String?> onChanged;
+
+  const _TripSelector({
+    required this.trips,
+    required this.selectedTripId,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassContainer(
+      padding: const EdgeInsets.all(16),
+      child: DropdownButtonFormField<String>(
+        key: ValueKey(selectedTripId),
+        initialValue: selectedTripId,
+        decoration: const InputDecoration(
+          labelText: 'İlan Seç',
+          border: OutlineInputBorder(borderSide: BorderSide.none),
+          filled: true,
+          fillColor: AppColors.glassBgDark,
+        ),
+        items: trips.map((trip) {
+          return DropdownMenuItem<String>(
+            value: trip.id,
+            child: Text('${trip.departureCity} → ${trip.arrivalCity}'),
+          );
+        }).toList(),
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
 class _RequestCard extends ConsumerWidget {
   final Booking booking;
+  final String tripId;
+  final VoidCallback onRefresh;
 
-  const _RequestCard({required this.booking});
+  const _RequestCard({
+    required this.booking,
+    required this.tripId,
+    required this.onRefresh,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dateFormat = DateFormat('dd MMM HH:mm', 'tr');
     final actionsState = ref.watch(bookingActionsProvider);
+    final canCancel = booking.status == BookingStatus.pending || booking.status == BookingStatus.confirmed;
 
     return GlassContainer(
       padding: const EdgeInsets.all(16),
@@ -163,9 +260,9 @@ class _RequestCard extends ConsumerWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.15),
+                    color: AppColors.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     '${booking.seatCount} koltuk',
@@ -180,58 +277,43 @@ class _RequestCard extends ConsumerWidget {
             ),
           ),
 
-          // Actions
+          const SizedBox(height: 16),
           if (booking.status == BookingStatus.pending) ...[
-            const SizedBox(height: 16),
+            Row(
+              children: [
+                const Icon(Icons.schedule, size: 16, color: AppColors.warning),
+                const SizedBox(width: 8),
+                const Text('Ödeme bekleniyor', style: TextStyle(color: AppColors.textSecondary)),
+              ],
+            ),
+          ],
+          if (booking.status == BookingStatus.confirmed) ...[
             Row(
               children: [
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: actionsState.isLoading
-                      ? null
-                      : () => _confirmBooking(ref, context),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.success,
-                      foregroundColor: Colors.white,
-                    ),
-                    icon: const Icon(Icons.check, size: 18),
-                    label: const Text('Onayla'),
+                    onPressed: () => context.push('/qr-scanner/$tripId'),
+                    icon: const Icon(Icons.qr_code_scanner),
+                    label: const Text('QR Tara'),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: actionsState.isLoading
-                      ? null
-                      : () => _rejectBooking(ref, context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.error,
-                      side: const BorderSide(color: AppColors.error),
-                    ),
-                    icon: const Icon(Icons.close, size: 18),
-                    label: const Text('Reddet'),
+                    onPressed: actionsState.isLoading ? null : () => _cancelBooking(ref, context),
+                    icon: const Icon(Icons.cancel),
+                    label: const Text('İptal'),
                   ),
                 ),
               ],
             ),
-          ] else ...[
+          ],
+          if (booking.status != BookingStatus.confirmed && canCancel) ...[
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(
-                  booking.status == BookingStatus.confirmed ? Icons.check_circle : Icons.cancel,
-                  size: 16,
-                  color: booking.status == BookingStatus.confirmed ? AppColors.success : AppColors.error,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  booking.status == BookingStatus.confirmed ? 'Onaylandı' : 'Reddedildi',
-                  style: TextStyle(
-                    color: booking.status == BookingStatus.confirmed ? AppColors.success : AppColors.error,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+            OutlinedButton.icon(
+              onPressed: actionsState.isLoading ? null : () => _cancelBooking(ref, context),
+              icon: const Icon(Icons.cancel),
+              label: const Text('İptal'),
             ),
           ],
         ],
@@ -239,39 +321,31 @@ class _RequestCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmBooking(WidgetRef ref, BuildContext context) async {
-    final success = await ref.read(bookingActionsProvider.notifier).confirmBooking(booking.id);
-    if (success && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Rezervasyon onaylandı'), backgroundColor: AppColors.success),
-      );
-    }
-  }
-
-  Future<void> _rejectBooking(WidgetRef ref, BuildContext context) async {
+  Future<void> _cancelBooking(WidgetRef ref, BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text('Rezervasyonu Reddet', style: TextStyle(color: AppColors.textPrimary)),
-        content: const Text('Bu rezervasyon talebini reddetmek istediğinize emin misiniz?', style: TextStyle(color: AppColors.textSecondary)),
+        title: const Text('Rezervasyonu İptal Et', style: TextStyle(color: AppColors.textPrimary)),
+        content: const Text('Bu rezervasyonu iptal etmek istediğinize emin misiniz?', style: TextStyle(color: AppColors.textSecondary)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('İptal')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(backgroundColor: AppColors.error),
-            child: const Text('Reddet'),
+            child: const Text('İptal Et'),
           ),
         ],
       ),
     );
 
     if (confirmed == true) {
-      final success = await ref.read(bookingActionsProvider.notifier).rejectBooking(booking.id);
+      final success = await ref.read(bookingActionsProvider.notifier).cancelBooking(booking.id);
       if (success && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Rezervasyon reddedildi')),
+          const SnackBar(content: Text('Rezervasyon iptal edildi')),
         );
+        onRefresh();
       }
     }
   }
@@ -287,16 +361,18 @@ class _StatusBadge extends StatelessWidget {
     final (label, color) = switch (status) {
       BookingStatus.pending => ('Bekliyor', AppColors.warning),
       BookingStatus.confirmed => ('Onaylandı', AppColors.success),
-      BookingStatus.rejected => ('Reddedildi', AppColors.error),
+      BookingStatus.checkedIn => ('Check-in', AppColors.info),
+      BookingStatus.completed => ('Tamamlandı', AppColors.secondary),
+      BookingStatus.cancelled => ('İptal', AppColors.error),
       _ => ('', AppColors.textTertiary),
     };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(label, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600)),
     );

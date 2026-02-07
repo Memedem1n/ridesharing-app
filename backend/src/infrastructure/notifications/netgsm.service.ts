@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+﻿import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
 
 export interface SmsResult {
     success: boolean;
@@ -33,44 +34,6 @@ export class NetgsmService {
     async sendSms(phone: string, message: string): Promise<SmsResult> {
         this.logger.log(`Sending SMS to ${phone.substring(0, 5)}***`);
 
-        // TODO: Implement actual Netgsm API call
-        /*
-        const axios = require('axios');
-        
-        const params = new URLSearchParams({
-          usercode: this.username,
-          password: this.password,
-          gsmno: phone.replace('+90', ''),
-          message: message,
-          msgheader: this.header,
-          dil: 'TR',
-        });
-    
-        try {
-          const response = await axios.get(
-            `https://api.netgsm.com.tr/sms/send/get?${params.toString()}`
-          );
-          
-          const code = response.data.split(' ')[0];
-          if (code === '00' || code === '01' || code === '02') {
-            return {
-              success: true,
-              messageId: response.data.split(' ')[1],
-            };
-          } else {
-            return {
-              success: false,
-              errorMessage: `Netgsm error code: ${code}`,
-            };
-          }
-        } catch (error) {
-          return {
-            success: false,
-            errorMessage: error.message,
-          };
-        }
-        */
-
         if (this.useMock) {
             return {
                 success: true,
@@ -78,7 +41,41 @@ export class NetgsmService {
             };
         }
 
-        throw new Error('Netgsm integration is not implemented');
+        const gsm = this.normalizePhone(phone);
+        const params = new URLSearchParams({
+            usercode: this.username,
+            password: this.password,
+            gsmno: gsm,
+            message,
+            msgheader: this.header,
+            dil: 'TR',
+        });
+
+        try {
+            const response = await axios.get(
+                `https://api.netgsm.com.tr/sms/send/get?${params.toString()}`,
+                { timeout: 10000 },
+            );
+
+            const raw = (response.data || '').toString().trim();
+            const [code, messageId] = raw.split(' ');
+            if (['00', '01', '02'].includes(code)) {
+                return {
+                    success: true,
+                    messageId,
+                };
+            }
+
+            return {
+                success: false,
+                errorMessage: `Netgsm error code: ${code || 'unknown'}`,
+            };
+        } catch (error: any) {
+            return {
+                success: false,
+                errorMessage: error?.message || 'Netgsm request failed',
+            };
+        }
     }
 
     async sendOtp(phone: string, code: string): Promise<SmsResult> {
@@ -92,7 +89,16 @@ export class NetgsmService {
         date: string;
         qrCode: string;
     }): Promise<SmsResult> {
-        const message = `Rezervasyonunuz onaylandı! ${tripInfo.from} → ${tripInfo.to}, ${tripInfo.date}. QR Kod: ${tripInfo.qrCode}`;
+        const message = `Rezervasyonunuz onaylandı! ${tripInfo.from} › ${tripInfo.to}, ${tripInfo.date}. QR Kod: ${tripInfo.qrCode}`;
+        return this.sendSms(phone, message);
+    }
+
+    async sendNewBookingRequest(phone: string, passengerName: string, tripInfo: {
+        from: string;
+        to: string;
+        date: string;
+    }): Promise<SmsResult> {
+        const message = `Yeni rezervasyon: ${passengerName}, ${tripInfo.from} › ${tripInfo.to} (${tripInfo.date}).`;
         return this.sendSms(phone, message);
     }
 
@@ -102,14 +108,36 @@ export class NetgsmService {
         time: string;
         driver: string;
     }): Promise<SmsResult> {
-        const message = `Hatırlatma: Yarın ${tripInfo.time}'de ${tripInfo.from} → ${tripInfo.to} yolculuğunuz var. Sürücü: ${tripInfo.driver}`;
+        const message = `Hatırlatma: Yarın ${tripInfo.time}'de ${tripInfo.from} › ${tripInfo.to} yolculuğunuz var. Sürücü: ${tripInfo.driver}`;
         return this.sendSms(phone, message);
     }
 
     async sendCancellationNotice(phone: string, refundAmount: number): Promise<SmsResult> {
         const message = refundAmount > 0
-            ? `Rezervasyonunuz iptal edildi. ₺${refundAmount} tutarında iade yapılacaktır.`
-            : `Rezervasyonunuz iptal edildi.`;
+            ? `Rezervasyonunuz iptal edildi. ?${refundAmount} tutarında iade yapılacaktır.`
+            : 'Rezervasyonunuz iptal edildi.';
         return this.sendSms(phone, message);
     }
+
+    async sendTripUpdated(phone: string, tripInfo: { from: string; to: string }): Promise<SmsResult> {
+        const message = `${tripInfo.from} › ${tripInfo.to} yolculuğunuz güncellendi. Detayları kontrol edin.`;
+        return this.sendSms(phone, message);
+    }
+
+    async sendTripCancelled(phone: string, tripInfo: { from: string; to: string }): Promise<SmsResult> {
+        const message = `${tripInfo.from} › ${tripInfo.to} yolculuğu iptal edildi.`;
+        return this.sendSms(phone, message);
+    }
+
+    private normalizePhone(phone: string): string {
+        const digits = phone.replace(/\D/g, '');
+        if (digits.startsWith('90') && digits.length > 10) {
+            return digits.slice(2);
+        }
+        if (digits.startsWith('0') && digits.length > 10) {
+            return digits.slice(1);
+        }
+        return digits;
+    }
 }
+

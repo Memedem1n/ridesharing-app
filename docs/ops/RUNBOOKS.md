@@ -41,7 +41,7 @@ git push origin v1.x.x
 
 # 2. Railway auto-deploy başlar
 # 3. Health check bekle
-curl https://api.ridesharing.com/health
+curl https://api.ridesharing.com/v1/health
 
 # 4. Verify logs
 railway logs --service api
@@ -72,7 +72,7 @@ railway redeploy --service api
 npx prisma migrate rollback
 
 # 4. Verify
-curl https://api.ridesharing.com/health
+curl https://api.ridesharing.com/v1/health
 ```
 
 ---
@@ -110,7 +110,7 @@ curl https://api.ridesharing.com/health
 # Slack: #incident-response
 
 # 3. Quick diagnostics
-curl https://api.ridesharing.com/health
+curl https://api.ridesharing.com/v1/health
 railway logs --service api --tail 100
 
 # 4. Database check

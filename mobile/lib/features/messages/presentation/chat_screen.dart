@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
+import 'package:socket_io_client/socket_io_client.dart' as io;
+import '../../../core/api/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/providers/message_provider.dart';
 import '../../../core/providers/auth_provider.dart';
@@ -27,17 +29,136 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
   List<Message> _messages = [];
   bool _isSending = false;
+  bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _page = 1;
+  static const int _pageSize = 50;
+  io.Socket? _socket;
+  bool _socketConnected = false;
+  late final String _currentUserId;
 
   @override
   void initState() {
     super.initState();
-    _loadMessages();
+    _currentUserId = ref.read(currentUserProvider)?.id ?? '';
+    _scrollController.addListener(_onScroll);
+    _loadInitialMessages();
+    _initSocket();
   }
 
-  Future<void> _loadMessages() async {
-    final messages = await ref.read(messagesProvider(widget.bookingId).future);
-    setState(() => _messages = messages);
-    _scrollToBottom();
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.pixels <= 80 && _hasMore && !_isLoadingMore && !_isLoading) {
+      _loadMoreMessages();
+    }
+  }
+
+  Future<void> _loadInitialMessages() async {
+    setState(() => _isLoading = true);
+    try {
+      final result = await _fetchMessages(page: 1);
+      if (!mounted) return;
+      setState(() {
+        _messages = result.messages;
+        _hasMore = result.hasMore;
+        _page = result.page + 1;
+        _isLoading = false;
+      });
+      _scrollToBottom();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Mesajlar yüklenemedi: $e')),
+      );
+    }
+  }
+
+  Future<void> _loadMoreMessages() async {
+    setState(() => _isLoadingMore = true);
+    final beforeMax = _scrollController.hasClients ? _scrollController.position.maxScrollExtent : 0.0;
+    try {
+      final result = await _fetchMessages(page: _page);
+      if (!mounted) return;
+      setState(() {
+        _messages = [...result.messages, ..._messages];
+        _hasMore = result.hasMore;
+        _page = result.page + 1;
+        _isLoadingMore = false;
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scrollController.hasClients) return;
+        final afterMax = _scrollController.position.maxScrollExtent;
+        final delta = afterMax - beforeMax;
+        if (delta > 0) {
+          _scrollController.jumpTo(_scrollController.position.pixels + delta);
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingMore = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Eski mesajlar yüklenemedi: $e')),
+      );
+    }
+  }
+
+  Future<MessageList> _fetchMessages({required int page}) async {
+    final service = ref.read(messageServiceProvider);
+    return service.getMessages(
+      widget.bookingId,
+      _currentUserId,
+      page: page,
+      limit: _pageSize,
+    );
+  }
+
+  String _socketBaseUrl() {
+    final uri = Uri.parse(baseUrl);
+    return uri.replace(path: '/chat', query: '').toString();
+  }
+
+  Future<void> _initSocket() async {
+    final token = await ref.read(authTokenProvider.future);
+    if (token == null) return;
+
+    final socket = io.io(
+      _socketBaseUrl(),
+      io.OptionBuilder()
+          .setTransports(['websocket'])
+          .disableAutoConnect()
+          .setAuth({'token': token})
+          .build(),
+    );
+
+    _socket = socket;
+
+    socket.onConnect((_) {
+      if (!mounted) return;
+      setState(() => _socketConnected = true);
+      socket.emit('join_conversation', {'bookingId': widget.bookingId});
+      socket.emit('mark_read', {'bookingId': widget.bookingId});
+    });
+
+    socket.onDisconnect((_) {
+      if (!mounted) return;
+      setState(() => _socketConnected = false);
+    });
+
+    socket.on('new_message', (data) {
+      if (data == null) return;
+      final message = Message.fromJson(Map<String, dynamic>.from(data), _currentUserId);
+      if (_messages.any((m) => m.id == message.id)) return;
+      if (!mounted) return;
+      setState(() => _messages.add(message));
+      _scrollToBottom();
+      if (!message.isMe) {
+        socket.emit('mark_read', {'bookingId': widget.bookingId});
+      }
+    });
+
+    socket.connect();
   }
 
   void _scrollToBottom() {
@@ -59,25 +180,40 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     setState(() => _isSending = true);
     _messageController.clear();
 
-    final service = ref.read(messageServiceProvider);
-    final token = await ref.read(authTokenProvider.future);
-    final user = ref.read(currentUserProvider);
-
-    final message = await service.sendMessage(widget.bookingId, content, token, user?.id ?? '');
-    
-    if (message != null) {
-      setState(() {
-        _messages.add(message);
-        _isSending = false;
-      });
-      _scrollToBottom();
-    } else {
-      setState(() => _isSending = false);
+    if (_socketConnected && _socket != null) {
+      _socket!.emitWithAck(
+        'send_message',
+        {'bookingId': widget.bookingId, 'message': content},
+        ack: (data) {
+          if (!mounted) return;
+          if (data is Map && data['success'] == true && data['message'] != null) {
+            final message = Message.fromJson(Map<String, dynamic>.from(data['message']), _currentUserId);
+            if (!_messages.any((m) => m.id == message.id)) {
+              setState(() => _messages.add(message));
+              _scrollToBottom();
+            }
+          }
+          setState(() => _isSending = false);
+        },
+      );
+      return;
     }
+
+    final service = ref.read(messageServiceProvider);
+    final message = await service.sendMessage(widget.bookingId, content, _currentUserId);
+    if (!mounted) return;
+    if (message != null) {
+      setState(() => _messages.add(message));
+      _scrollToBottom();
+    }
+    setState(() => _isSending = false);
   }
 
   @override
   void dispose() {
+    _socket?.emit('leave_conversation', {'bookingId': widget.bookingId});
+    _socket?.disconnect();
+    _socket?.dispose();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -114,7 +250,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           children: [
             // Messages List
             Expanded(
-              child: _messages.isEmpty
+              child: _isLoading
+                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                : _messages.isEmpty
                 ? Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,

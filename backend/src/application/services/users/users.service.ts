@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@infrastructure/database/prisma.service';
-import { UpdateProfileDto, UserProfileDto } from '@application/dto/users/users.dto';
+import { UpdateProfileDto, UserProfileDto, DeviceTokenDto } from '@application/dto/users/users.dto';
 
 @Injectable()
 export class UsersService {
@@ -38,6 +38,35 @@ export class UsersService {
                 ...(dto.preferences && {
                     preferences: { ...this.parsePreferences(user.preferences), ...dto.preferences }
                 }),
+            },
+        });
+
+        return this.mapToDto(updated);
+    }
+
+    async registerDeviceToken(id: string, dto: DeviceTokenDto): Promise<UserProfileDto> {
+        const user = await this.prisma.user.findUnique({
+            where: { id },
+        });
+
+        if (!user) {
+            throw new NotFoundException('Kullanıcı bulunamadı');
+        }
+
+        const preferences = this.parsePreferences(user.preferences);
+        const existing = Array.isArray(preferences.deviceTokens) ? preferences.deviceTokens : [];
+        const tokens = existing.includes(dto.deviceToken)
+            ? existing
+            : [...existing, dto.deviceToken];
+
+        const updated = await this.prisma.user.update({
+            where: { id },
+            data: {
+                preferences: {
+                    ...preferences,
+                    deviceTokens: tokens,
+                    ...(dto.platform ? { devicePlatform: dto.platform } : {}),
+                },
             },
         });
 

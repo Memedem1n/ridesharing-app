@@ -40,7 +40,7 @@ class _GradientButtonState extends State<GradientButton> {
       onTap: widget.isLoading ? null : widget.onPressed,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        transform: Matrix4.identity()..scale(_isPressed ? 0.97 : 1.0),
+        transform: Matrix4.diagonal3Values(_isPressed ? 0.97 : 1.0, _isPressed ? 0.97 : 1.0, 1.0),
         child: Container(
           height: 56,
           decoration: BoxDecoration(
@@ -52,7 +52,7 @@ class _GradientButtonState extends State<GradientButton> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: colors.first.withOpacity(_isPressed ? 0.2 : 0.4),
+                color: colors.first.withValues(alpha: _isPressed ? 0.2 : 0.4),
                 blurRadius: _isPressed ? 8 : 16,
                 offset: const Offset(0, 4),
                 spreadRadius: _isPressed ? 0 : 2,
@@ -98,7 +98,7 @@ class _GradientButtonState extends State<GradientButton> {
         ),
       ),
     ).animate(target: _isPressed ? 1 : 0)
-     .shimmer(duration: 600.ms, color: Colors.white.withOpacity(0.3));
+     .shimmer(duration: 600.ms, color: Colors.white.withValues(alpha: 0.3));
   }
 }
 
@@ -135,7 +135,7 @@ class _AnimatedOutlineButtonState extends State<AnimatedOutlineButton> {
         duration: const Duration(milliseconds: 200),
         height: 56,
         decoration: BoxDecoration(
-          color: _isHovered ? color.withOpacity(0.1) : Colors.transparent,
+          color: _isHovered ? color.withValues(alpha: 0.1) : Colors.transparent,
           border: Border.all(color: color, width: 2),
           borderRadius: BorderRadius.circular(16),
         ),
@@ -191,7 +191,7 @@ class PulseFloatingButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(label != null ? 28 : 56),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primary.withOpacity(0.4),
+            color: AppColors.primary.withValues(alpha: 0.4),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -261,7 +261,7 @@ class RippleIconButton extends StatelessWidget {
     
     final button = Container(
       decoration: BoxDecoration(
-        color: iconColor.withOpacity(0.08),
+        color: iconColor.withValues(alpha: 0.08),
         shape: BoxShape.circle,
       ),
       child: Material(
@@ -312,7 +312,7 @@ class _SocialLoginButtonState extends State<SocialLoginButton> {
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
-        transform: Matrix4.identity()..scale(_isPressed ? 0.95 : 1.0),
+        transform: Matrix4.diagonal3Values(_isPressed ? 0.95 : 1.0, _isPressed ? 0.95 : 1.0, 1.0),
         height: 56,
         decoration: BoxDecoration(
           color: config['bgColor'] as Color,

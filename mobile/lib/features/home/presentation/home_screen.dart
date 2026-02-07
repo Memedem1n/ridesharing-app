@@ -1,71 +1,85 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:intl/intl.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/booking_provider.dart';
+import '../../../core/providers/trip_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/animated_buttons.dart';
 import '../../../core/widgets/map_view.dart';
-import '../../../core/services/route_service.dart';
+import '../../../features/bookings/domain/booking_models.dart' hide Trip;
+import '../../../core/widgets/location_autocomplete_field.dart';
 
-// State provider for active route
-final activeRouteProvider = FutureProvider<RouteInfo?>((ref) async {
-  // Mock route from Istanbul to Ankara for demo
-  final service = RouteService();
-  return await service.getRoute(
-    const LatLng(41.0082, 28.9784), // Istanbul
-    const LatLng(39.9208, 32.8541), // Ankara
-  );
-});
-
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  final _fromController = TextEditingController();
+  final _toController = TextEditingController();
+  DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
+  int _passengers = 1;
+  String _selectedType = 'people';
+
+  @override
+  void dispose() {
+    _fromController.dispose();
+    _toController.dispose();
+    super.dispose();
+  }
+
+  void _search() {
+    final from = _fromController.text.trim();
+    final to = _toController.text.trim();
+    if (from.isEmpty || to.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lütfen nereden ve nereye alanlarını doldurun.')),
+      );
+      return;
+    }
+
+    ref.read(tripSearchParamsProvider.notifier).state = TripSearchParams(
+      from: from,
+      to: to,
+      date: _selectedDate,
+      seats: _passengers,
+      type: _selectedType,
+    );
+
+    final dateParam = DateFormat('yyyy-MM-dd').format(_selectedDate);
+    final encodedFrom = Uri.encodeComponent(from);
+    final encodedTo = Uri.encodeComponent(to);
+    context.push('/search-results?from=$encodedFrom&to=$encodedTo&date=$dateParam');
+  }
+
+  void _applyPopularRoute(PopularRouteSummary route) {
+    _fromController.text = route.from;
+    _toController.text = route.to;
+    _search();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
-    final routeAsync = ref.watch(activeRouteProvider);
-    
+    final popularRoutesAsync = ref.watch(popularRoutesProvider);
+    final recentBookingsAsync = ref.watch(recentBookingsProvider);
+    final dateLabel = DateFormat('dd MMM', 'tr').format(_selectedDate);
+
     return Scaffold(
-      extendBodyBehindAppBar: true, 
+      extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           // 1. Map Layer (Background)
-          Positioned.fill(
-            child: routeAsync.when(
-              data: (routeInfo) => MapView(
-                initialPosition: const LatLng(40.5, 30.5), // Center roughly between inst-ank
-                polylines: routeInfo != null ? [
-                  Polyline(
-                    points: routeInfo.points,
-                    strokeWidth: 4.0,
-                    color: AppColors.primary,
-                  ),
-                ] : [],
-                markers: [
-                  // Mock cars
-                  const Marker(
-                    point: LatLng(41.01, 29.0),
-                    width: 40,
-                    height: 40,
-                    child: Icon(Icons.directions_car, color: AppColors.primary, size: 30),
-                  ),
-                   const Marker(
-                    point: LatLng(40.99, 28.95),
-                    width: 40,
-                    height: 40,
-                    child: Icon(Icons.directions_car, color: AppColors.accent, size: 30),
-                  ),
-                ],
-              ),
-              loading: () => const MapView(), // Show empty map while loading
-              error: (_, __) => const MapView(),
-            ),
+          const Positioned.fill(
+            child: MapView(),
           ),
-          
+
           // 2. Gradient Overlay
           Positioned.fill(
             child: Container(
@@ -103,9 +117,9 @@ class HomeScreen extends ConsumerWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Merhaba 👋',
+                                    'Merhaba',
                                     style: TextStyle(
-                                      color: AppColors.textSecondary, 
+                                      color: AppColors.textSecondary,
                                       fontSize: 14,
                                       shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
                                     ),
@@ -141,81 +155,122 @@ class HomeScreen extends ConsumerWidget {
                           ],
                         ),
                         const SizedBox(height: 28),
-                        
+
                         // Search card
                         GlassContainer(
                           padding: const EdgeInsets.all(20),
                           child: Column(
                             children: [
-                              _LocationRow(
+                              LocationAutocompleteField(
+                                controller: _fromController,
+                                hintText: 'Nereden?',
                                 icon: Icons.circle_outlined,
                                 iconColor: AppColors.primary,
-                                hint: 'Nereden?',
                               ),
-                              Padding(
-                                padding: const EdgeInsets.only(left: 11),
-                                child: Container(
-                                  width: 2,
-                                  height: 24,
-                                  decoration: const BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [AppColors.primary, AppColors.accent],
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              _LocationRow(
+                              const Divider(color: AppColors.glassStroke),
+                              LocationAutocompleteField(
+                                controller: _toController,
+                                hintText: 'Nereye?',
                                 icon: Icons.location_on,
                                 iconColor: AppColors.accent,
-                                hint: 'Nereye?',
                               ),
                               const SizedBox(height: 20),
                               Row(
                                 children: [
                                   Expanded(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.glassBgDark,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: AppColors.glassStroke),
-                                      ),
-                                      child: const Row(
-                                        children: [
-                                          Icon(Icons.calendar_today, size: 18, color: AppColors.textSecondary),
-                                          SizedBox(width: 8),
-                                          Text('Bugün', style: TextStyle(color: AppColors.textPrimary)),
-                                        ],
+                                    child: InkWell(
+                                      onTap: () async {
+                                        final picked = await showDatePicker(
+                                          context: context,
+                                          initialDate: _selectedDate,
+                                          firstDate: DateTime.now(),
+                                          lastDate: DateTime.now().add(const Duration(days: 90)),
+                                        );
+                                        if (picked != null) {
+                                          setState(() => _selectedDate = picked);
+                                        }
+                                      },
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.glassBgDark,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(color: AppColors.glassStroke),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.calendar_today, size: 18, color: AppColors.textSecondary),
+                                            const SizedBox(width: 8),
+                                            Text(dateLabel, style: const TextStyle(color: AppColors.textPrimary)),
+                                          ],
+                                        ),
                                       ),
                                     ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                       decoration: BoxDecoration(
                                         color: AppColors.glassBgDark,
                                         borderRadius: BorderRadius.circular(12),
                                         border: Border.all(color: AppColors.glassStroke),
                                       ),
-                                      child: const Row(
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          Icon(Icons.person, size: 18, color: AppColors.textSecondary),
-                                          SizedBox(width: 8),
-                                          Text('1 Yolcu', style: TextStyle(color: AppColors.textPrimary)),
+                                          IconButton(
+                                            icon: const Icon(Icons.remove_circle_outline, color: AppColors.primary),
+                                            onPressed: _passengers > 1 ? () => setState(() => _passengers--) : null,
+                                          ),
+                                          Text('$_passengers', style: const TextStyle(color: AppColors.textPrimary)),
+                                          IconButton(
+                                            icon: const Icon(Icons.add_circle_outline, color: AppColors.primary),
+                                            onPressed: _passengers < 8 ? () => setState(() => _passengers++) : null,
+                                          ),
                                         ],
                                       ),
                                     ),
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 16),
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: Row(
+                                  children: [
+                                    _SearchTypeChip(
+                                      label: 'İnsan',
+                                      icon: Icons.group,
+                                      selected: _selectedType == 'people',
+                                      onSelected: () => setState(() => _selectedType = 'people'),
+                                    ),
+                                    _SearchTypeChip(
+                                      label: 'Hayvan',
+                                      icon: Icons.pets,
+                                      selected: _selectedType == 'pets',
+                                      onSelected: () => setState(() => _selectedType = 'pets'),
+                                    ),
+                                    _SearchTypeChip(
+                                      label: 'Kargo',
+                                      icon: Icons.inventory_2,
+                                      selected: _selectedType == 'cargo',
+                                      onSelected: () => setState(() => _selectedType = 'cargo'),
+                                    ),
+                                    _SearchTypeChip(
+                                      label: 'Gıda',
+                                      icon: Icons.restaurant,
+                                      selected: _selectedType == 'food',
+                                      onSelected: () => setState(() => _selectedType = 'food'),
+                                    ),
+                                  ],
+                                ),
+                              ),
                               const SizedBox(height: 20),
                               GradientButton(
                                 text: 'Yolculuk Ara',
                                 icon: Icons.search,
-                                onPressed: () => context.go('/search'),
+                                onPressed: _search,
                               ),
                             ],
                           ),
@@ -224,69 +279,66 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                
-                // Popular routes (showing real calculated data if available)
+
+                // Popular routes
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Popüler Güzergahlar',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                            shadows: [Shadow(color: Colors.black, blurRadius: 8)],
-                          ),
-                        ).animate().fadeIn(delay: 400.ms),
-                        
-                        if (routeAsync.asData?.value != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: AppColors.success.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: AppColors.success),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.bolt, color: AppColors.success, size: 16),
-                                const SizedBox(width: 4),
-                                Text(
-                                  '${routeAsync.value!.durationMin.toStringAsFixed(0)} dk',
-                                  style: const TextStyle(color: AppColors.success, fontWeight: FontWeight.bold, fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ).animate().scale(),
-                      ],
-                    ),
+                    child: Text(
+                      'Popüler Güzergahlar',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                        shadows: [Shadow(color: Colors.black, blurRadius: 8)],
+                      ),
+                    ).animate().fadeIn(delay: 400.ms),
                   ),
                 ),
-                
                 SliverToBoxAdapter(
-                  child: SizedBox(
-                    height: 140,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      children: [
-                        _RouteCard(
-                          from: 'İstanbul', 
-                          to: 'Ankara', 
-                          // Using calculated price if available
-                          price: routeAsync.value != null ? '₺${routeAsync.value!.estimatedPrice.toStringAsFixed(0)}' : '₺250', 
-                          duration: routeAsync.value != null ? '${(routeAsync.value!.durationMin/60).toStringAsFixed(1)} sa' : '4s 30dk'
-                        ),
-                        const _RouteCard(from: 'İstanbul', to: 'İzmir', price: '₺280', duration: '5s 15dk'),
-                        const _RouteCard(from: 'Ankara', to: 'Antalya', price: '₺320', duration: '5s 45dk'),
-                      ].animate(interval: 100.ms).fadeIn().slideX(begin: 0.2),
+                  child: popularRoutesAsync.when(
+                    loading: () => const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      child: LinearProgressIndicator(color: AppColors.primary),
                     ),
+                    error: (e, _) => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: GlassContainer(
+                        padding: const EdgeInsets.all(16),
+                        child: Text('Rotalar yüklenemedi: $e', style: const TextStyle(color: AppColors.error)),
+                      ),
+                    ),
+                    data: (routes) {
+                      if (routes.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: GlassContainer(
+                            padding: const EdgeInsets.all(16),
+                            child: const Text('Henüz popüler rota yok. İlk yolculukları sen başlat!', style: TextStyle(color: AppColors.textSecondary)),
+                          ),
+                        );
+                      }
+
+                      return SizedBox(
+                        height: 140,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          children: routes.map((route) {
+                            return _RouteCard(
+                              from: route.from,
+                              to: route.to,
+                              price: '₺${route.minPrice.toStringAsFixed(0)}',
+                              subtitle: '${route.count} sefer',
+                              onTap: () => _applyPopularRoute(route),
+                            );
+                          }).toList().animate(interval: 80.ms).fadeIn().slideX(begin: 0.2),
+                        ),
+                      );
+                    },
                   ),
                 ),
-                
+
                 // Recent trips
                 SliverToBoxAdapter(
                   child: Padding(
@@ -311,30 +363,39 @@ class HomeScreen extends ConsumerWidget {
                     ).animate().fadeIn(delay: 600.ms),
                   ),
                 ),
-                
                 SliverPadding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  sliver: SliverList(
-                    delegate: SliverChildListDelegate([
-                      const _TripCard(
-                        from: 'İstanbul',
-                        to: 'Bursa',
-                        date: '12 Şubat 2026',
-                        driver: 'Ahmet Y.',
-                        price: '₺180',
-                      ).animate().fadeIn(delay: 700.ms).slideY(begin: 0.1),
-                      const SizedBox(height: 12),
-                      const _TripCard(
-                        from: 'Ankara',
-                        to: 'Eskişehir',
-                        date: '8 Şubat 2026',
-                        driver: 'Mehmet K.',
-                        price: '₺120',
-                      ).animate().fadeIn(delay: 800.ms).slideY(begin: 0.1),
-                    ]),
+                  sliver: SliverToBoxAdapter(
+                    child: recentBookingsAsync.when(
+                      loading: () => const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: LinearProgressIndicator(color: AppColors.primary),
+                      ),
+                      error: (e, _) => GlassContainer(
+                        padding: const EdgeInsets.all(16),
+                        child: Text('Yolculuklar yüklenemedi: $e', style: const TextStyle(color: AppColors.error)),
+                      ),
+                      data: (bookings) {
+                        if (bookings.isEmpty) {
+                          return GlassContainer(
+                            padding: const EdgeInsets.all(16),
+                            child: const Text('Henüz yolculuğun yok. Arama yaparak başlayabilirsin.', style: TextStyle(color: AppColors.textSecondary)),
+                          );
+                        }
+
+                        return Column(
+                          children: [
+                            for (final booking in bookings) ...[
+                              _RecentBookingCard(booking: booking).animate().fadeIn().slideY(begin: 0.1),
+                              const SizedBox(height: 12),
+                            ],
+                          ],
+                        );
+                      },
+                    ),
                   ),
                 ),
-                
+
                 const SliverToBoxAdapter(child: SizedBox(height: 100)),
               ],
             ),
@@ -345,71 +406,101 @@ class HomeScreen extends ConsumerWidget {
   }
 }
 
-class _LocationRow extends StatelessWidget {
+class _SearchTypeChip extends StatelessWidget {
+  final String label;
   final IconData icon;
-  final Color iconColor;
-  final String hint;
+  final bool selected;
+  final VoidCallback onSelected;
 
-  const _LocationRow({required this.icon, required this.iconColor, required this.hint});
+  const _SearchTypeChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onSelected,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, color: iconColor, size: 22),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(hint, style: const TextStyle(color: AppColors.textSecondary, fontSize: 16)),
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16),
+            const SizedBox(width: 4),
+            Text(label),
+          ],
         ),
-      ],
+        selected: selected,
+        onSelected: (_) => onSelected(),
+      ),
     );
   }
 }
 
 class _RouteCard extends StatelessWidget {
-  final String from, to, price, duration;
+  final String from;
+  final String to;
+  final String price;
+  final String subtitle;
+  final VoidCallback onTap;
 
-  const _RouteCard({required this.from, required this.to, required this.price, required this.duration});
+  const _RouteCard({
+    required this.from,
+    required this.to,
+    required this.price,
+    required this.subtitle,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 160,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.glassBg, // Glass style for map
-        border: Border.all(color: AppColors.glassStroke),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('$from → $to', style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-          const Spacer(),
-          Text(duration, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-          const SizedBox(height: 4),
-          Text(price, style: const TextStyle(color: AppColors.primary, fontSize: 20, fontWeight: FontWeight.bold)),
-        ],
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 180,
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.glassBg,
+          border: Border.all(color: AppColors.glassStroke),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('$from → $to', style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+            const Spacer(),
+            Text(subtitle, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+            const SizedBox(height: 4),
+            Text(price, style: const TextStyle(color: AppColors.primary, fontSize: 20, fontWeight: FontWeight.bold)),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _TripCard extends StatelessWidget {
-  final String from, to, date, driver, price;
+class _RecentBookingCard extends StatelessWidget {
+  final Booking booking;
 
-  const _TripCard({required this.from, required this.to, required this.date, required this.driver, required this.price});
+  const _RecentBookingCard({required this.booking});
 
   @override
   Widget build(BuildContext context) {
+    final trip = booking.trip;
+    final dateFormat = DateFormat('dd MMM yyyy', 'tr');
+    final routeLabel = trip == null ? 'Yolculuk' : '${trip.origin} → ${trip.destination}';
+    final dateLabel = trip == null ? dateFormat.format(booking.createdAt) : dateFormat.format(trip.departureTime);
+
     return GlassContainer(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -428,13 +519,13 @@ class _TripCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('$from → $to', style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                Text(routeLabel, style: const TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                 const SizedBox(height: 4),
-                Text('$date • $driver', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                Text(dateLabel, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
               ],
             ),
           ),
-          Text(price, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16)),
+          Text('₺${booking.totalPrice.toStringAsFixed(0)}', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16)),
         ],
       ),
     );

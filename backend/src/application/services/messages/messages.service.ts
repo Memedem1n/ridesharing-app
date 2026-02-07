@@ -22,7 +22,7 @@ export class MessagesService {
         const booking = await this.prisma.booking.findUnique({
             where: { id: dto.bookingId },
             include: {
-                trip: true,
+                trip: { include: { driver: true } },
                 passenger: true,
             },
         });
@@ -39,6 +39,7 @@ export class MessagesService {
         }
 
         const receiverId = isPassenger ? booking.trip.driverId : booking.passengerId;
+        const receiverUser = isPassenger ? booking.trip.driver : booking.passenger;
 
         // Create message
         const message = await this.prisma.message.create({
@@ -55,9 +56,19 @@ export class MessagesService {
             },
         });
 
-        // Send push notification to receiver
-        // TODO: Get device token from user preferences
-        // await this.fcmService.notifyNewMessage(deviceToken, message.sender.fullName, dto.message);
+        // Send push notification to receiver (best effort)
+        try {
+            const deviceTokens = this.extractDeviceTokens(receiverUser?.preferences);
+            if (deviceTokens.length > 0) {
+                await Promise.all(
+                    deviceTokens.map((token) =>
+                        this.fcmService.notifyNewMessage(token, message.sender.fullName, dto.message)
+                    )
+                );
+            }
+        } catch (error) {
+            // Ignore notification errors
+        }
 
         return this.mapToResponse(message);
     }
@@ -70,7 +81,7 @@ export class MessagesService {
                     { passengerId: userId },
                     { trip: { driverId: userId } },
                 ],
-                status: { in: ['confirmed', 'checked_in', 'completed'] },
+                status: { in: ['pending', 'confirmed', 'checked_in', 'completed'] },
             },
             include: {
                 trip: {
@@ -209,5 +220,27 @@ export class MessagesService {
                 profilePhotoUrl: message.sender.profilePhotoUrl,
             } : undefined,
         };
+    }
+
+    private extractDeviceTokens(preferences: any): string[] {
+        if (!preferences) return [];
+        const parsed = typeof preferences === 'string'
+            ? (() => {
+                try {
+                    return JSON.parse(preferences);
+                } catch {
+                    return {};
+                }
+            })()
+            : preferences;
+
+        const tokens = parsed?.deviceTokens;
+        if (Array.isArray(tokens)) {
+            return tokens.filter((t) => typeof t === 'string' && t.length > 0);
+        }
+        if (typeof parsed?.deviceToken === 'string' && parsed.deviceToken.length > 0) {
+            return [parsed.deviceToken];
+        }
+        return [];
     }
 }

@@ -1,4 +1,4 @@
-name: ridesharing_app
+﻿name: ridesharing_app
 description: Paylaşımlı Yolculuk Uygulaması - İnsan, hayvan, yük ve gıda taşımacılığı
 publish_to: 'none'
 version: 1.0.0+1
@@ -23,6 +23,10 @@ dependencies:
   
   # Network
   dio: ^5.4.0
+
+  # Push Notifications
+  firebase_core: ^3.9.0
+  firebase_messaging: ^15.2.0
   
   # Local Storage
   shared_preferences: ^2.5.0
@@ -55,6 +59,9 @@ dependencies:
 
   # Utils
   uuid: ^4.5.0
+  file_selector: ^1.0.3
+  camera: ^0.10.5+9
+  socket_io_client: ^2.0.3
 
 dev_dependencies:
   flutter_test:
@@ -63,3 +70,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/ID-Verification-1.jpg
+

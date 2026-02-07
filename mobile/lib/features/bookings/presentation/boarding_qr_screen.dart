@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:qr_flutter/qr_flutter.dart';
-import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/animated_buttons.dart';
 
 class BoardingQRScreen extends ConsumerWidget {
   final String bookingId;
@@ -23,8 +21,6 @@ class BoardingQRScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final qrData = 'RIDESHARE:$bookingId:${DateTime.now().millisecondsSinceEpoch}';
-    final dateFormat = DateFormat('dd MMM yyyy HH:mm', 'tr');
-
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(

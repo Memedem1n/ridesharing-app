@@ -84,6 +84,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 
+  Future<bool> updateProfile({String? fullName, String? bio}) async {
+    try {
+      final data = <String, dynamic>{};
+      if (fullName != null && fullName.trim().isNotEmpty) {
+        data['fullName'] = fullName.trim();
+      }
+      if (bio != null) {
+        data['bio'] = bio.trim().isEmpty ? null : bio.trim();
+      }
+      if (data.isEmpty) return false;
+      final user = await _repository.updateProfile(data);
+      state = state.copyWith(user: user);
+      return true;
+    } on ApiException catch (e) {
+      state = state.copyWith(status: AuthStatus.error, error: e.message);
+      return false;
+    }
+  }
+
   Future<void> _saveTokens(AuthTokens tokens) async {
     final storage = _ref.read(secureStorageProvider);
     await storage.write(key: 'access_token', value: tokens.accessToken);

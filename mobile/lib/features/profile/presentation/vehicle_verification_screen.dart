@@ -144,11 +144,22 @@ class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationS
             error: (err, stack) => Center(child: Text('Hata: $err', style: const TextStyle(color: Colors.white))),
             data: (vehicles) {
               if (vehicles.isEmpty) {
-                return const Center(
-                  child: Text(
-                    'Kayıtlı aracınız yok.\nLütfen önce bir araç ekleyin.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: AppColors.textSecondary),
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Kayıtlı aracınız yok.\nLütfen önce bir araç ekleyin.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: () => context.push('/vehicle-create'),
+                        icon: const Icon(Icons.add),
+                        label: const Text('Araç Ekle'),
+                      ),
+                    ],
                   ),
                 );
               }
@@ -201,7 +212,7 @@ class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationS
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.1),
+                              color: AppColors.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(Icons.directions_car, color: AppColors.primary, size: 32),
@@ -233,7 +244,7 @@ class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationS
                              Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
-                                color: AppColors.warning.withOpacity(0.2),
+                                color: AppColors.warning.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(color: AppColors.warning),
                               ),

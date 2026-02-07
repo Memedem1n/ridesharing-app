@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ridesharing Mobile"
+  short_description: "Flutter + Riverpod mobile workflow for this repo"
+  default_prompt: "Handle Flutter mobile tasks in ridesharing-app."

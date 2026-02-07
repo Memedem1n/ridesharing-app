@@ -124,6 +124,11 @@ export class CreateTripDto {
 
     @ApiPropertyOptional()
     @IsOptional()
+    @IsString()
+    description?: string;
+
+    @ApiPropertyOptional()
+    @IsOptional()
     preferences?: Record<string, any>;
 }
 
@@ -265,7 +270,16 @@ export class TripResponseDto {
     allowsPets: boolean;
 
     @ApiProperty()
+    allowsCargo: boolean;
+
+    @ApiProperty()
     womenOnly: boolean;
+
+    @ApiProperty()
+    instantBooking: boolean;
+
+    @ApiPropertyOptional()
+    description?: string;
 
     @ApiPropertyOptional()
     distanceKm?: number;

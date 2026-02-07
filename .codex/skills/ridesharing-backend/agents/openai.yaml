@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ridesharing Backend"
+  short_description: "NestJS + Prisma backend workflow for this repo"
+  default_prompt: "Handle backend tasks in ridesharing-app (NestJS/Prisma)."

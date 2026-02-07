@@ -42,14 +42,21 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> with SingleTi
     });
 
     try {
+      if (isPNR) {
+        setState(() {
+          _verificationSuccess = false;
+          _verificationResult = 'PNR doğrulama desteklenmiyor';
+        });
+        return;
+      }
+
       final token = await ref.read(authTokenProvider.future);
       final dio = ref.read(dioProvider);
       
       await dio.post(
-        '/bookings/verify-boarding',
+        '/bookings/check-in',
         data: {
-          'tripId': widget.tripId,
-          isPNR ? 'pnrCode' : 'qrCode': code,
+          'qrCode': code,
         },
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
@@ -59,23 +66,10 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> with SingleTi
         _verificationResult = 'Yolcu binişi onaylandı!';
       });
     } catch (e) {
-      // Mock success for development
-      if (isPNR && code.length == 6) {
-        setState(() {
-          _verificationSuccess = true;
-          _verificationResult = 'Yolcu binişi onaylandı!';
-        });
-      } else if (!isPNR && code.startsWith('RIDESHARE:')) {
-        setState(() {
-          _verificationSuccess = true;
-          _verificationResult = 'Yolcu binişi onaylandı!';
-        });
-      } else {
-        setState(() {
-          _verificationSuccess = false;
-          _verificationResult = isPNR ? 'Geçersiz PNR kodu' : 'Geçersiz QR kodu';
-        });
-      }
+      setState(() {
+        _verificationSuccess = false;
+        _verificationResult = 'Doğrulama başarısız';
+      });
     } finally {
       setState(() => _isVerifying = false);
     }

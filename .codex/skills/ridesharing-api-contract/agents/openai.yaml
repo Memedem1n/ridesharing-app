@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ridesharing API Contract"
+  short_description: "Keep mobile and backend APIs aligned"
+  default_prompt: "Align API contracts between mobile and backend."

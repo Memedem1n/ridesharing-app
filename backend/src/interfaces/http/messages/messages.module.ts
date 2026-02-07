@@ -4,12 +4,12 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MessagesController } from './messages.controller';
 import { MessagesService } from '@application/services/messages/messages.service';
 import { ChatGateway } from '@interfaces/websocket/chat.gateway';
-import { FcmService } from '@infrastructure/notifications/fcm.service';
-import { NetgsmService } from '@infrastructure/notifications/netgsm.service';
 import { PrismaService } from '@infrastructure/database/prisma.service';
+import { NotificationsModule } from '@infrastructure/notifications/notifications.module';
 
 @Module({
     imports: [
+        NotificationsModule,
         JwtModule.registerAsync({
             imports: [ConfigModule],
             useFactory: async (configService: ConfigService) => ({
@@ -22,10 +22,8 @@ import { PrismaService } from '@infrastructure/database/prisma.service';
     providers: [
         MessagesService,
         ChatGateway,
-        FcmService,
-        NetgsmService,
         PrismaService,
     ],
-    exports: [MessagesService, ChatGateway, FcmService, NetgsmService],
+    exports: [MessagesService, ChatGateway],
 })
 export class MessagesModule { }

@@ -4,8 +4,10 @@ import { BookingsService } from '@application/services/bookings/bookings.service
 import { BookingExpiryService } from '@application/services/bookings/booking-expiry.service';
 import { IyzicoService } from '@infrastructure/payment/iyzico.service';
 import { PrismaService } from '@infrastructure/database/prisma.service';
+import { NotificationsModule } from '@infrastructure/notifications/notifications.module';
 
 @Module({
+    imports: [NotificationsModule],
     controllers: [BookingsController],
     providers: [BookingsService, BookingExpiryService, IyzicoService, PrismaService],
     exports: [BookingsService],

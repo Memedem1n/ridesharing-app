@@ -1,6 +1,6 @@
-openapi: 3.1.0
+﻿openapi: 3.1.0
 info:
-  title: Paylaşımlı Yolculuk API
+  title: PaylaÅŸÄ±mlÄ± Yolculuk API
   description: |
     REST API for ride-sharing application supporting people, pets, cargo, and food transportation.
     
@@ -45,6 +45,8 @@ tags:
     description: Real-time messaging
   - name: Reviews
     description: Rating and review system
+  - name: Admin
+    description: Admin operations (verifications, bus prices)
   - name: Support
     description: Customer support tickets
 
@@ -54,6 +56,11 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+
+    AdminKeyAuth:
+      type: apiKey
+      in: header
+      name: x-admin-key
 
   schemas:
     Error:
@@ -343,6 +350,25 @@ paths:
         '401':
           description: Invalid credentials
 
+  /auth/send-otp:
+    post:
+      tags: [Authentication]
+      summary: Send OTP code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone]
+              properties:
+                phone:
+                  type: string
+                  description: Turkish phone number (+90XXXXXXXXXX)
+      responses:
+        '200':
+          description: OTP sent
+
   /auth/verify-otp:
     post:
       tags: [Authentication]
@@ -353,9 +379,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [identifier, code, type]
+              required: [code]
               properties:
                 identifier:
+                  type: string
+                phone:
                   type: string
                 code:
                   type: string
@@ -367,6 +395,17 @@ paths:
       responses:
         '200':
           description: OTP verified
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+                  accessToken:
+                    type: string
+                  refreshToken:
+                    type: string
         '400':
           description: Invalid or expired OTP
 
@@ -405,6 +444,32 @@ paths:
       responses:
         '200':
           description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/me/device-token:
+    post:
+      tags: [Users]
+      summary: Register device token for push notifications
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceToken]
+              properties:
+                deviceToken:
+                  type: string
+                platform:
+                  type: string
+      responses:
+        '200':
+          description: Device token registered
           content:
             application/json:
               schema:
@@ -761,6 +826,189 @@ paths:
                       type: string
                       format: date-time
 
+  # Admin Endpoints
+  /admin/verifications:
+    get:
+      tags: [Admin]
+      summary: List verification requests
+      security:
+        - AdminKeyAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, verified, rejected]
+      responses:
+        '200':
+          description: Verification list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                    fullName:
+                      type: string
+                    phone:
+                      type: string
+                    email:
+                      type: string
+                    identityStatus:
+                      type: string
+                    licenseStatus:
+                      type: string
+                    criminalRecordStatus:
+                      type: string
+                    identityDocumentUrl:
+                      type: string
+                    licenseDocumentUrl:
+                      type: string
+                    criminalRecordDocumentUrl:
+                      type: string
+                    verified:
+                      type: boolean
+                    createdAt:
+                      type: string
+                      format: date-time
+
+  /admin/verifications/{userId}/identity:
+    post:
+      tags: [Admin]
+      summary: Update identity status
+      security:
+        - AdminKeyAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [pending, verified, rejected]
+      responses:
+        '200':
+          description: Updated
+
+  /admin/verifications/{userId}/license:
+    post:
+      tags: [Admin]
+      summary: Update license status
+      security:
+        - AdminKeyAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [pending, verified, rejected]
+      responses:
+        '200':
+          description: Updated
+
+  /admin/verifications/{userId}/criminal-record:
+    post:
+      tags: [Admin]
+      summary: Update criminal record status
+      security:
+        - AdminKeyAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [pending, verified, rejected]
+      responses:
+        '200':
+          description: Updated
+
+  /admin/bus-prices:
+    get:
+      tags: [Admin]
+      summary: List cached bus prices
+      security:
+        - AdminKeyAuth: []
+      responses:
+        '200':
+          description: Bus prices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    route:
+                      type: string
+                    price:
+                      type: number
+                    source:
+                      type: string
+                    scrapedAt:
+                      type: string
+                      format: date-time
+    post:
+      tags: [Admin]
+      summary: Set manual bus price
+      security:
+        - AdminKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from, to, price]
+              properties:
+                from:
+                  type: string
+                to:
+                  type: string
+                price:
+                  type: number
+                source:
+                  type: string
+      responses:
+        '200':
+          description: Updated
   # Support Endpoints
   /support/tickets:
     post:
@@ -792,3 +1040,6 @@ paths:
       responses:
         '201':
           description: Ticket created
+
+
+

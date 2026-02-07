@@ -16,17 +16,20 @@ class BookingRepository {
     try {
       final params = status != null ? {'status': status} : null;
       final response = await _dio.get('/bookings/my', queryParameters: params);
-      return (response.data as List).map((json) => Booking.fromJson(json)).toList();
+      final data = response.data;
+      final list = data is Map ? (data['bookings'] as List? ?? []) : (data as List? ?? []);
+      return list.map((json) => Booking.fromJson(json)).toList();
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }
   }
 
-  Future<List<Booking>> getDriverBookings({String? status}) async {
+  Future<List<Booking>> getDriverBookings(String tripId) async {
     try {
-      final params = status != null ? {'status': status} : null;
-      final response = await _dio.get('/bookings/driver', queryParameters: params);
-      return (response.data as List).map((json) => Booking.fromJson(json)).toList();
+      final response = await _dio.get('/bookings/trip/$tripId');
+      final data = response.data;
+      final list = data is Map ? (data['bookings'] as List? ?? []) : (data as List? ?? []);
+      return list.map((json) => Booking.fromJson(json)).toList();
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }
@@ -50,37 +53,30 @@ class BookingRepository {
     }
   }
 
-  Future<Booking> confirmBooking(String id) async {
+  Future<Booking> processPayment(String bookingId, {String cardToken = 'MOCK_TOKEN'}) async {
     try {
-      final response = await _dio.post('/bookings/$id/confirm');
+      final response = await _dio.post('/bookings/payment', data: {
+        'bookingId': bookingId,
+        'cardToken': cardToken,
+      });
       return Booking.fromJson(response.data);
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }
   }
 
-  Future<Booking> rejectBooking(String id, {String? reason}) async {
+  Future<Booking> checkIn(String qrCode) async {
     try {
-      final response = await _dio.post('/bookings/$id/reject', data: {'reason': reason});
+      final response = await _dio.post('/bookings/check-in', data: {'qrCode': qrCode});
       return Booking.fromJson(response.data);
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }
   }
 
-  Future<Booking> checkIn(String id, String qrCode) async {
+  Future<void> cancelBooking(String id) async {
     try {
-      final response = await _dio.post('/bookings/$id/check-in', data: {'qrCode': qrCode});
-      return Booking.fromJson(response.data);
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
-
-  Future<Booking> cancelBooking(String id) async {
-    try {
-      final response = await _dio.post('/bookings/$id/cancel');
-      return Booking.fromJson(response.data);
+      await _dio.delete('/bookings/$id');
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);
     }

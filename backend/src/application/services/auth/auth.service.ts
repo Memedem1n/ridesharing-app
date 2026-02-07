@@ -1,17 +1,24 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, BadRequestException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { v4 as uuid } from 'uuid';
 import { PrismaService } from '@infrastructure/database/prisma.service';
-import { RegisterDto, LoginDto, VerifyOtpDto, AuthResponseDto, UserResponseDto } from '@application/dto/auth/auth.dto';
+import { RedisService } from '@infrastructure/cache/redis.service';
+import { NetgsmService } from '@infrastructure/notifications/netgsm.service';
+import { RegisterDto, LoginDto, VerifyOtpDto, AuthResponseDto, UserResponseDto, SendOtpDto } from '@application/dto/auth/auth.dto';
 
 @Injectable()
 export class AuthService {
+    private readonly logger = new Logger(AuthService.name);
+    private static otpFallback = new Map<string, { code: string; expiresAt: number }>();
+
     constructor(
         private readonly prisma: PrismaService,
         private readonly jwtService: JwtService,
         private readonly configService: ConfigService,
+        private readonly redisService: RedisService,
+        private readonly netgsmService: NetgsmService,
     ) { }
 
     async register(dto: RegisterDto): Promise<AuthResponseDto> {
@@ -51,7 +58,12 @@ export class AuthService {
         // Generate tokens
         const tokens = await this.generateTokens(user.id, user.email);
 
-        // TODO: Send OTP to phone
+        // Send OTP to phone (best effort)
+        try {
+            await this.generateAndSendOtp('phone', dto.phone);
+        } catch (error) {
+            this.logger.warn(`OTP send failed for ${dto.phone}: ${error?.message || error}`);
+        }
 
         return {
             user: this.mapUserResponse(user),
@@ -91,32 +103,60 @@ export class AuthService {
         };
     }
 
-    async verifyOtp(dto: VerifyOtpDto): Promise<{ verified: boolean }> {
-        // TODO: Implement OTP verification with Redis
-        // For now, accept any 6-digit code for development
-        if (dto.code.length !== 6) {
-            throw new BadRequestException('Geçersiz doğrulama kodu');
-        }
-
-        // Update verification status
-        const user = await this.prisma.user.findFirst({
-            where: {
-                OR: [{ email: dto.identifier }, { phone: dto.identifier }],
-            },
+    async sendOtp(dto: SendOtpDto): Promise<{ sent: boolean }> {
+        const user = await this.prisma.user.findUnique({
+            where: { phone: dto.phone },
         });
 
         if (!user) {
             throw new BadRequestException('Kullanıcı bulunamadı');
         }
 
-        // Mark contact verification (single flag for now)
-        await this.prisma.user.update({
+        await this.generateAndSendOtp('phone', dto.phone);
+        return { sent: true };
+    }
+
+    async verifyOtp(dto: VerifyOtpDto): Promise<AuthResponseDto> {
+        const identifier = dto.identifier || dto.phone;
+        if (!identifier) {
+            throw new BadRequestException('Doğrulama için telefon veya e-posta gerekli');
+        }
+
+        const type: 'phone' | 'email' = dto.type
+            ? dto.type
+            : identifier.includes('@') ? 'email' : 'phone';
+
+        if (dto.code.length !== 6) {
+            throw new BadRequestException('Geçersiz doğrulama kodu');
+        }
+
+        const key = this.buildOtpKey(type, identifier);
+        const stored = await this.getOtpCode(key);
+        if (!stored || stored !== dto.code) {
+            throw new BadRequestException('Geçersiz veya süresi dolmuş doğrulama kodu');
+        }
+
+        await this.deleteOtpCode(key);
+
+        const user = await this.prisma.user.findFirst({
+            where: type === 'email' ? { email: identifier } : { phone: identifier },
+        });
+
+        if (!user) {
+            throw new BadRequestException('Kullanıcı bulunamadı');
+        }
+
+        const updated = await this.prisma.user.update({
             where: { id: user.id },
             data: { verified: true },
         });
 
-        // OTP verified - identity/license verification happens through VerificationController
-        return { verified: true };
+        const tokens = await this.generateTokens(updated.id, updated.email);
+
+        return {
+            user: this.mapUserResponse(updated),
+            ...tokens,
+        };
     }
 
     async refreshTokens(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
@@ -171,6 +211,58 @@ export class AuthService {
             code += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return code;
+    }
+
+    private buildOtpKey(type: 'phone' | 'email', identifier: string): string {
+        return `otp:${type}:${identifier}`;
+    }
+
+    private async generateAndSendOtp(type: 'phone' | 'email', identifier: string): Promise<void> {
+        const code = this.generateOtpCode();
+        const ttlSeconds = Number(this.configService.get('OTP_TTL_SECONDS')) || 300;
+        const key = this.buildOtpKey(type, identifier);
+
+        await this.storeOtpCode(key, code, ttlSeconds);
+
+        if (type === 'phone') {
+            await this.netgsmService.sendOtp(identifier, code);
+        }
+    }
+
+    private generateOtpCode(): string {
+        return Math.floor(100000 + Math.random() * 900000).toString();
+    }
+
+    private async storeOtpCode(key: string, code: string, ttlSeconds: number): Promise<void> {
+        if (this.redisService.isConfigured()) {
+            await this.redisService.set(key, code, ttlSeconds);
+            return;
+        }
+
+        const expiresAt = Date.now() + ttlSeconds * 1000;
+        AuthService.otpFallback.set(key, { code, expiresAt });
+    }
+
+    private async getOtpCode(key: string): Promise<string | null> {
+        if (this.redisService.isConfigured()) {
+            return await this.redisService.get(key);
+        }
+
+        const entry = AuthService.otpFallback.get(key);
+        if (!entry) return null;
+        if (Date.now() > entry.expiresAt) {
+            AuthService.otpFallback.delete(key);
+            return null;
+        }
+        return entry.code;
+    }
+
+    private async deleteOtpCode(key: string): Promise<void> {
+        if (this.redisService.isConfigured()) {
+            await this.redisService.del(key);
+            return;
+        }
+        AuthService.otpFallback.delete(key);
     }
 
     private mapUserResponse(user: any): UserResponseDto {

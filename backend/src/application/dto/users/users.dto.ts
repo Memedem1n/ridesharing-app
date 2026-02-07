@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsEnum, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsEnum, IsDateString, IsNotEmpty } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 // Define UserPreferencesDto FIRST
@@ -58,6 +58,18 @@ export class UpdateProfileDto {
     @IsOptional()
     @IsBoolean()
     womenOnlyMode?: boolean;
+}
+
+export class DeviceTokenDto {
+    @ApiProperty()
+    @IsNotEmpty()
+    @IsString()
+    deviceToken: string;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    platform?: string;
 }
 
 export class UserProfileDto {

@@ -12,7 +12,7 @@ class VehicleService {
   Future<List<Vehicle>> getMyVehicles(String token) async {
     try {
       final response = await _dio.get(
-        '/vehicles/my-vehicles', 
+        '/vehicles',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       final List<dynamic> data = response.data;
@@ -42,7 +42,7 @@ class VehicleService {
 
   Future<bool> updateVehicle(String id, Map<String, dynamic> data, String token) async {
     try {
-      await _dio.patch(
+      await _dio.put(
         '/vehicles/$id',
         data: data,
         options: Options(headers: {'Authorization': 'Bearer $token'}),
@@ -54,17 +54,13 @@ class VehicleService {
   }
   
   // Create vehicle
-  Future<Vehicle?> createVehicle(Map<String, dynamic> data, String token) async {
-    try {
-      final response = await _dio.post(
-        '/vehicles',
-        data: data,
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-      return Vehicle.fromJson(response.data);
-    } catch (e) {
-      return null;
-    }
+  Future<Vehicle> createVehicle(Map<String, dynamic> data, String token) async {
+    final response = await _dio.post(
+      '/vehicles',
+      data: data,
+      options: Options(headers: {'Authorization': 'Bearer $token'}),
+    );
+    return Vehicle.fromJson(response.data);
   }
 }
 

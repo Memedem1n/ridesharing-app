@@ -217,5 +217,10 @@ Manuel olarak yüklenen bu belgelerin (Ehliyet, Ruhsat, Kimlik) bir yönetici ta
 | [Task Status](TASKS.md) | Project task status |
 | [Task Fork Pack](docs/TASK_FORKS.md) | Fork prompts and skill mapping |
 
+## Notlar (2026-02-07)
+- Turkiye icin adres otomatik tamamlama (Nominatim).
+- Yolculuk olusturma: adres + koordinat kaydi.
+- Yolculuk detay ekraninda adres yoksa fallback gosterilir.
+
 ---
 *Developed by Antigravity AI Team*

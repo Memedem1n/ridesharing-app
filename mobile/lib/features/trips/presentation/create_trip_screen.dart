@@ -5,8 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/animated_buttons.dart';
+import '../../../core/widgets/location_autocomplete_field.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/api/api_client.dart';
+import '../../../core/providers/vehicle_provider.dart';
+import '../../vehicles/domain/vehicle_models.dart';
 import 'package:dio/dio.dart';
 
 class CreateTripScreen extends ConsumerStatefulWidget {
@@ -24,17 +27,24 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   final _arrivalCityController = TextEditingController();
   final _priceController = TextEditingController();
   final _descriptionController = TextEditingController();
+  String? _departureAddress;
+  String? _arrivalAddress;
+  double? _departureLat;
+  double? _departureLng;
+  double? _arrivalLat;
+  double? _arrivalLng;
   
   // Form state
   DateTime _departureDate = DateTime.now().add(const Duration(days: 1));
   TimeOfDay _departureTime = const TimeOfDay(hour: 9, minute: 0);
   int _availableSeats = 3;
-  String _tripType = 'people'; // people, cargo, pet, food
+  String _tripType = 'people'; // people, pets, cargo, food
   bool _allowsPets = false;
   bool _allowsCargo = false;
   bool _womenOnly = false;
   bool _instantBooking = true;
   bool _isLoading = false;
+  String? _selectedVehicleId;
 
   @override
   void dispose() {
@@ -95,6 +105,20 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final vehicles = await ref.read(myVehiclesProvider.future);
+      final vehicleId = _selectedVehicleId ?? (vehicles.isNotEmpty ? vehicles.first.id : null);
+      if (vehicleId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Lütfen önce bir araç ekleyin'),
+              backgroundColor: AppColors.warning,
+            ),
+          );
+        }
+        return;
+      }
+
       final dio = ref.read(dioProvider);
       final token = await ref.read(authTokenProvider.future);
       
@@ -106,29 +130,46 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         _departureTime.minute,
       );
 
+      final data = <String, dynamic>{
+        'departureCity': _departureCityController.text,
+        'arrivalCity': _arrivalCityController.text,
+        'departureTime': departureDateTime.toIso8601String(),
+        'availableSeats': _availableSeats,
+        'pricePerSeat': double.parse(_priceController.text),
+        'type': _tripType,
+        'allowsPets': _allowsPets,
+        'allowsCargo': _allowsCargo,
+        'womenOnly': _womenOnly,
+        'instantBooking': _instantBooking,
+        'description': _descriptionController.text,
+        'vehicleId': vehicleId,
+      };
+
+      if (_departureAddress != null && _departureAddress!.isNotEmpty) {
+        data['departureAddress'] = _departureAddress;
+      }
+      if (_arrivalAddress != null && _arrivalAddress!.isNotEmpty) {
+        data['arrivalAddress'] = _arrivalAddress;
+      }
+      if (_departureLat != null && _departureLng != null) {
+        data['departureLat'] = _departureLat;
+        data['departureLng'] = _departureLng;
+      }
+      if (_arrivalLat != null && _arrivalLng != null) {
+        data['arrivalLat'] = _arrivalLat;
+        data['arrivalLng'] = _arrivalLng;
+      }
+
       await dio.post(
         '/trips',
-        data: {
-          'departureCity': _departureCityController.text,
-          'arrivalCity': _arrivalCityController.text,
-          'departureTime': departureDateTime.toIso8601String(),
-          'availableSeats': _availableSeats,
-          'pricePerSeat': double.parse(_priceController.text),
-          'type': _tripType,
-          'allowsPets': _allowsPets,
-          'allowsCargo': _allowsCargo,
-          'womenOnly': _womenOnly,
-          'instantBooking': _instantBooking,
-          'description': _descriptionController.text,
-          'vehicleId': 'temp-vehicle-id', // TODO: Select from user's vehicles
-        },
+        data: data,
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Yolculuk başarıyla oluşturuldu! 🚗'),
+            content: Text('Yolculuk başarıyla oluşturuldu!'),
             backgroundColor: AppColors.success,
           ),
         );
@@ -150,6 +191,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final vehiclesAsync = ref.watch(myVehiclesProvider);
+    final hasVehicle = vehiclesAsync.asData?.value.isNotEmpty ?? false;
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -182,22 +226,46 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       children: [
-                        _buildTextField(
+                        LocationAutocompleteField(
                           controller: _departureCityController,
-                          label: 'Nereden?',
+                          hintText: 'Nereden?',
                           icon: Icons.trip_origin,
                           iconColor: AppColors.primary,
+                          validator: (value) => value == null || value.trim().isEmpty ? 'Bu alan gerekli' : null,
+                          onSelected: (suggestion) {
+                            final city = suggestion.city.trim();
+                            if (city.isNotEmpty) {
+                              _departureCityController.text = city;
+                            }
+                            _departureAddress = suggestion.displayName;
+                            _departureLat = suggestion.lat;
+                            _departureLng = suggestion.lon;
+                          },
                         ),
                         const SizedBox(height: 16),
-                        _buildTextField(
+                        LocationAutocompleteField(
                           controller: _arrivalCityController,
-                          label: 'Nereye?',
+                          hintText: 'Nereye?',
                           icon: Icons.location_on,
                           iconColor: AppColors.accent,
+                          validator: (value) => value == null || value.trim().isEmpty ? 'Bu alan gerekli' : null,
+                          onSelected: (suggestion) {
+                            final city = suggestion.city.trim();
+                            if (city.isNotEmpty) {
+                              _arrivalCityController.text = city;
+                            }
+                            _arrivalAddress = suggestion.displayName;
+                            _arrivalLat = suggestion.lat;
+                            _arrivalLng = suggestion.lon;
+                          },
                         ),
                       ],
                     ),
                   ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.1),
+
+                  const SizedBox(height: 20),
+
+                  _buildVehicleSection(vehiclesAsync).animate().fadeIn(delay: 150.ms).slideY(begin: 0.1),
 
                   const SizedBox(height: 20),
 
@@ -363,7 +431,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                     child: GradientButton(
                       text: _isLoading ? 'Oluşturuluyor...' : 'Yolculuk Oluştur',
                       icon: Icons.check_circle,
-                      onPressed: _isLoading ? () {} : _createTrip,
+                      onPressed: (!_isLoading && hasVehicle) ? _createTrip : null,
                     ),
                   ).animate().fadeIn(delay: 600.ms).scale(),
 
@@ -377,25 +445,138 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    required Color iconColor,
-  }) {
-    return TextFormField(
-      controller: controller,
-      style: const TextStyle(color: AppColors.textPrimary),
-      decoration: InputDecoration(
-        hintText: label,
-        hintStyle: const TextStyle(color: AppColors.textTertiary),
-        prefixIcon: Icon(icon, color: iconColor, size: 20),
-        border: InputBorder.none,
+  Widget _buildVehicleSection(AsyncValue<List<Vehicle>> vehiclesAsync) {
+    return vehiclesAsync.when(
+      loading: () => GlassContainer(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: const [
+            SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 12),
+            Text('Araçlar yükleniyor...', style: TextStyle(color: AppColors.textSecondary)),
+          ],
+        ),
       ),
-      validator: (v) => v == null || v.isEmpty ? 'Bu alan gerekli' : null,
+      error: (e, _) => GlassContainer(
+        padding: const EdgeInsets.all(20),
+        child: Text('Araçlar yüklenemedi: $e', style: const TextStyle(color: AppColors.error)),
+      ),
+      data: (vehicles) {
+        if (vehicles.isEmpty) {
+          return GlassContainer(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Araç bulunamadı', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text('İlan verebilmek için önce araç eklemelisiniz.', style: TextStyle(color: AppColors.textSecondary)),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: GradientButton(
+                    text: 'Araç Ekle',
+                    icon: Icons.directions_car_outlined,
+                    onPressed: () => context.push('/vehicle-create'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => context.push('/vehicle-verification'),
+                  child: const Text('Ruhsat Doğrula'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final selectedId = _selectedVehicleId ?? vehicles.first.id;
+
+        return GlassContainer(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Araç Seçimi', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 140,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: vehicles.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final vehicle = vehicles[index];
+                    final isSelected = vehicle.id == selectedId;
+
+                    return GestureDetector(
+                      onTap: () => setState(() => _selectedVehicleId = vehicle.id),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 220,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppColors.glassBg : AppColors.glassBgDark,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: isSelected ? AppColors.primary : AppColors.glassStroke,
+                            width: isSelected ? 2 : 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.glassBg,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.directions_car, color: AppColors.primary, size: 20),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${vehicle.brand} ${vehicle.model}',
+                                    style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Icon(
+                                  vehicle.verified ? Icons.verified : Icons.verified_outlined,
+                                  color: vehicle.verified ? AppColors.success : AppColors.textTertiary,
+                                  size: 18,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(vehicle.licensePlate, style: const TextStyle(color: AppColors.textSecondary)),
+                            const SizedBox(height: 6),
+                            Text('${vehicle.year} . ${vehicle.seats} koltuk', style: const TextStyle(color: AppColors.textTertiary)),
+                            if (vehicle.color != null) ...[
+                              const SizedBox(height: 6),
+                              Text(vehicle.color!, style: const TextStyle(color: AppColors.textTertiary)),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
-
   Widget _buildSwitch(String label, IconData icon, bool value, ValueChanged<bool> onChanged) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
@@ -407,7 +588,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: AppColors.primary,
+            activeThumbColor: AppColors.primary,
           ),
         ],
       ),
@@ -427,7 +608,7 @@ class _TripTypeSelector extends StatelessWidget {
       children: [
         _TypeChip(icon: Icons.people, label: 'İnsan', value: 'people', selected: selected, onTap: onChanged),
         const SizedBox(width: 8),
-        _TypeChip(icon: Icons.pets, label: 'Hayvan', value: 'pet', selected: selected, onTap: onChanged),
+        _TypeChip(icon: Icons.pets, label: 'Hayvan', value: 'pets', selected: selected, onTap: onChanged),
         const SizedBox(width: 8),
         _TypeChip(icon: Icons.inventory_2, label: 'Kargo', value: 'cargo', selected: selected, onTap: onChanged),
         const SizedBox(width: 8),
@@ -486,3 +667,8 @@ class _TypeChip extends StatelessWidget {
     );
   }
 }
+
+
+
+
+

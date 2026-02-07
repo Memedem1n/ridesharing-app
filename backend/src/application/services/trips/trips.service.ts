@@ -1,18 +1,39 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '@infrastructure/database/prisma.service';
+import { BusPriceScraperService } from '@infrastructure/scraper/bus-price-scraper.service';
+import { RedisService } from '@infrastructure/cache/redis.service';
+import { FcmService } from '@infrastructure/notifications/fcm.service';
+import { NetgsmService } from '@infrastructure/notifications/netgsm.service';
+import { ConfigService } from '@nestjs/config';
+import { IyzicoService } from '@infrastructure/payment/iyzico.service';
 import {
     CreateTripDto,
     UpdateTripDto,
     SearchTripsDto,
     TripResponseDto,
     TripListResponseDto,
-    TripStatus
 } from '@application/dto/trips/trips.dto';
 import { v4 as uuid } from 'uuid';
 
 @Injectable()
 export class TripsService {
-    constructor(private readonly prisma: PrismaService) { }
+    private readonly logger = new Logger(TripsService.name);
+    private readonly searchCacheTtl: number;
+    private searchCache = new Map<string, { value: TripListResponseDto; expiresAt: number }>();
+
+    constructor(
+        private readonly prisma: PrismaService,
+        private readonly busPriceScraper: BusPriceScraperService,
+        private readonly redisService: RedisService,
+        private readonly fcmService: FcmService,
+        private readonly netgsmService: NetgsmService,
+        private readonly configService: ConfigService,
+        private readonly iyzicoService: IyzicoService,
+    ) {
+        const ttlRaw = this.configService.get('TRIP_SEARCH_CACHE_TTL_SECONDS');
+        const ttlValue = ttlRaw === undefined ? 120 : Number(ttlRaw);
+        this.searchCacheTtl = Number.isFinite(ttlValue) ? ttlValue : 120;
+    }
 
     async create(userId: string, dto: CreateTripDto): Promise<TripResponseDto> {
         // Verify vehicle belongs to user
@@ -47,6 +68,7 @@ export class TripsService {
                 maxCargoWeight: dto.maxCargoWeight,
                 womenOnly: dto.womenOnly || false,
                 instantBooking: dto.instantBooking ?? true,
+                description: dto.description,
                 preferences: JSON.stringify(dto.preferences || {}),
             },
             include: {
@@ -59,6 +81,12 @@ export class TripsService {
     }
 
     async findAll(query: SearchTripsDto): Promise<TripListResponseDto> {
+        const cacheKey = this.buildSearchCacheKey(query);
+        const cached = await this.getSearchCache(cacheKey);
+        if (cached) {
+            return cached;
+        }
+
         const { from, to, date, seats, type, allowsPets, womenOnly, page = 1, limit = 20 } = query;
         const skip = (page - 1) * limit;
 
@@ -109,13 +137,16 @@ export class TripsService {
             this.prisma.trip.count({ where }),
         ]);
 
-        return {
+        const result: TripListResponseDto = {
             trips: trips.map(trip => this.mapToResponse(trip)),
             total,
             page,
             limit,
             totalPages: Math.ceil(total / limit),
         };
+
+        await this.setSearchCache(cacheKey, result);
+        return result;
     }
 
     async findById(id: string): Promise<TripResponseDto> {
@@ -187,6 +218,7 @@ export class TripsService {
             },
         });
 
+        await this.notifyTripUpdated(updated);
         return this.mapToResponse(updated);
     }
 
@@ -208,24 +240,157 @@ export class TripsService {
             data: { status: 'cancelled' },
         });
 
-        // TODO: Notify booked passengers
-        // TODO: Process refunds
+        await this.cancelTripBookings(trip.id, trip.departureCity, trip.arrivalCity);
+    }
+
+    private async cancelTripBookings(tripId: string, from: string, to: string): Promise<void> {
+        const bookings = await this.prisma.booking.findMany({
+            where: {
+                tripId,
+                status: { in: ['pending', 'confirmed', 'checked_in'] },
+            },
+            include: {
+                passenger: true,
+            },
+        });
+
+        for (const booking of bookings) {
+            let refundAmount = 0;
+            if (booking.paymentStatus === 'paid' && booking.paymentId) {
+                try {
+                    const refund = await this.iyzicoService.refundPayment(
+                        booking.paymentId,
+                        Number(booking.priceTotal),
+                        'Sürücü iptali',
+                    );
+                    if (refund.success) {
+                        refundAmount = Number(booking.priceTotal);
+                    }
+                } catch {
+                    refundAmount = 0;
+                }
+            }
+
+            await this.prisma.booking.update({
+                where: { id: booking.id },
+                data: {
+                    status: 'cancelled_by_driver',
+                    cancellationTime: new Date(),
+                    cancellationPenalty: 0,
+                    paymentStatus: refundAmount > 0 ? 'refunded' : booking.paymentStatus,
+                    expiresAt: null,
+                },
+            });
+
+            await this.notifyTripCancelled(booking.passenger, { from, to }, refundAmount);
+        }
+    }
+
+    private async notifyTripUpdated(trip: any): Promise<void> {
+        const bookings = await this.prisma.booking.findMany({
+            where: {
+                tripId: trip.id,
+                status: { in: ['pending', 'confirmed', 'checked_in'] },
+            },
+            include: { passenger: true },
+        });
+
+        if (!bookings.length) return;
+
+        try {
+            await Promise.all(bookings.map(async (booking) => {
+                const passenger = booking.passenger;
+                const tokens = this.extractDeviceTokens(passenger?.preferences);
+
+                if (tokens.length > 0) {
+                    await Promise.all(tokens.map((token) =>
+                        this.fcmService.notifyTripUpdated(token, {
+                            from: trip.departureCity,
+                            to: trip.arrivalCity,
+                            tripId: trip.id,
+                        })
+                    ));
+                }
+
+                if (passenger?.phone) {
+                    await this.netgsmService.sendTripUpdated(passenger.phone, {
+                        from: trip.departureCity,
+                        to: trip.arrivalCity,
+                    });
+                }
+            }));
+        } catch {
+            // Ignore notification errors
+        }
+    }
+
+    private async notifyTripCancelled(passenger: any, tripInfo: { from: string; to: string }, refundAmount: number) {
+        try {
+            const tokens = this.extractDeviceTokens(passenger?.preferences);
+            if (tokens.length > 0) {
+                await Promise.all(tokens.map((token) =>
+                    this.fcmService.notifyTripCancelled(token, { from: tripInfo.from, to: tripInfo.to })
+                ));
+            }
+
+            if (passenger?.phone) {
+                await this.netgsmService.sendTripCancelled(passenger.phone, tripInfo);
+                if (refundAmount > 0) {
+                    await this.netgsmService.sendCancellationNotice(passenger.phone, refundAmount);
+                }
+            }
+        } catch {
+            // Ignore notification errors
+        }
     }
 
     private async getBusReferencePrice(from: string, to: string): Promise<number | null> {
-        // TODO: Implement Redis cache lookup
-        // For now, return mock data
-        const routes: Record<string, number> = {
-            'istanbul-ankara': 350,
-            'ankara-istanbul': 350,
-            'istanbul-izmir': 300,
-            'izmir-istanbul': 300,
-            'ankara-izmir': 400,
-            'izmir-ankara': 400,
-        };
+        return this.busPriceScraper.getPrice(from, to);
+    }
 
-        const key = `${from.toLowerCase()}-${to.toLowerCase()}`;
-        return routes[key] || null;
+    private buildSearchCacheKey(query: SearchTripsDto): string {
+        const keyPayload = {
+            from: query.from?.toLowerCase() || '',
+            to: query.to?.toLowerCase() || '',
+            date: query.date || '',
+            seats: query.seats || '',
+            type: query.type || '',
+            allowsPets: query.allowsPets ?? '',
+            womenOnly: query.womenOnly ?? '',
+            page: query.page || 1,
+            limit: query.limit || 20,
+        };
+        return `trips:search:${Buffer.from(JSON.stringify(keyPayload)).toString('base64')}`;
+    }
+
+    private async getSearchCache(key: string): Promise<TripListResponseDto | null> {
+        if (!this.searchCacheTtl) return null;
+
+        if (this.redisService.isConfigured()) {
+            return this.redisService.getJson<TripListResponseDto>(key);
+        }
+
+        const cached = this.searchCache.get(key);
+        if (!cached) return null;
+        if (cached.expiresAt < Date.now()) {
+            this.searchCache.delete(key);
+            return null;
+        }
+        return cached.value;
+    }
+
+    private async setSearchCache(key: string, value: TripListResponseDto): Promise<void> {
+        if (!this.searchCacheTtl) return;
+
+        if (this.redisService.isConfigured()) {
+            await this.redisService.setJson(key, value, this.searchCacheTtl);
+            return;
+        }
+
+        this.searchCache.set(key, {
+            value,
+            expiresAt: Date.now() + this.searchCacheTtl * 1000,
+        });
     }
 
     private mapToResponse(trip: any): TripResponseDto {
@@ -257,9 +422,38 @@ export class TripsService {
             availableSeats: trip.availableSeats,
             pricePerSeat: Number(trip.pricePerSeat),
             allowsPets: trip.allowsPets,
+            allowsCargo: trip.allowsCargo,
             womenOnly: trip.womenOnly,
+            instantBooking: trip.instantBooking,
+            description: trip.description ?? undefined,
             distanceKm: trip.distanceKm ? Number(trip.distanceKm) : undefined,
             createdAt: trip.createdAt,
         };
     }
+
+    private extractDeviceTokens(preferences: any): string[] {
+        if (!preferences) return [];
+        const parsed = typeof preferences === 'string'
+            ? (() => {
+                try {
+                    return JSON.parse(preferences);
+                } catch {
+                    return {};
+                }
+            })()
+            : preferences;
+
+        const tokens = parsed?.deviceTokens;
+        if (Array.isArray(tokens)) {
+            return tokens.filter((t) => typeof t === 'string' && t.length > 0);
+        }
+        if (typeof parsed?.deviceToken === 'string' && parsed.deviceToken.length > 0) {
+            return [parsed.deviceToken];
+        }
+        return [];
+    }
 }
+
+
+
+

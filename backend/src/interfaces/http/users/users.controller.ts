@@ -1,8 +1,8 @@
-import { Controller, Get, Put, Body, UseGuards, Request, Param } from '@nestjs/common';
+import { Controller, Get, Put, Post, Body, UseGuards, Request, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UsersService } from '@application/services/users/users.service';
-import { UpdateProfileDto, UserProfileDto } from '@application/dto/users/users.dto';
+import { UpdateProfileDto, UserProfileDto, DeviceTokenDto } from '@application/dto/users/users.dto';
 
 @ApiTags('Users')
 @Controller('users')
@@ -23,6 +23,13 @@ export class UsersController {
     @ApiResponse({ status: 200, description: 'Profile updated', type: UserProfileDto })
     async updateMe(@Request() req, @Body() dto: UpdateProfileDto): Promise<UserProfileDto> {
         return this.usersService.updateProfile(req.user.sub, dto);
+    }
+
+    @Post('me/device-token')
+    @ApiOperation({ summary: 'Register device token for push notifications' })
+    @ApiResponse({ status: 200, description: 'Device token registered', type: UserProfileDto })
+    async registerDeviceToken(@Request() req, @Body() dto: DeviceTokenDto): Promise<UserProfileDto> {
+        return this.usersService.registerDeviceToken(req.user.sub, dto);
     }
 
     @Get(':id')

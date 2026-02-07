@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
@@ -118,29 +118,29 @@ class _PastBookings extends ConsumerWidget {
   }
 }
 
-class _BookingCard extends StatelessWidget {
+class _BookingCard extends ConsumerWidget {
   final Booking booking;
   final bool isPast;
 
   const _BookingCard({required this.booking, this.isPast = false});
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+  Widget build(BuildContext context, WidgetRef ref) {
     final dateFormat = DateFormat('dd MMM yyyy, HH:mm', 'tr');
+    final actionsState = ref.watch(bookingActionsProvider);
+    final canCancel = booking.status == BookingStatus.pending || booking.status == BookingStatus.confirmed;
 
     return GlassContainer(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Status & Date
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _StatusBadge(status: booking.status),
               Text(
-                booking.trip != null 
+                booking.trip != null
                   ? dateFormat.format(booking.trip!.departureTime)
                   : dateFormat.format(booking.createdAt),
                 style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
@@ -149,7 +149,6 @@ class _BookingCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Route
           if (booking.trip != null) ...[
             Row(
               children: [
@@ -193,7 +192,6 @@ class _BookingCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Driver info
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -234,7 +232,6 @@ class _BookingCard extends StatelessWidget {
             ),
           ],
 
-          // Actions
           if (!isPast && booking.status == BookingStatus.confirmed) ...[
             const SizedBox(height: 16),
             Row(
@@ -249,7 +246,13 @@ class _BookingCard extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: () {},
+                    onPressed: () {
+                      final tripInfo = booking.trip != null
+                        ? '${booking.trip!.origin} → ${booking.trip!.destination}'
+                        : 'Yolculuk';
+                      final driverName = booking.trip?.driverName ?? 'Sürücü';
+                      context.push('/chat/${booking.id}?name=${Uri.encodeComponent(driverName)}&trip=${Uri.encodeComponent(tripInfo)}');
+                    },
                     icon: const Icon(Icons.chat),
                     label: const Text('Mesaj'),
                   ),
@@ -258,11 +261,29 @@ class _BookingCard extends StatelessWidget {
             ),
           ],
 
+          if (!isPast && canCancel) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: actionsState.isLoading ? null : () => _cancelBooking(ref, context),
+              icon: const Icon(Icons.cancel),
+              label: const Text('Rezervasyonu İptal Et'),
+            ),
+          ],
+
+          if (!isPast && booking.status == BookingStatus.pending) ...[
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: actionsState.isLoading ? null : () => _processPayment(ref, context),
+              icon: const Icon(Icons.payment),
+              label: const Text('Ödemeyi Tamamla (Mock)'),
+            ),
+          ],
+
           if (isPast && booking.status == BookingStatus.completed) ...[
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: () {
-                final tripInfo = booking.trip != null 
+                final tripInfo = booking.trip != null
                   ? '${booking.trip!.origin} → ${booking.trip!.destination}'
                   : 'Yolculuk';
                 final driverName = booking.trip?.driverName ?? 'Sürücü';
@@ -278,12 +299,55 @@ class _BookingCard extends StatelessWidget {
   }
 
   void _showQrCode(BuildContext context, Booking booking) {
-    final tripInfo = booking.trip != null 
+    final tripInfo = booking.trip != null
       ? '${booking.trip!.origin} → ${booking.trip!.destination}'
       : 'Yolculuk';
-    final name = 'Yolcu'; // Would come from user provider in real app
-    
+    final name = 'Yolcu';
+
     context.push('/boarding-qr?bookingId=${booking.id}&trip=${Uri.encodeComponent(tripInfo)}&name=${Uri.encodeComponent(name)}&seats=${booking.seatCount}');
+  }
+
+  Future<void> _cancelBooking(WidgetRef ref, BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Rezervasyonu İptal Et', style: TextStyle(color: AppColors.textPrimary)),
+        content: const Text('Rezervasyonu iptal etmek istediğinize emin misiniz?', style: TextStyle(color: AppColors.textSecondary)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.error),
+            child: const Text('İptal Et'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final success = await ref.read(bookingActionsProvider.notifier).cancelBooking(booking.id);
+      if (success && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Rezervasyon iptal edildi')),
+        );
+      }
+    }
+  }
+
+  Future<void> _processPayment(WidgetRef ref, BuildContext context) async {
+    final success = await ref.read(bookingActionsProvider.notifier).processPayment(booking.id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Ödeme tamamlandı' : 'Ödeme başarısız'),
+          backgroundColor: success ? AppColors.success : AppColors.error,
+        ),
+      );
+      if (success) {
+        ref.invalidate(myBookingsProvider);
+      }
+    }
   }
 }
 
@@ -308,7 +372,7 @@ class _StatusBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         label,

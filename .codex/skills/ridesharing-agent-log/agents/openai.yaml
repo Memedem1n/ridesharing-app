@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ridesharing Agent Log"
+  short_description: "Update agent context and work log"
+  default_prompt: "Update AGENT_CONTEXT and AGENT_LOG for this repo."

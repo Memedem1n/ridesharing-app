@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '@infrastructure/database/prisma.service';
 import { IyzicoService } from '@infrastructure/payment/iyzico.service';
+import { FcmService } from '@infrastructure/notifications/fcm.service';
+import { NetgsmService } from '@infrastructure/notifications/netgsm.service';
 import { ConfigService } from '@nestjs/config';
 import {
     CreateBookingDto,
@@ -17,28 +19,30 @@ export class BookingsService {
     constructor(
         private readonly prisma: PrismaService,
         private readonly iyzicoService: IyzicoService,
+        private readonly fcmService: FcmService,
+        private readonly netgsmService: NetgsmService,
         private readonly configService: ConfigService,
     ) {
         this.holdMinutes = Number(this.configService.get('BOOKING_HOLD_MINUTES') || 15);
     }
 
     async create(userId: string, dto: CreateBookingDto): Promise<BookingResponseDto> {
-        return this.prisma.$transaction(async (tx) => {
+        const booking = await this.prisma.$transaction(async (tx) => {
             const trip = await tx.trip.findUnique({
                 where: { id: dto.tripId },
                 include: { driver: true },
             });
 
             if (!trip) {
-                throw new NotFoundException('Yolculuk bulunamad??');
+                throw new NotFoundException('Yolculuk bulunamadı');
             }
 
             if (trip.status !== 'published') {
-                throw new BadRequestException('Bu yolculuk art??k m??sait de??il');
+                throw new BadRequestException('Bu yolculuk artık müsait değil');
             }
 
             if (trip.driverId === userId) {
-                throw new BadRequestException('Kendi ilan??n??za rezervasyon yapamazs??n??z');
+                throw new BadRequestException('Kendi ilanınıza rezervasyon yapamazsınız');
             }
 
             if (trip.availableSeats < dto.seats) {
@@ -67,7 +71,7 @@ export class BookingsService {
                 throw new BadRequestException('Yeterli koltuk yok');
             }
 
-            const booking = await tx.booking.create({
+            const created = await tx.booking.create({
                 data: {
                     id: uuid(),
                     tripId: dto.tripId,
@@ -90,38 +94,41 @@ export class BookingsService {
                 },
             });
 
-            return this.mapToResponse(booking);
+            return created;
         });
+
+        await this.notifyNewBookingRequest(booking);
+        return this.mapToResponse(booking);
     }
 
     async processPayment(userId: string, dto: ProcessPaymentDto): Promise<BookingResponseDto> {
         const booking = await this.prisma.booking.findUnique({
             where: { id: dto.bookingId },
             include: {
-                trip: true,
+                trip: { include: { driver: true } },
                 passenger: true,
             },
         });
 
         if (!booking) {
-            throw new NotFoundException('Rezervasyon bulunamad??');
+            throw new NotFoundException('Rezervasyon bulunamadı');
         }
 
         if (booking.passengerId !== userId) {
-            throw new ForbiddenException('Bu rezervasyona eri??im yetkiniz yok');
+            throw new ForbiddenException('Bu rezervasyona erişim yetkiniz yok');
         }
 
         if (booking.paymentStatus === 'paid') {
-            throw new BadRequestException('Bu rezervasyon zaten ??dendi');
+            throw new BadRequestException('Bu rezervasyon zaten ödendi');
         }
 
         if (booking.status !== 'pending') {
-            throw new BadRequestException('Bu rezervasyon ??deme beklemiyor');
+            throw new BadRequestException('Bu rezervasyon ödeme beklemiyor');
         }
 
         if (booking.expiresAt && booking.expiresAt.getTime() < Date.now()) {
             await this.expireBooking(booking);
-            throw new BadRequestException('Rezervasyon s??resi dolmu??');
+            throw new BadRequestException('Rezervasyon süresi dolmuş');
         }
 
         const result = await this.iyzicoService.processPayment(
@@ -156,7 +163,7 @@ export class BookingsService {
                 });
             });
 
-            throw new BadRequestException(result.errorMessage || '??deme i??lemi ba??ar??s??z');
+            throw new BadRequestException(result.errorMessage || 'Ödeme işlemi başarısız');
         }
 
         const updated = await this.prisma.booking.update({
@@ -168,13 +175,12 @@ export class BookingsService {
                 expiresAt: null,
             },
             include: {
-                trip: true,
+                trip: { include: { driver: true } },
                 passenger: true,
             },
         });
 
-        // TODO: Send confirmation SMS/push
-
+        await this.notifyBookingConfirmed(updated);
         return this.mapToResponse(updated);
     }
 
@@ -217,7 +223,7 @@ export class BookingsService {
     async cancel(bookingId: string, userId: string): Promise<void> {
         const booking = await this.prisma.booking.findUnique({
             where: { id: bookingId },
-            include: { trip: true },
+            include: { trip: { include: { driver: true } }, passenger: true },
         });
 
         if (!booking) {
@@ -244,9 +250,11 @@ export class BookingsService {
             penalty = Number(booking.priceTotal) * 0.5;
         }
 
+        let refundAmount = 0;
+
         // Process refund if paid
         if (booking.paymentStatus === 'paid' && refundPercentage > 0) {
-            const refundAmount = Number(booking.priceTotal) * (refundPercentage / 100);
+            refundAmount = Number(booking.priceTotal) * (refundPercentage / 100);
             await this.iyzicoService.refundPayment(
                 booking.paymentId!,
                 refundAmount,
@@ -275,6 +283,8 @@ export class BookingsService {
                 status: 'published',
             },
         });
+
+        await this.notifyCancellation(booking, isPassenger ? 'passenger' : 'driver', refundAmount);
     }
 
     async findMyBookings(userId: string): Promise<BookingListResponseDto> {
@@ -315,6 +325,28 @@ export class BookingsService {
             bookings: bookings.map(b => this.mapToResponse(b)),
             total: bookings.length,
         };
+    }
+
+    async findById(bookingId: string, userId: string): Promise<BookingResponseDto> {
+        const booking = await this.prisma.booking.findUnique({
+            where: { id: bookingId },
+            include: {
+                trip: { include: { driver: true } },
+                passenger: true,
+            },
+        });
+
+        if (!booking) {
+            throw new NotFoundException('Rezervasyon bulunamadı');
+        }
+
+        const isPassenger = booking.passengerId === userId;
+        const isDriver = booking.trip?.driverId === userId;
+        if (!isPassenger && !isDriver) {
+            throw new ForbiddenException('Bu rezervasyona erişim yetkiniz yok');
+        }
+
+        return this.mapToResponse(booking);
     }
 
     private generateQRCode(): string {
@@ -381,4 +413,132 @@ export class BookingsService {
             createdAt: booking.createdAt,
         };
     }
+
+    private async notifyNewBookingRequest(booking: any) {
+        try {
+            const driver = booking.trip?.driver;
+            const passenger = booking.passenger;
+            if (!driver) return;
+
+            const tokens = this.extractDeviceTokens(driver.preferences);
+            if (tokens.length > 0) {
+                await Promise.all(tokens.map((token) =>
+                    this.fcmService.notifyNewBookingRequest(token, passenger.fullName, {
+                        from: booking.trip.departureCity,
+                        to: booking.trip.arrivalCity,
+                    })
+                ));
+            }
+
+            if (driver.phone) {
+                await this.netgsmService.sendNewBookingRequest(driver.phone, passenger.fullName, {
+                    from: booking.trip.departureCity,
+                    to: booking.trip.arrivalCity,
+                    date: this.formatTripDate(booking.trip.departureTime),
+                });
+            }
+        } catch {
+            // Ignore notification errors
+        }
+    }
+
+    private async notifyBookingConfirmed(booking: any) {
+        try {
+            const passenger = booking.passenger;
+            const driver = booking.trip?.driver;
+
+            const tokens = this.extractDeviceTokens(passenger.preferences);
+            if (tokens.length > 0) {
+                await Promise.all(tokens.map((token) =>
+                    this.fcmService.notifyBookingConfirmed(token, {
+                        from: booking.trip.departureCity,
+                        to: booking.trip.arrivalCity,
+                    })
+                ));
+            }
+
+            if (passenger.phone) {
+                await this.netgsmService.sendBookingConfirmation(passenger.phone, {
+                    from: booking.trip.departureCity,
+                    to: booking.trip.arrivalCity,
+                    date: this.formatTripDateTime(booking.trip.departureTime),
+                    qrCode: booking.qrCode,
+                });
+            }
+
+            if (driver?.phone) {
+                await this.netgsmService.sendNewBookingRequest(driver.phone, passenger.fullName, {
+                    from: booking.trip.departureCity,
+                    to: booking.trip.arrivalCity,
+                    date: this.formatTripDate(booking.trip.departureTime),
+                });
+            }
+        } catch {
+            // Ignore notification errors
+        }
+    }
+
+    private async notifyCancellation(booking: any, cancelledBy: 'driver' | 'passenger', refundAmount: number) {
+        try {
+            const otherUser = cancelledBy === 'driver' ? booking.passenger : booking.trip.driver;
+            if (!otherUser) return;
+
+            const tokens = this.extractDeviceTokens(otherUser.preferences);
+            if (tokens.length > 0) {
+                await Promise.all(tokens.map((token) =>
+                    this.fcmService.notifyCancellation(token, cancelledBy)
+                ));
+            }
+
+            if (otherUser.phone) {
+                const payout = cancelledBy === 'driver' ? refundAmount : 0;
+                await this.netgsmService.sendCancellationNotice(otherUser.phone, payout);
+            }
+        } catch {
+            // Ignore notification errors
+        }
+    }
+
+    private extractDeviceTokens(preferences: any): string[] {
+        if (!preferences) return [];
+        const parsed = typeof preferences === 'string'
+            ? (() => {
+                try {
+                    return JSON.parse(preferences);
+                } catch {
+                    return {};
+                }
+            })()
+            : preferences;
+
+        const tokens = parsed?.deviceTokens;
+        if (Array.isArray(tokens)) {
+            return tokens.filter((t) => typeof t === 'string' && t.length > 0);
+        }
+        if (typeof parsed?.deviceToken === 'string' && parsed.deviceToken.length > 0) {
+            return [parsed.deviceToken];
+        }
+        return [];
+    }
+
+    private formatTripDate(date: Date): string {
+        const formatter = new Intl.DateTimeFormat('tr-TR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+        });
+        return formatter.format(date);
+    }
+
+    private formatTripDateTime(date: Date): string {
+        const formatter = new Intl.DateTimeFormat('tr-TR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+        });
+        return formatter.format(date);
+    }
 }
+

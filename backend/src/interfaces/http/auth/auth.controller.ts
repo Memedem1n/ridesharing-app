@@ -1,7 +1,7 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, UseGuards, Get, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from '@application/services/auth/auth.service';
-import { RegisterDto, LoginDto, VerifyOtpDto, RefreshTokenDto, AuthResponseDto } from '@application/dto/auth/auth.dto';
+import { RegisterDto, LoginDto, VerifyOtpDto, RefreshTokenDto, AuthResponseDto, SendOtpDto } from '@application/dto/auth/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Request } from 'express';
 
@@ -31,12 +31,20 @@ export class AuthController {
         return this.authService.login(dto);
     }
 
+    @Post('send-otp')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Send OTP code' })
+    @ApiResponse({ status: 200, description: 'OTP sent' })
+    async sendOtp(@Body() dto: SendOtpDto): Promise<{ sent: boolean }> {
+        return this.authService.sendOtp(dto);
+    }
+
     @Post('verify-otp')
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Verify OTP code' })
-    @ApiResponse({ status: 200, description: 'OTP verified' })
+    @ApiResponse({ status: 200, description: 'OTP verified', type: AuthResponseDto })
     @ApiResponse({ status: 400, description: 'Invalid or expired OTP' })
-    async verifyOtp(@Body() dto: VerifyOtpDto): Promise<{ verified: boolean }> {
+    async verifyOtp(@Body() dto: VerifyOtpDto): Promise<AuthResponseDto> {
         return this.authService.verifyOtp(dto);
     }
 

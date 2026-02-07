@@ -12,6 +12,9 @@ Technical documentation for Paylaşımlı Yolculuk Platformu.
 | [ADRs](decisions/) | Architecture Decision Records |
 | [Runbooks](runbooks.md) | Operational guides |
 | [Agent Handoff](AGENT_HANDOFF.md) | Technical context for future agents |
+| [Agent Context](AGENT_CONTEXT.md) | Quick on-ramp and key paths |
+| [Agent Skills](AGENT_SKILLS.md) | Default skill set for this repo |
+| [Agent Log](AGENT_LOG.md) | Ongoing work log and command history |
 | [Task Fork Pack](TASK_FORKS.md) | Fork prompts and skill mapping |
 
 ## 🔗 Quick Links
@@ -19,6 +22,11 @@ Technical documentation for Paylaşımlı Yolculuk Platformu.
 - **Swagger UI**: `http://localhost:3000/api/docs`
 - **Health Check**: `http://localhost:3000/v1/health`
 - **Task Fork Pack**: `TASK_FORKS.md`
+
+## Recent changes (2026-02-07)
+- Turkey-only location autocomplete for trip search/create.
+- Trip creation stores departure/arrival address + coordinates.
+- Trip detail shows an address fallback when missing.
 
 ## 📝 Updating Documentation
 

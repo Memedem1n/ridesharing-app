@@ -1,5 +1,5 @@
 import { IsEmail, IsNotEmpty, IsString, MinLength, Matches, IsOptional } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class RegisterDto {
     @ApiProperty({ example: '+905551234567' })
@@ -37,11 +37,24 @@ export class LoginDto {
     password: string;
 }
 
-export class VerifyOtpDto {
+export class SendOtpDto {
     @ApiProperty({ example: '+905551234567' })
     @IsNotEmpty()
     @IsString()
-    identifier: string;
+    @Matches(/^\+90[0-9]{10}$/, { message: 'Geçerli bir Türkiye telefon numarası girin' })
+    phone: string;
+}
+
+export class VerifyOtpDto {
+    @ApiPropertyOptional({ example: '+905551234567' })
+    @IsOptional()
+    @IsString()
+    identifier?: string;
+
+    @ApiPropertyOptional({ example: '+905551234567' })
+    @IsOptional()
+    @IsString()
+    phone?: string;
 
     @ApiProperty({ example: '123456' })
     @IsNotEmpty()
@@ -49,10 +62,10 @@ export class VerifyOtpDto {
     @MinLength(6)
     code: string;
 
-    @ApiProperty({ example: 'phone', enum: ['phone', 'email'] })
-    @IsNotEmpty()
+    @ApiPropertyOptional({ example: 'phone', enum: ['phone', 'email'] })
+    @IsOptional()
     @IsString()
-    type: 'phone' | 'email';
+    type?: 'phone' | 'email';
 }
 
 export class RefreshTokenDto {

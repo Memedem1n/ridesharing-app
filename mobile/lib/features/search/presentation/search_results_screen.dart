@@ -1,13 +1,12 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/animated_buttons.dart';
 import '../../../core/providers/trip_provider.dart';
 
-class SearchResultsScreen extends ConsumerWidget {
+class SearchResultsScreen extends ConsumerStatefulWidget {
   final String? from;
   final String? to;
   final String? date;
@@ -15,7 +14,28 @@ class SearchResultsScreen extends ConsumerWidget {
   const SearchResultsScreen({super.key, this.from, this.to, this.date});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SearchResultsScreen> createState() => _SearchResultsScreenState();
+}
+
+class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    final hasParams = widget.from != null || widget.to != null || widget.date != null;
+    if (!hasParams) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final current = ref.read(tripSearchParamsProvider);
+      final parsedDate = widget.date != null ? DateTime.tryParse(widget.date!) : null;
+      ref.read(tripSearchParamsProvider.notifier).state = current.copyWith(
+        from: widget.from ?? current.from,
+        to: widget.to ?? current.to,
+        date: parsedDate ?? current.date,
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final tripsAsync = ref.watch(searchResultsProvider);
 
     return Scaffold(
@@ -24,8 +44,8 @@ class SearchResultsScreen extends ConsumerWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${from ?? "Tüm Şehirler"} → ${to ?? "Tüm Şehirler"}', style: const TextStyle(fontSize: 16)),
-            if (date != null) Text(date!, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            Text('${widget.from ?? "Tüm Şehirler"} → ${widget.to ?? "Tüm Şehirler"}', style: const TextStyle(fontSize: 16)),
+            if (widget.date != null) Text(widget.date!, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
           ],
         ),
         backgroundColor: Colors.transparent,
@@ -94,7 +114,7 @@ class _TripCard extends StatelessWidget {
                   radius: 24,
                   backgroundColor: AppColors.primary.withValues(alpha: 0.2),
                   backgroundImage: trip.driverPhoto != null ? NetworkImage(trip.driverPhoto!) : null,
-                  child: trip.driverPhoto == null 
+                  child: trip.driverPhoto == null
                     ? Text(trip.driverName[0], style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold))
                     : null,
                 ),
@@ -111,7 +131,7 @@ class _TripCard extends StatelessWidget {
                           Text(trip.driverRating.toStringAsFixed(1), style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                           if (trip.vehicleBrand != null) ...[
                             const SizedBox(width: 8),
-                            Text('${trip.vehicleBrand} ${trip.vehicleModel ?? ""}', 
+                            Text('${trip.vehicleBrand} ${trip.vehicleModel ?? ""}',
                               style: const TextStyle(color: AppColors.textTertiary, fontSize: 12)),
                           ],
                         ],
@@ -122,7 +142,7 @@ class _TripCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text('₺${trip.pricePerSeat.toStringAsFixed(0)}', 
+                    Text('₺${trip.pricePerSeat.toStringAsFixed(0)}',
                       style: const TextStyle(color: AppColors.primary, fontSize: 20, fontWeight: FontWeight.bold)),
                     const Text('kişi başı', style: TextStyle(color: AppColors.textTertiary, fontSize: 10)),
                   ],
@@ -165,10 +185,10 @@ class _TripCard extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Text(timeFormat.format(trip.departureTime), 
+                    Text(timeFormat.format(trip.departureTime),
                       style: const TextStyle(color: AppColors.textPrimary, fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 4),
-                    Text(dateFormat.format(trip.departureTime), 
+                    Text(dateFormat.format(trip.departureTime),
                       style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                     const SizedBox(height: 12),
                     Container(
@@ -177,7 +197,7 @@ class _TripCard extends StatelessWidget {
                         color: AppColors.success.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text('${trip.availableSeats} koltuk', 
+                      child: Text('${trip.availableSeats} koltuk',
                         style: const TextStyle(color: AppColors.success, fontSize: 11, fontWeight: FontWeight.w600)),
                     ),
                   ],

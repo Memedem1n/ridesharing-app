@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/widgets/animated_buttons.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/providers/locale_provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -62,6 +63,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final strings = ref.watch(appStringsProvider);
 
     return Scaffold(
       body: Container(
@@ -85,28 +87,28 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       color: AppColors.textPrimary,
                     ),
                   ).animate().fadeIn(duration: 300.ms),
-                  
+
                   const SizedBox(height: 16),
 
                   // Title
                   Text(
-                    'Hesap Oluştur',
+                    strings.registerTitle,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: AppColors.textPrimary,
                     ),
                   ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.2, end: 0),
-                  
+
                   const SizedBox(height: 8),
-                  
+
                   Text(
-                    'Yolculuk deneyiminizi başlatın',
-                    style: TextStyle(
+                    strings.registerSubtitle,
+                    style: const TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 16,
                     ),
                   ).animate().fadeIn(delay: 200.ms),
-                  
+
                   const SizedBox(height: 32),
 
                   // Error message
@@ -116,7 +118,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       decoration: BoxDecoration(
                         color: AppColors.errorBg,
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.error.withOpacity(0.5)),
+                        border: Border.all(color: AppColors.error.withValues(alpha: 0.5)),
                       ),
                       child: Row(
                         children: [
@@ -142,7 +144,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         // Name field
                         _buildField(
                           controller: _nameController,
-                          hint: 'Ad Soyad',
+                          hint: strings.name,
                           icon: Icons.person_outline_rounded,
                           textCapitalization: TextCapitalization.words,
                           validator: (value) {
@@ -151,13 +153,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             return null;
                           },
                         ).animate().fadeIn(delay: 300.ms).slideX(begin: -0.1, end: 0),
-                        
+
                         const SizedBox(height: 16),
 
                         // Email field
                         _buildField(
                           controller: _emailController,
-                          hint: 'E-posta',
+                          hint: strings.email,
                           icon: Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress,
                           validator: (value) {
@@ -166,13 +168,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             return null;
                           },
                         ).animate().fadeIn(delay: 400.ms).slideX(begin: -0.1, end: 0),
-                        
+
                         const SizedBox(height: 16),
 
                         // Phone field
                         _buildField(
                           controller: _phoneController,
-                          hint: 'Telefon',
+                          hint: strings.phone,
                           icon: Icons.phone_outlined,
                           keyboardType: TextInputType.phone,
                           prefixText: '+90 ',
@@ -182,13 +184,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             return null;
                           },
                         ).animate().fadeIn(delay: 500.ms).slideX(begin: -0.1, end: 0),
-                        
+
                         const SizedBox(height: 16),
 
                         // Password field
                         _buildField(
                           controller: _passwordController,
-                          hint: 'Şifre',
+                          hint: strings.password,
                           icon: Icons.lock_outline_rounded,
                           obscureText: !_isPasswordVisible,
                           suffixIcon: IconButton(
@@ -199,103 +201,76 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
                           ),
                           validator: (value) {
-                            if (value == null || value.isEmpty) return 'Şifre gerekli';
-                            if (value.length < 6) return 'En az 6 karakter';
+                            if (value == null || value.isEmpty) return strings.passwordRequired;
+                            if (value.length < 6) return strings.passwordMin;
                             return null;
                           },
                         ).animate().fadeIn(delay: 600.ms).slideX(begin: -0.1, end: 0),
-                        
+
                         const SizedBox(height: 16),
 
                         // Confirm Password field
                         _buildField(
                           controller: _confirmPasswordController,
-                          hint: 'Şifre Tekrar',
+                          hint: strings.confirmPassword,
                           icon: Icons.lock_outline_rounded,
-                          obscureText: true,
+                          obscureText: !_isPasswordVisible,
                           validator: (value) {
-                            if (value != _passwordController.text) return 'Şifreler eşleşmiyor';
+                            if (value == null || value.isEmpty) return strings.passwordRequired;
+                            if (value != _passwordController.text) return strings.passwordMismatch;
                             return null;
                           },
                         ).animate().fadeIn(delay: 700.ms).slideX(begin: -0.1, end: 0),
-                        
-                        const SizedBox(height: 20),
 
-                        // Terms checkbox
+                        const SizedBox(height: 16),
+
+                        // Terms
                         Row(
                           children: [
-                            Transform.scale(
-                              scale: 1.2,
-                              child: Checkbox(
-                                value: _acceptedTerms,
-                                onChanged: (v) => setState(() => _acceptedTerms = v ?? false),
-                                activeColor: AppColors.primary,
-                                checkColor: AppColors.background,
-                                side: BorderSide(color: AppColors.glassStroke, width: 2),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-                              ),
+                            Checkbox(
+                              value: _acceptedTerms,
+                              onChanged: (value) => setState(() => _acceptedTerms = value ?? false),
                             ),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => setState(() => _acceptedTerms = !_acceptedTerms),
-                                child: RichText(
-                                  text: TextSpan(
-                                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                                    children: [
-                                      const TextSpan(text: 'Okudum, '),
-                                      TextSpan(
-                                        text: 'Kullanım Şartları',
-                                        style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
-                                      ),
-                                      const TextSpan(text: ' ve '),
-                                      TextSpan(
-                                        text: 'Gizlilik Politikası',
-                                        style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600),
-                                      ),
-                                      const TextSpan(text: "'nı kabul ediyorum."),
-                                    ],
-                                  ),
-                                ),
+                            const Expanded(
+                              child: Text(
+                                'Kullanım şartlarını kabul ediyorum',
+                                style: TextStyle(color: AppColors.textSecondary),
                               ),
                             ),
                           ],
-                        ).animate().fadeIn(delay: 800.ms),
-                        
-                        const SizedBox(height: 28),
+                        ),
+
+                        const SizedBox(height: 12),
 
                         // Register button
-                        GradientButton(
-                          text: 'Kayıt Ol',
-                          icon: Icons.person_add_rounded,
-                          isLoading: authState.status == AuthStatus.loading,
-                          onPressed: _register,
-                        ).animate().fadeIn(delay: 900.ms).slideY(begin: 0.2, end: 0),
+                        SizedBox(
+                          width: double.infinity,
+                          child: GradientButton(
+                            text: authState.status == AuthStatus.loading ? '${strings.register}...' : strings.register,
+                            icon: Icons.person_add_alt_1_rounded,
+                            onPressed: authState.status == AuthStatus.loading ? null : _register,
+                          ),
+                        ),
                       ],
                     ),
-                  ), // End GlassContainer
-                  
-                  const SizedBox(height: 28),
+                  ),
 
-                  // Login link
+                  const SizedBox(height: 24),
+
+                  // Login prompt
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        'Zaten hesabınız var mı? ',
-                        style: TextStyle(color: AppColors.textSecondary),
+                        strings.alreadyHaveAccount,
+                        style: const TextStyle(color: AppColors.textSecondary),
                       ),
-                      GestureDetector(
-                        onTap: () => context.pop(),
-                        child: Text(
-                          'Giriş Yap',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
+                      TextButton(
+                        onPressed: () => context.pop(),
+                        child: Text(strings.login),
                       ),
                     ],
-                  ).animate().fadeIn(delay: 1000.ms),
+                  ),
                 ],
               ),
             ),
@@ -309,19 +284,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     required TextEditingController controller,
     required String hint,
     required IconData icon,
+    bool obscureText = false,
+    String? prefixText,
     TextInputType? keyboardType,
     TextCapitalization textCapitalization = TextCapitalization.none,
-    bool obscureText = false,
     Widget? suffixIcon,
-    String? prefixText,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
+      obscureText: obscureText,
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
-      obscureText: obscureText,
-      validator: validator,
       style: const TextStyle(color: AppColors.textPrimary),
       decoration: InputDecoration(
         hintText: hint,
@@ -329,6 +303,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         prefixText: prefixText,
         suffixIcon: suffixIcon,
       ),
+      validator: validator,
     );
   }
 }

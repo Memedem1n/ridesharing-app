@@ -171,7 +171,7 @@ class TripDetailsScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface,
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -2))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
         ),
         child: Row(
           children: [
@@ -229,7 +229,7 @@ class _Feature extends StatelessWidget {
     return Chip(
       avatar: Icon(icon, size: 16, color: active ? AppColors.primary : AppColors.textSecondary),
       label: Text(label),
-      backgroundColor: active ? AppColors.primary.withOpacity(0.1) : AppColors.border,
+      backgroundColor: active ? AppColors.primary.withValues(alpha: 0.1) : AppColors.border,
     );
   }
 }
