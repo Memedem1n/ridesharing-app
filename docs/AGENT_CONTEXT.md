@@ -47,6 +47,7 @@ API Basics
 Agent Workflow
 - Log every change set in `docs/AGENT_LOG.md` using `scripts/agent-log.ps1`.
 - Update this file only for new system-wide facts. Do not duplicate known issues from `docs/AGENT_HANDOFF.md`.
+- After each work session, append to the long-form summary in `docs/AGENT_HANDOFF.md` (Conversation summary) so new agents can continue without rereading the repo.
 - Bootstrap helper: `scripts/agent-setup.ps1` (installs all curated skills, syncs into repo).
 - Skill sync helper: `scripts/skills-sync.ps1` (copies global skills into `.codex/skills`).
 

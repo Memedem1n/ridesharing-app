@@ -311,3 +311,11 @@ Task: Add long conversation summary
 Summary: Added detailed conversation summary to AGENT_HANDOFF for next agents.
 Commands: apply_patch
 Files: docs/AGENT_HANDOFF.md
+
+## 2026-02-07 05:48
+Level: agent
+Agent: codex
+Task: Add rule to update long summary
+Summary: Added workflow rule to keep AGENT_HANDOFF conversation summary updated after each session.
+Commands: apply_patch
+Files: docs/AGENT_CONTEXT.md
