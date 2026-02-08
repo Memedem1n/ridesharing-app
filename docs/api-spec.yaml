@@ -1,8 +1,14 @@
 openapi: 3.1.0
 info:
-  title: Ridesharing API
+  title: Ridesharing API (Index)
   version: 1.0.0
-  description: Minimal placeholder spec. See Swagger at /api/docs for live schema.
+  description: >
+    This file is a lightweight index. The canonical, detailed API contract is
+    maintained in docs/api/OPENAPI_SPEC.yaml and runtime Swagger at /api/docs.
 servers:
   - url: http://localhost:3000/v1
+    description: Development server
+externalDocs:
+  description: Full OpenAPI specification
+  url: ./api/OPENAPI_SPEC.yaml
 paths: {}

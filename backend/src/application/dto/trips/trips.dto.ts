@@ -157,6 +157,26 @@ export class UpdateTripDto {
     @IsOptional()
     @IsString()
     arrivalAddress?: string;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsNumber()
+    departureLat?: number;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsNumber()
+    departureLng?: number;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsNumber()
+    arrivalLat?: number;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsNumber()
+    arrivalLng?: number;
 }
 
 export class SearchTripsDto {

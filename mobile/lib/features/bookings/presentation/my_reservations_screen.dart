@@ -303,8 +303,10 @@ class _BookingCard extends ConsumerWidget {
       ? '${booking.trip!.origin} → ${booking.trip!.destination}'
       : 'Yolculuk';
     final name = 'Yolcu';
+    final qr = Uri.encodeComponent(booking.qrCode ?? '');
+    final pnr = Uri.encodeComponent(booking.pnrCode ?? '');
 
-    context.push('/boarding-qr?bookingId=${booking.id}&trip=${Uri.encodeComponent(tripInfo)}&name=${Uri.encodeComponent(name)}&seats=${booking.seatCount}');
+    context.push('/boarding-qr?bookingId=${booking.id}&trip=${Uri.encodeComponent(tripInfo)}&name=${Uri.encodeComponent(name)}&seats=${booking.seatCount}&qr=$qr&pnr=$pnr');
   }
 
   Future<void> _cancelBooking(WidgetRef ref, BuildContext context) async {

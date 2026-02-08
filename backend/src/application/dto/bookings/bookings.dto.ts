@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional, IsUUID, IsEnum, Min, Max } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsOptional, IsUUID, IsEnum, Min, Max, MinLength, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum BookingStatus {
@@ -98,6 +98,20 @@ export class CheckInDto {
     qrCode: string;
 }
 
+export class CheckInByPnrDto {
+    @ApiProperty({ description: '6-character PNR code' })
+    @IsNotEmpty()
+    @IsString()
+    @MinLength(6)
+    @MaxLength(6)
+    pnrCode: string;
+
+    @ApiProperty({ description: 'Trip id that this PNR belongs to' })
+    @IsNotEmpty()
+    @IsUUID()
+    tripId: string;
+}
+
 export class BookingResponseDto {
     @ApiProperty()
     id: string;
@@ -143,6 +157,9 @@ export class BookingResponseDto {
 
     @ApiProperty()
     qrCode: string;
+
+    @ApiPropertyOptional()
+    pnrCode?: string;
 
     @ApiPropertyOptional()
     checkedInAt?: Date;

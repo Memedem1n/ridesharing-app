@@ -20,6 +20,12 @@ export class TripsService {
     private readonly logger = new Logger(TripsService.name);
     private readonly searchCacheTtl: number;
     private searchCache = new Map<string, { value: TripListResponseDto; expiresAt: number }>();
+    private readonly turkeyBounds = {
+        minLat: 35.8,
+        maxLat: 42.2,
+        minLng: 25.6,
+        maxLng: 44.9,
+    };
 
     constructor(
         private readonly prisma: PrismaService,
@@ -44,6 +50,13 @@ export class TripsService {
         if (!vehicle) {
             throw new BadRequestException('Bu araca erişim yetkiniz yok');
         }
+
+        this.validateTripCoordinates(
+            dto.departureLat,
+            dto.departureLng,
+            dto.arrivalLat,
+            dto.arrivalLng,
+        );
 
         const trip = await this.prisma.trip.create({
             data: {
@@ -203,6 +216,13 @@ export class TripsService {
             throw new ForbiddenException('Bu yolculuğu düzenleme yetkiniz yok');
         }
 
+        this.validateTripCoordinates(
+            dto.departureLat,
+            dto.departureLng,
+            dto.arrivalLat,
+            dto.arrivalLng,
+        );
+
         const updated = await this.prisma.trip.update({
             where: { id },
             data: {
@@ -211,6 +231,10 @@ export class TripsService {
                 ...(dto.status && { status: dto.status as any }),
                 ...(dto.departureAddress && { departureAddress: dto.departureAddress }),
                 ...(dto.arrivalAddress && { arrivalAddress: dto.arrivalAddress }),
+                ...(dto.departureLat !== undefined && { departureLat: dto.departureLat }),
+                ...(dto.departureLng !== undefined && { departureLng: dto.departureLng }),
+                ...(dto.arrivalLat !== undefined && { arrivalLat: dto.arrivalLat }),
+                ...(dto.arrivalLng !== undefined && { arrivalLng: dto.arrivalLng }),
             },
             include: {
                 driver: true,
@@ -451,6 +475,40 @@ export class TripsService {
             return [parsed.deviceToken];
         }
         return [];
+    }
+
+    private validateTripCoordinates(
+        departureLat?: number,
+        departureLng?: number,
+        arrivalLat?: number,
+        arrivalLng?: number,
+    ): void {
+        this.validateCoordinatePair('kalkis', departureLat, departureLng);
+        this.validateCoordinatePair('varis', arrivalLat, arrivalLng);
+    }
+
+    private validateCoordinatePair(label: string, lat?: number, lng?: number): void {
+        const hasLat = lat !== undefined && lat !== null;
+        const hasLng = lng !== undefined && lng !== null;
+
+        if (!hasLat && !hasLng) {
+            return;
+        }
+
+        if (!hasLat || !hasLng) {
+            throw new BadRequestException(`${label} koordinatlari eksik`);
+        }
+
+        if (!this.isWithinTurkey(lat!, lng!)) {
+            throw new BadRequestException(`${label} koordinatlari Turkiye disinda`);
+        }
+    }
+
+    private isWithinTurkey(lat: number, lng: number): boolean {
+        return lat >= this.turkeyBounds.minLat
+            && lat <= this.turkeyBounds.maxLat
+            && lng >= this.turkeyBounds.minLng
+            && lng <= this.turkeyBounds.maxLng;
     }
 }
 

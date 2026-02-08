@@ -138,4 +138,97 @@ describe('Trips + Bookings E2E', () => {
 
         expect(tripBookings.body.bookings.length).toBeGreaterThan(0);
     });
+
+    it('checks in with pnr code for matching trip', async () => {
+        const driverPhone = uniquePhone();
+        const driverEmail = uniqueEmail('driver');
+        const passengerPhone = uniquePhone();
+        const passengerEmail = uniqueEmail('passenger');
+
+        const driverReg = await request(app.getHttpServer())
+            .post('/auth/register')
+            .send({
+                fullName: 'Driver User',
+                phone: driverPhone,
+                email: driverEmail,
+                password: 'SecurePass123!',
+            })
+            .expect(201);
+
+        const passengerReg = await request(app.getHttpServer())
+            .post('/auth/register')
+            .send({
+                fullName: 'Passenger User',
+                phone: passengerPhone,
+                email: passengerEmail,
+                password: 'SecurePass123!',
+            })
+            .expect(201);
+
+        const driverToken = driverReg.body.accessToken;
+        const passengerToken = passengerReg.body.accessToken;
+
+        const vehicleRes = await request(app.getHttpServer())
+            .post('/vehicles')
+            .set('Authorization', `Bearer ${driverToken}`)
+            .send({
+                brand: 'Toyota',
+                model: 'Corolla',
+                year: 2020,
+                color: 'White',
+                seats: 4,
+                licensePlate: `34PNR${Math.floor(Math.random() * 1000)}`,
+                hasAc: true,
+                allowsPets: false,
+                allowsSmoking: false,
+            })
+            .expect(201);
+
+        const departureTime = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const tripRes = await request(app.getHttpServer())
+            .post('/trips')
+            .set('Authorization', `Bearer ${driverToken}`)
+            .send({
+                vehicleId: vehicleRes.body.id,
+                type: 'people',
+                departureCity: 'Istanbul',
+                arrivalCity: 'Ankara',
+                departureTime: departureTime.toISOString(),
+                availableSeats: 3,
+                pricePerSeat: 150,
+            })
+            .expect(201);
+
+        const bookingRes = await request(app.getHttpServer())
+            .post('/bookings')
+            .set('Authorization', `Bearer ${passengerToken}`)
+            .send({
+                tripId: tripRes.body.id,
+                seats: 1,
+                itemType: 'person',
+            })
+            .expect(201);
+
+        expect(bookingRes.body.pnrCode).toBeTruthy();
+
+        await request(app.getHttpServer())
+            .post('/bookings/payment')
+            .set('Authorization', `Bearer ${passengerToken}`)
+            .send({
+                bookingId: bookingRes.body.id,
+                cardToken: 'TEST_TOKEN',
+            })
+            .expect(200);
+
+        const checkInByPnrRes = await request(app.getHttpServer())
+            .post('/bookings/check-in/pnr')
+            .set('Authorization', `Bearer ${driverToken}`)
+            .send({
+                pnrCode: bookingRes.body.pnrCode,
+                tripId: tripRes.body.id,
+            })
+            .expect(200);
+
+        expect(checkInByPnrRes.body.status).toBe('checked_in');
+    });
 });

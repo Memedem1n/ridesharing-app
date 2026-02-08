@@ -328,3 +328,48 @@ Summary: Added mandatory delivery/process rules to AGENT_CONTEXT and AGENT_HANDO
 Commands: apply_patch; git diff
 Files: docs/AGENT_CONTEXT.md,docs/AGENT_HANDOFF.md
 Notes: Added DoD, API/DB migration, breaking-change, test, commit, security, handoff freshness, CI gate, and runbook rules.
+
+## 2026-02-08 22:27
+Level: agent
+Agent: codex
+Task: Sync docs and audit task statuses
+Summary: Updated README/architecture/api index/TASKS/handoff to match code; added prioritized open items and flagged missing backend PNR validation.
+Commands: rg; select-string; apply_patch; git diff
+Files: README.md,TASKS.md,docs/architecture.md,docs/api-spec.yaml,docs/AGENT_HANDOFF.md
+Notes: Verified done items against code references and documented open items (payment, PNR backend, Android AVD, iOS release setup, E-Devlet, optional admin web UI).
+
+## 2026-02-08 22:32
+Level: agent
+Agent: codex
+Task: Reprioritize open items and validate emulator/location status
+Summary: Moved Iyzico to final phase, marked iOS App Store Connect as blocked by paid setup, verified Android SDK/emulator missing, and validated TR-only autocomplete + live location flow from code.
+Commands: flutter doctor -v; Get-Command/where emulator; select-string; apply_patch
+Files: TASKS.md,README.md,docs/AGENT_LOG.md
+Notes: Android toolchain reports missing SDK; no .android/avd found; PNR backend gap remains documented.
+
+## 2026-02-08 22:33
+Level: agent
+Agent: codex
+Task: Update handoff with environment + reprioritization
+Summary: Appended 2026-02-08 handoff notes for Iyzico final-phase decision and Android SDK/emulator absence.
+Commands: apply_patch
+Files: docs/AGENT_HANDOFF.md
+Notes: Keeps handoff conversation summary current for next agents.
+
+## 2026-02-08 22:59
+Level: agent
+Agent: codex
+Task: Implement PNR check-in + TR coordinate guard
+Summary: Implemented backend/mobile PNR check-in flow, added booking pnr persistence + migration, added TR coordinate guard for trip create/update, updated API/docs/runbook/tasks, and added backend unit tests.
+Commands: npm run db:generate; npm run type-check; npm test -- --runInBand; flutter.bat analyze
+Files: backend/prisma/schema.prisma,backend/prisma/migrations/20260208230000_add_booking_pnr_code/migration.sql,backend/src/application/dto/bookings/bookings.dto.ts,backend/src/interfaces/http/bookings/bookings.controller.ts,backend/src/application/services/bookings/bookings.service.ts,backend/src/application/dto/trips/trips.dto.ts,backend/src/application/services/trips/trips.service.ts,mobile/lib/features/bookings/presentation/qr_scanner_screen.dart,mobile/lib/features/bookings/presentation/boarding_qr_screen.dart,mobile/lib/features/bookings/domain/booking_models.dart,mobile/lib/features/bookings/presentation/my_reservations_screen.dart,mobile/lib/core/router/app_router.dart,backend/src/application/services/bookings/bookings.service.spec.ts,backend/src/application/services/trips/trips.service.spec.ts,backend/test/e2e/trips-bookings.e2e-spec.ts,docs/api/OPENAPI_SPEC.yaml,docs/runbooks.md,TASKS.md,README.md,docs/AGENT_HANDOFF.md
+Notes: Backend unit/type-check passed. E2E command required DATABASE_URL/TEST_DATABASE_URL and timed out without configured test DB. Flutter analyze returned deprecation infos only.
+
+## 2026-02-08 23:07
+Level: agent
+Agent: codex
+Task: Finalize plan implementation validation
+Summary: Fixed README PNR status text to match implemented backend endpoint and re-ran validation checks.
+Commands: rg; apply_patch; npm run type-check; npm test -- --runInBand; npm run db:generate; scripts/run-e2e.ps1
+Files: README.md,docs/AGENT_LOG.md
+Notes: type-check/tests passed; e2e still blocked by missing DATABASE_URL/TEST_DATABASE_URL; eslint config missing in backend.

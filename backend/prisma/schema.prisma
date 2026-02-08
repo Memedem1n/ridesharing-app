@@ -120,6 +120,7 @@ model Booking {
   itemType             String    @default("person") @map("item_type")
   itemDetails          String?   @map("item_details")
   qrCode               String    @unique @map("qr_code")
+  pnrCode              String?   @unique @map("pnr_code")
   checkedInAt          DateTime? @map("checked_in_at")
   paymentStatus        String    @default("pending") @map("payment_status")
   paymentId            String?   @map("payment_id")

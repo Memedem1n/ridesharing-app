@@ -52,6 +52,7 @@ export class BookingsService {
             const priceTotal = Number(trip.pricePerSeat) * dto.seats;
             const commissionAmount = this.iyzicoService.calculateCommission(priceTotal);
             const qrCode = this.generateQRCode();
+            const pnrCode = await this.generateUniquePnrCode(tx);
             const expiresAt = new Date(Date.now() + this.holdMinutes * 60 * 1000);
             const remainingSeats = trip.availableSeats - dto.seats;
 
@@ -83,6 +84,7 @@ export class BookingsService {
                     itemType: (dto.itemType as any) || 'person',
                     itemDetails: dto.itemDetails ? JSON.stringify(dto.itemDetails) : null,
                     qrCode,
+                    pnrCode,
                     paymentStatus: 'pending',
                     expiresAt,
                 },
@@ -203,6 +205,51 @@ export class BookingsService {
 
         if (booking.status !== 'confirmed') {
             throw new BadRequestException('Bu rezervasyon onaylanmamış veya zaten check-in yapılmış');
+        }
+
+        const updated = await this.prisma.booking.update({
+            where: { id: booking.id },
+            data: {
+                status: 'checked_in',
+                checkedInAt: new Date(),
+            },
+            include: {
+                trip: true,
+                passenger: true,
+            },
+        });
+
+        return this.mapToResponse(updated);
+    }
+
+    async checkInByPnr(driverId: string, pnrCode: string, tripId: string): Promise<BookingResponseDto> {
+        const normalizedPnr = this.normalizePnrCode(pnrCode);
+        if (normalizedPnr.length !== 6) {
+            throw new BadRequestException('Gecersiz PNR kod');
+        }
+
+        const booking = await this.prisma.booking.findUnique({
+            where: { pnrCode: normalizedPnr },
+            include: {
+                trip: true,
+                passenger: true,
+            },
+        });
+
+        if (!booking) {
+            throw new NotFoundException('Gecersiz PNR kod');
+        }
+
+        if (booking.tripId !== tripId) {
+            throw new BadRequestException('PNR bu yolculuga ait degil');
+        }
+
+        if (booking.trip.driverId !== driverId) {
+            throw new ForbiddenException('Bu yolculuk size ait degil');
+        }
+
+        if (booking.status !== 'confirmed') {
+            throw new BadRequestException('Bu rezervasyon onaylanmamis veya zaten check-in yapilmis');
         }
 
         const updated = await this.prisma.booking.update({
@@ -358,6 +405,33 @@ export class BookingsService {
         return code;
     }
 
+    private generatePnrCode(): string {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let code = '';
+        for (let i = 0; i < 6; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return code;
+    }
+
+    private normalizePnrCode(pnrCode: string): string {
+        return (pnrCode || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    }
+
+    private async generateUniquePnrCode(tx: any): Promise<string> {
+        for (let i = 0; i < 10; i++) {
+            const candidate = this.generatePnrCode();
+            const existing = await tx.booking.findUnique({
+                where: { pnrCode: candidate },
+                select: { id: true },
+            });
+            if (!existing) {
+                return candidate;
+            }
+        }
+        throw new BadRequestException('PNR kod olusturulamadi');
+    }
+
     private async expireBooking(booking: any): Promise<void> {
         await this.prisma.$transaction(async (tx) => {
             await tx.booking.update({
@@ -407,6 +481,7 @@ export class BookingsService {
             itemType: booking.itemType,
             itemDetails: booking.itemDetails,
             qrCode: booking.qrCode,
+            pnrCode: booking.pnrCode || undefined,
             checkedInAt: booking.checkedInAt,
             expiresAt: booking.expiresAt,
             paymentStatus: booking.paymentStatus,

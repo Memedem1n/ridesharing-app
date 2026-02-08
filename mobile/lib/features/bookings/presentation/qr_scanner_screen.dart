@@ -42,33 +42,47 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> with SingleTi
     });
 
     try {
-      if (isPNR) {
-        setState(() {
-          _verificationSuccess = false;
-          _verificationResult = 'PNR doğrulama desteklenmiyor';
-        });
-        return;
-      }
-
       final token = await ref.read(authTokenProvider.future);
       final dio = ref.read(dioProvider);
-      
-      await dio.post(
-        '/bookings/check-in',
-        data: {
-          'qrCode': code,
-        },
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
+
+      if (isPNR) {
+        await dio.post(
+          '/bookings/check-in/pnr',
+          data: {
+            'pnrCode': code,
+            'tripId': widget.tripId,
+          },
+          options: Options(headers: {'Authorization': 'Bearer $token'}),
+        );
+      } else {
+        await dio.post(
+          '/bookings/check-in',
+          data: {
+            'qrCode': code,
+          },
+          options: Options(headers: {'Authorization': 'Bearer $token'}),
+        );
+      }
 
       setState(() {
         _verificationSuccess = true;
-        _verificationResult = 'Yolcu binişi onaylandı!';
+        _verificationResult = 'Yolcu binisi onaylandi!';
       });
-    } catch (e) {
+    } on DioException catch (e) {
+      final responseData = e.response?.data;
+      final message = responseData is Map<String, dynamic>
+          ? responseData['message']?.toString()
+          : null;
       setState(() {
         _verificationSuccess = false;
-        _verificationResult = 'Doğrulama başarısız';
+        _verificationResult = (message == null || message.isEmpty)
+            ? 'Dogrulama basarisiz'
+            : message;
+      });
+    } catch (_) {
+      setState(() {
+        _verificationSuccess = false;
+        _verificationResult = 'Dogrulama basarisiz';
       });
     } finally {
       setState(() => _isVerifying = false);
@@ -99,7 +113,7 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> with SingleTi
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Biniş Doğrulama'),
+        title: const Text('Binis Dogrulama'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -168,7 +182,7 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> with SingleTi
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
-                      'QR kod taratın veya yolcunun PNR kodunu girin',
+                      'QR kod taratin veya yolcunun PNR kodunu girin',
                       style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                     ),
                   ),
@@ -181,7 +195,7 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> with SingleTi
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
-                      'Onay sonrası yolcu binişi kaydedilir',
+                      'Onay sonrasi yolcu binisi kaydedilir',
                       style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                     ),
                   ),
@@ -258,7 +272,7 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> with SingleTi
           SizedBox(
             width: double.infinity,
             child: GradientButton(
-              text: _isVerifying ? 'Doğrulanıyor...' : 'QR Doğrula',
+              text: _isVerifying ? 'Dogrulaniyor...' : 'QR Dogrula',
               icon: Icons.qr_code,
               onPressed: _isVerifying ? () {} : () {
                 if (_qrCodeController.text.isNotEmpty) {
@@ -345,7 +359,7 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> with SingleTi
           SizedBox(
             width: double.infinity,
             child: GradientButton(
-              text: _isVerifying ? 'Doğrulanıyor...' : 'PNR Doğrula',
+              text: _isVerifying ? 'Dogrulaniyor...' : 'PNR Dogrula',
               icon: Icons.verified_user,
               onPressed: _isVerifying ? () {} : () {
                 if (_pnrController.text.length == 6) {
@@ -353,7 +367,7 @@ class _QRScannerScreenState extends ConsumerState<QRScannerScreen> with SingleTi
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('PNR kodu 6 karakter olmalı'),
+                      content: Text('PNR kodu 6 karakter olmali'),
                       backgroundColor: AppColors.warning,
                     ),
                   );
@@ -473,3 +487,4 @@ class _CornerPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
+

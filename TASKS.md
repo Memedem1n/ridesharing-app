@@ -1,7 +1,14 @@
 ﻿# Task Status (Ridesharing SuperApp)
 
-Source: ridesharing-app/README.md (declares last updated 2026-02-05)
-Gap analysis: code/config audit on 2026-02-06
+Source: repo code/docs audit
+Last verification pass: 2026-02-08
+
+## Open Items (Priority, 2026-02-08)
+- [ ] Android emulator E2E coverage: Android SDK emulator/AVD setup is missing in current environment
+- [ ] iOS release setup: real bundle identifier + App Store Connect key + signing profiles (blocked until paid Apple/App Store Connect setup is available)
+- [ ] E-Devlet integration: auto document checks (legal/process dependency)
+- [ ] Admin web panel UI (optional): admin moderation API exists, but a dedicated web panel is not in repo
+- [ ] Payment system (Iyzico): live payment/refund/tokenization + wallet reconciliation (defer to final phase)
 
 ## Completed
 - [x] Project setup: Flutter + NestJS base stack
@@ -9,7 +16,7 @@ Gap analysis: code/config audit on 2026-02-06
 - [x] Maps integration: OpenStreetMap, markers, route drawing
 - [x] Trip management: create 4 trip types (people/pet/cargo/food), search, list
 - [x] Booking flow: request creation, driver approve/reject
-- [x] Boarding verification: QR generation + QR scan + PNR fallback
+- [x] Boarding verification: QR generation + QR scan + PNR check-in endpoint
 - [x] Messaging: real-time chat infra + UI
 - [x] Verification module:
   - [x] Identity upload + API
@@ -23,7 +30,18 @@ Gap analysis: code/config audit on 2026-02-06
 - [x] Profile menu routing to detail/vehicles/placeholders
 
 ## Required Fixes / Tech Debt
-- (none as of 2026-02-07)
+- [ ] `README.md` historical roadmap sections can drift; treat this file as source of truth.
+
+## Verification Audit (2026-02-08)
+- [x] Admin verification and bus-price controls exist under `/v1/admin` with `x-admin-key`.
+- [x] Live trip location exists on socket namespace `/location` (`join_trip`, `driver_location_update`) and mobile consumer flow exists.
+- [x] Push/SMS notification infrastructure exists (FCM + Netgsm), with mock/real mode by `USE_MOCK_INTEGRATIONS`.
+- [x] Trip cancellation refund logic exists in booking/trip services with Iyzico integration hooks.
+- [x] Vehicle picker exists in create-trip flow and blocks trip creation when vehicle is missing.
+- [x] Multi-language exists for TR/EN/AR with locale persistence.
+- [x] E2E automation script exists at `scripts/run-e2e.ps1` with DB safety checks.
+- [x] PNR check-in backend endpoint exists (`POST /bookings/check-in/pnr`) and mobile scanner calls it.
+- [x] Backend TR coordinate guard exists for trip create/update (coordinates must be inside Turkiye bounds).
 
 ## QA Findings (2026-02-07)
 - [x] Create trip fails: backend rejected `description` (DTO whitelist). Fixed by adding `description` to CreateTripDto and mapping.
@@ -49,8 +67,9 @@ Gap analysis: code/config audit on 2026-02-06
 - [ ] E-Devlet integration: auto document checks (on hold for legal process). Skills: backend-architect, api-design-principles, api-security-best-practices
 
 ## Planned
-- [ ] Payment system (Iyzico): payment/refund/tokenization + wallet. Skills: backend-architect, api-design-principles, api-security-best-practices, prisma-expert
-- [x] Admin panel for document approvals. Skills: backend-architect, api-design-principles, ui-ux-pro-max
+- [ ] Payment system (Iyzico): payment/refund/tokenization + wallet (final phase). Skills: backend-architect, api-design-principles, api-security-best-practices, prisma-expert
+- [x] Admin moderation API for document approvals (`/v1/admin`). Skills: backend-architect, api-design-principles
+- [ ] Admin web panel for document approvals (UI) is not implemented in repo. Skills: ui-ux-pro-max
 - [x] Live location tracking during trips. Skills: flutter-expert, mobile-design, nestjs-expert, api-design-principles
 - [x] Push notifications (Firebase) end-to-end. Skills: flutter-expert, nestjs-expert, mobile-security-coder
 - [x] Booking confirmation SMS/push. Skills: nestjs-expert, api-design-principles, mobile-security-coder

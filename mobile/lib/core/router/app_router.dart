@@ -82,6 +82,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         tripInfo: state.uri.queryParameters['trip'] ?? '',
         passengerName: state.uri.queryParameters['name'] ?? '',
         seats: int.tryParse(state.uri.queryParameters['seats'] ?? '1') ?? 1,
+        qrCode: state.uri.queryParameters['qr'],
+        pnrCode: state.uri.queryParameters['pnr'],
       )),
       GoRoute(path: '/qr-scanner/:tripId', builder: (context, state) => QRScannerScreen(
         tripId: state.pathParameters['tripId']!,

@@ -263,6 +263,8 @@ components:
           enum: [person, pet, cargo, food]
         qrCode:
           type: string
+        pnrCode:
+          type: string
         paymentStatus:
           type: string
           enum: [pending, paid, refunded, partially_refunded]
@@ -703,19 +705,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/Booking'
 
-  /bookings/{id}/checkin:
+  /bookings/check-in:
     post:
       tags: [Bookings]
       summary: Check-in with QR code
       security:
         - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
       requestBody:
         required: true
         content:
@@ -726,6 +721,31 @@ paths:
               properties:
                 qrCode:
                   type: string
+      responses:
+        '200':
+          description: Check-in successful
+
+  /bookings/check-in/pnr:
+    post:
+      tags: [Bookings]
+      summary: Check-in with PNR code
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pnrCode, tripId]
+              properties:
+                pnrCode:
+                  type: string
+                  minLength: 6
+                  maxLength: 6
+                tripId:
+                  type: string
+                  format: uuid
       responses:
         '200':
           description: Check-in successful

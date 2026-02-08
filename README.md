@@ -1,7 +1,7 @@
 # 🚗 Paylaşımlı Yolculuk Platformu (Ridesharing SuperApp)
 
 > **Proje Özeti ve Teknik Dokümantasyon**
-> *Son Güncelleme: 05 Şubat 2026*
+> *Son Güncelleme: 08 Şubat 2026*
 
 Bu doküman, projenin başlangıcından itibaren alınan teknik kararları, uygulanan mimariyi, geliştirilen özellikleri ve proje yol haritasını en ince detayına kadar açıklamaktadır.
 
@@ -37,8 +37,8 @@ Proje, modern, ölçeklenebilir ve performans odaklı teknolojiler üzerine inş
 *   **Framework:** **NestJS 10** (Node.js/TypeScript) - Modüler, test edilebilir ve kurumsal mimari.
 *   **ORM:** **Prisma** - Tip güvenli veritabanı erişimi ve şema yönetimi.
 *   **Veritabanı:** 
-    *   *Dev:* **SQLite** (Hızlı prototipleme için)
-    *   *Prod:* **PostgreSQL** (Planlanan)
+    *   *Dev:* **PostgreSQL** (Docker Compose ile)
+    *   *Prod:* **PostgreSQL**
 *   **Gerçek Zamanlı İletişim:** **Socket.io** - Anlık mesajlaşma ve canlı takip için WebSocket.
 *   **Güvenlik:** 
     *   **JWT (JSON Web Token):** Kimlik doğrulama.
@@ -104,7 +104,7 @@ Proje adım adım geliştirilmiş ve aşağıdaki özellikler başarıyla entegr
 *   **QR Kod ile Biniş:** 
     *   Her rezervasyon için özel bir **QR Kod** üretilir.
     *   Sürücü, yolcunun telefonundaki QR kodu tarayarak binişi doğrular.
-*   **PNR Kodu:** Kamera çalışmazsa, 6 haneli PNR kodu ile manuel doğrulama imkanı.
+*   **PNR Kodu:** Kamera çalışmazsa, 6 karakterli PNR kodu ile backend üzerinden manuel doğrulama yapılır.
 
 ### ✅ 4. Güvenlik ve Doğrulama (Verification Center)
 Platform güvenliğini sağlamak için çok katmanlı bir doğrulama sistemi kurulmuştur:
@@ -166,7 +166,7 @@ erDiagram
 
 Detaylı görev listesi için: TASKS.md.
 
-Aşağıdaki liste, projenin başlangıç hedeflerine göre güncel durumunu göstermektedir.
+Aşağıdaki özet, 08 Şubat 2026 kod denetimine göre güncel durumdur.
 
 ### 🟢 Tamamlananlar (Done)
 - [x] **Proje Kurulumu:** Flutter & NestJS altyapısının hazırlanması.
@@ -174,25 +174,27 @@ Aşağıdaki liste, projenin başlangıç hedeflerine göre güncel durumunu gö
 - [x] **Harita Entegrasyonu:** OpenStreetMap, Markerlar, Rota çizimi.
 - [x] **Yolculuk İşlemleri:** İlan oluşturma (4 tip), Arama, Listeleme.
 - [x] **Rezervasyon Akışı:** Talep oluşturma, Sürücü onayı/reddi.
-- [x] **Biniş Doğrulama:** QR Kod üretme, QR Kod tarama, PNR sistemi.
+- [x] **Biniş Doğrulama:** QR Kod üretme + QR check-in + PNR check-in endpointi.
 - [x] **Mesajlaşma:** Gerçek zamanlı sohbet altyapısı ve arayüzü.
-- [x] **Güvenlik Modülü:**
-    - [x] Kimlik Yükleme & API
-    - [x] Ehliyet Yükleme & API
-    - [x] Araç Ruhsat Yükleme & API
-    - [x] Adli Sicil Kaydı Yükleme & API
-- [x] **Değerlendirme Sistemi:** Puanlama ve Yorum yapma ekranları.
+- [x] **Güvenlik Modülü:** Kimlik/Ehliyet/Ruhsat/Adli Sicil yükleme API ve ekranları.
+- [x] **Temel OCR:** Belge içeriği için ilk doğrulama kuralları.
+- [x] **Admin Moderasyon API:** `/v1/admin` altında belge onay/red endpointleri (`x-admin-key`).
+- [x] **Canlı Konum Takibi:** `/location` socket namespace + mobil paylaşım akışı.
+- [x] **Bildirim Altyapısı:** FCM + Netgsm servisleri (mock varsayılan, gerçek mod env ile).
+- [x] **Çoklu Dil:** TR/EN/AR metin setleri ve locale seçimi.
+- [x] **E2E Otomasyon Scripti:** `scripts/run-e2e.ps1`.
+- [x] **Değerlendirme Sistemi:** Puanlama ve yorum ekranları.
+- [x] **TR Koordinat Guard (Backend):** Trip create/update koordinatları Türkiye sınırları içinde doğrulanır.
 
 ### 🟡 Devam Eden / Beklemede (In Progress / On Hold)
 - [ ] **E-Devlet Entegrasyonu:** Manuel belge yükleme yerine otomatik API sorgusu (Hukuki süreçler gerektirdiği için 2. faza bırakıldı).
-- [ ] **Otomatik Doğrulama (OCR):** Yüklenen belgelerin yapay zeka ile otomatik okunması.
+- [ ] **Iyzico Canlı Ödeme:** Uçtan uca gerçek ödeme akışı (tokenization/checkout) tamamlanmadı.
 
 ### 🔴 Planlananlar (To Do - Gelecek Fazlar)
-- [ ] **Ödeme Sistemi (iyzico):** Kredi kartı ile güvenli ödeme ve cüzdan sistemi.
-- [ ] **Admin Paneli:** Yüklenen belgelerin yöneticiler tarafından onaylanması için web paneli.
-- [ ] **Canlı Konum Takibi:** Yolculuk sırasında anlık konum paylaşımı.
-- [ ] **Bildirimler:** Push Notification (Firebase) entegrasyonu.
-- [ ] **Çoklu Dil Desteği:** İngilizce/Arapça dilleri.
+- [ ] **Android E2E Ortamı:** AVD kurulumlu CI/dev test hattı.
+- [ ] **iOS Release Hazırlığı:** Gerçek bundle id, App Store Connect key ve signing profilleri.
+- [ ] **Ops Sertleştirme:** Prod gözlemlenebilirlik ve runbook genişletme.
+- [ ] **Ödeme Sistemi (Iyzico):** Canlı ödeme/iadeler ve cüzdan mutabakatı (son faz).
 
 ---
 
@@ -201,14 +203,15 @@ Aşağıdaki liste, projenin başlangıç hedeflerine göre güncel durumunu gö
 Proje şu anda **MVP (Minimum Viable Product)** aşamasını başarıyla tamamlamıştır. Bir kullanıcının sisteme kaydolup, aracını doğrulayıp, ilan açması ve yolcuların bu ilana rezervasyon yapıp, QR kod ile güvenli bir şekilde yolculuğu tamamlaması mümkündür.
 
 **Sıradaki Tavsiye Edilen Çalışma:**
-Manuel olarak yüklenen bu belgelerin (Ehliyet, Ruhsat, Kimlik) bir yönetici tarafından onaylanabilmesi için basit bir **Admin Paneli** geliştirilmesi veya **Otomatik OCR** sisteminin entegre edilmesidir.
+Admin operasyon panelini (low-code) `/v1/admin` API üzerine bağlayıp Android E2E ortamını stabilize etmek.
 
 
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
-| [API Spec](docs/api-spec.yaml) | OpenAPI 3.1 specification |
+| [API Spec](docs/api-spec.yaml) | Kısa API girişi ve kanonik spec'e yönlendirme |
+| [Full API Spec](docs/api/OPENAPI_SPEC.yaml) | Detaylı OpenAPI 3.1 şeması |
 | [Architecture](docs/architecture.md) | System architecture diagrams |
 | [ERD](docs/erd.md) | Database entity relationships |
 | [ADRs](docs/decisions/) | Architecture Decision Records |
@@ -217,10 +220,12 @@ Manuel olarak yüklenen bu belgelerin (Ehliyet, Ruhsat, Kimlik) bir yönetici ta
 | [Task Status](TASKS.md) | Project task status |
 | [Task Fork Pack](docs/TASK_FORKS.md) | Fork prompts and skill mapping |
 
-## Notlar (2026-02-07)
+## Notlar (2026-02-08)
 - Turkiye icin adres otomatik tamamlama (Nominatim).
 - Yolculuk olusturma: adres + koordinat kaydi.
 - Yolculuk detay ekraninda adres yoksa fallback gosterilir.
+- PNR dogrulama endpointi aktif: `POST /bookings/check-in/pnr`.
+- Backend TR koordinat guard aktif (trip create/update).
 
 ---
 *Developed by Antigravity AI Team*

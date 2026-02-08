@@ -72,7 +72,20 @@ C:\Users\barut\workspace\ridesharing-app
   - Vehicle: `93b8a2cf-e36f-45a4-a79f-52c0064556a4` (Toyota Corolla, 34QA218)
   - Trip: `e2d0bb52-53ce-4954-b45a-441c81f03539` (Istanbul → Ankara, 2026-02-09T06:00:00Z, ₺250, 3 seats)
 - Docs updated: `docs/AGENT_CONTEXT.md`, `docs/AGENT_HANDOFF.md`, `docs/AGENT_LOG.md`, `docs/AGENT_SKILLS.md`, `docs/QA_RESULTS.md`, `docs/QA_TREE.md`, `docs/README.md`, root `README.md`.
-- All changes were committed and pushed to `master` (commit: `0ebdabd`).
+- Session commit at that time: `0ebdabd`.
+
+## Conversation summary (2026-02-08)
+- Synced project docs with current code status: `README.md`, `docs/architecture.md`, `docs/api-spec.yaml`, and `TASKS.md`.
+- Added a fresh task audit section in `TASKS.md` and listed prioritized open items.
+- Verified that core "done" items are implemented in code (admin APIs, live location namespace, notification infrastructure, vehicle picker, i18n, e2e script).
+- Reprioritized backlog: Iyzico payment kept as final phase; iOS release setup marked blocked until paid Apple/App Store Connect setup is available.
+- Verified local environment with `flutter doctor -v`: Android SDK/emulator not installed and no local AVD present.
+- Implemented PNR fallback end-to-end: backend `POST /bookings/check-in/pnr`, booking `pnrCode` persistence, mobile QR scanner PNR flow, and boarding ticket now uses backend-provided PNR/QR.
+- Added backend TR coordinate guard for trip create/update (coordinates must be inside Turkiye bounds when provided).
+- Added tests for new behavior (`backend/src/application/services/bookings/bookings.service.spec.ts`, `backend/src/application/services/trips/trips.service.spec.ts`) and added PNR e2e scenario in `backend/test/e2e/trips-bookings.e2e-spec.ts`.
+- Updated runbook with admin verification operations guidance (`docs/runbooks.md`).
+- Validation results: `npm run type-check` and `npm test -- --runInBand` passed on backend; Flutter analyze reported only existing deprecation infos.
+- E2E tests were not executable in this session because `DATABASE_URL/TEST_DATABASE_URL` was not configured for test DB.
 
 ## Selected skill set (use for future work)
 Repo skills:

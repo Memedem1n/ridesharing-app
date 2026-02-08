@@ -6,6 +6,7 @@ import {
     CreateBookingDto,
     ProcessPaymentDto,
     CheckInDto,
+    CheckInByPnrDto,
     BookingResponseDto,
     BookingListResponseDto
 } from '@application/dto/bookings/bookings.dto';
@@ -36,6 +37,13 @@ export class BookingsController {
     @ApiResponse({ status: 200, description: 'Checked in', type: BookingResponseDto })
     async checkIn(@Request() req, @Body() dto: CheckInDto): Promise<BookingResponseDto> {
         return this.bookingsService.checkIn(req.user.sub, dto.qrCode);
+    }
+
+    @Post('check-in/pnr')
+    @ApiOperation({ summary: 'Check in passenger via PNR code' })
+    @ApiResponse({ status: 200, description: 'Checked in', type: BookingResponseDto })
+    async checkInByPnr(@Request() req, @Body() dto: CheckInByPnrDto): Promise<BookingResponseDto> {
+        return this.bookingsService.checkInByPnr(req.user.sub, dto.pnrCode, dto.tripId);
     }
 
     @Get('my')

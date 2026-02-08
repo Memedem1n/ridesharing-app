@@ -11,6 +11,7 @@ class Booking {
   final double serviceFee;
   final BookingStatus status;
   final String? qrCode;
+  final String? pnrCode;
   final DateTime? checkedInAt;
   final DateTime createdAt;
   final Trip? trip;
@@ -26,6 +27,7 @@ class Booking {
     this.serviceFee = 0,
     this.status = BookingStatus.pending,
     this.qrCode,
+    this.pnrCode,
     this.checkedInAt,
     required this.createdAt,
     this.trip,
@@ -44,6 +46,7 @@ class Booking {
       serviceFee: (json['commissionAmount'] ?? json['serviceFee'] ?? 0).toDouble(),
       status: _parseStatus(statusRaw),
       qrCode: json['qrCode'],
+      pnrCode: json['pnrCode'],
       checkedInAt: json['checkedInAt'] != null ? DateTime.parse(json['checkedInAt']) : null,
       createdAt: DateTime.parse(json['createdAt']),
       trip: json['trip'] != null ? Trip.fromJson(json['trip']) : null,

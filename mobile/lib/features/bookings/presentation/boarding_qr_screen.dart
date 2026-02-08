@@ -9,6 +9,8 @@ class BoardingQRScreen extends ConsumerWidget {
   final String tripInfo;
   final String passengerName;
   final int seats;
+  final String? qrCode;
+  final String? pnrCode;
 
   const BoardingQRScreen({
     super.key,
@@ -16,15 +18,20 @@ class BoardingQRScreen extends ConsumerWidget {
     required this.tripInfo,
     required this.passengerName,
     required this.seats,
+    this.qrCode,
+    this.pnrCode,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final qrData = 'RIDESHARE:$bookingId:${DateTime.now().millisecondsSinceEpoch}';
+    final resolvedPnr = _resolvePnrCode();
+    final qrData = (qrCode != null && qrCode!.isNotEmpty)
+        ? qrCode!
+        : 'RIDESHARE:$bookingId:${DateTime.now().millisecondsSinceEpoch}';
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Biniş QR Kodu'),
+        title: const Text('Binis QR Kodu'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -50,7 +57,7 @@ class BoardingQRScreen extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Text(
-                            'BİNİŞ BİLETİ',
+                            'BINIS BILETI',
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -118,7 +125,7 @@ class BoardingQRScreen extends ConsumerWidget {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    _generatePNR(bookingId),
+                                    resolvedPnr,
                                     style: const TextStyle(
                                       color: AppColors.primary,
                                       fontWeight: FontWeight.bold,
@@ -133,7 +140,7 @@ class BoardingQRScreen extends ConsumerWidget {
                                       // Copy to clipboard
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
-                                          content: Text('PNR kodu kopyalandı: ${_generatePNR(bookingId)}'),
+                                          content: Text('PNR kodu kopyalandi: $resolvedPnr'),
                                           backgroundColor: AppColors.success,
                                         ),
                                       );
@@ -171,7 +178,7 @@ class BoardingQRScreen extends ConsumerWidget {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('GÜZERGAH', style: TextStyle(color: AppColors.textTertiary, fontSize: 10, letterSpacing: 1)),
+                                const Text('GUZERGAH', style: TextStyle(color: AppColors.textTertiary, fontSize: 10, letterSpacing: 1)),
                                 const SizedBox(height: 4),
                                 Text(tripInfo, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
                               ],
@@ -181,7 +188,7 @@ class BoardingQRScreen extends ConsumerWidget {
                               children: [
                                 const Text('KOLTUK', style: TextStyle(color: AppColors.textTertiary, fontSize: 10, letterSpacing: 1)),
                                 const SizedBox(height: 4),
-                                Text('$seats kişi', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                                Text('$seats kisi', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ],
@@ -232,7 +239,7 @@ class BoardingQRScreen extends ConsumerWidget {
                         const SizedBox(width: 16),
                         const Expanded(
                           child: Text(
-                            'QR kodu taratın veya PNR kodunu\nsürücüye söyleyin.',
+                            'QR kodu taratin veya PNR kodunu\nsurucuye soyleyin.',
                             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                           ),
                         ),
@@ -250,13 +257,13 @@ class BoardingQRScreen extends ConsumerWidget {
                         // Increase brightness for easier scanning
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Ekran parlaklığı artırıldı'),
+                            content: Text('Ekran parlakligi artirildi'),
                             backgroundColor: AppColors.primary,
                           ),
                         );
                       },
                       icon: const Icon(Icons.brightness_high),
-                      label: const Text('Parlaklığı Artır'),
+                      label: const Text('Parlakligi Artir'),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: const BorderSide(color: AppColors.primary),
@@ -281,4 +288,13 @@ class BoardingQRScreen extends ConsumerWidget {
     }
     return chars.padRight(6, '0');
   }
+
+  String _resolvePnrCode() {
+    final raw = (pnrCode ?? '').toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    if (raw.length == 6) {
+      return raw;
+    }
+    return _generatePNR(bookingId);
+  }
 }
+
