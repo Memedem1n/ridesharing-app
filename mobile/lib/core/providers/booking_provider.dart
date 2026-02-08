@@ -11,7 +11,9 @@ final upcomingBookingsProvider = FutureProvider<List<Booking>>((ref) async {
   final bookings = await ref.read(bookingRepositoryProvider).getMyBookings();
   return bookings.where((b) => 
     b.status == BookingStatus.pending || 
-    b.status == BookingStatus.confirmed
+    b.status == BookingStatus.awaitingPayment ||
+    b.status == BookingStatus.confirmed ||
+    b.status == BookingStatus.checkedIn
   ).toList();
 });
 
@@ -19,6 +21,7 @@ final pastBookingsProvider = FutureProvider<List<Booking>>((ref) async {
   final bookings = await ref.read(bookingRepositoryProvider).getMyBookings();
   return bookings.where((b) => 
     b.status == BookingStatus.completed || 
+    b.status == BookingStatus.disputed ||
     b.status == BookingStatus.cancelled
   ).toList();
 });
@@ -95,6 +98,58 @@ class BookingActionsNotifier extends StateNotifier<AsyncValue<void>> {
     state = const AsyncValue.loading();
     try {
       await _repository.processPayment(bookingId);
+      state = const AsyncValue.data(null);
+      _ref.invalidate(myBookingsProvider);
+      return true;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
+  Future<bool> acceptBooking(String bookingId) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.acceptBooking(bookingId);
+      state = const AsyncValue.data(null);
+      _ref.invalidate(myBookingsProvider);
+      return true;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
+  Future<bool> rejectBooking(String bookingId, {String? reason}) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.rejectBooking(bookingId, reason: reason);
+      state = const AsyncValue.data(null);
+      _ref.invalidate(myBookingsProvider);
+      return true;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
+  Future<bool> completeBooking(String bookingId) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.completeBooking(bookingId);
+      state = const AsyncValue.data(null);
+      _ref.invalidate(myBookingsProvider);
+      return true;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
+  Future<bool> raiseDispute(String bookingId, String reason) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.raiseDispute(bookingId, reason);
       state = const AsyncValue.data(null);
       _ref.invalidate(myBookingsProvider);
       return true;

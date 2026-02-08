@@ -1,4 +1,4 @@
-import request from 'supertest';
+import * as request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { cleanupDatabase, createTestApp, uniqueEmail, uniquePhone } from './utils';
@@ -102,7 +102,7 @@ describe('Trips + Bookings E2E', () => {
             })
             .expect(201);
 
-        expect(bookingRes.body.status).toBe('pending');
+        expect(bookingRes.body.status).toBe('awaiting_payment');
         expect(bookingRes.body.qrCode).toBeTruthy();
 
         const paymentRes = await request(app.getHttpServer())
@@ -232,3 +232,4 @@ describe('Trips + Bookings E2E', () => {
         expect(checkInByPnrRes.body.status).toBe('checked_in');
     });
 });
+

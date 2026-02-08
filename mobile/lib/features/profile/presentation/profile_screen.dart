@@ -34,7 +34,15 @@ class ProfileScreen extends ConsumerWidget {
                 children: [
                   Stack(
                     children: [
-                      const CircleAvatar(radius: 50, child: Icon(Icons.person, size: 50)),
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundImage: user?.profilePhotoUrl != null && user!.profilePhotoUrl!.isNotEmpty
+                            ? NetworkImage(user.profilePhotoUrl!)
+                            : null,
+                        child: user?.profilePhotoUrl == null || user!.profilePhotoUrl!.isEmpty
+                            ? const Icon(Icons.person, size: 50)
+                            : null,
+                      ),
                       Positioned(
                         bottom: 0, right: 0,
                         child: CircleAvatar(
@@ -42,11 +50,7 @@ class ProfileScreen extends ConsumerWidget {
                           backgroundColor: AppColors.primary,
                           child: IconButton(
                             icon: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Profil fotoğrafı yakında eklenecek.')),
-                              );
-                            },
+                            onPressed: () => context.push('/profile-details'),
                           ),
                         ),
                       ),

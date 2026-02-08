@@ -69,6 +69,22 @@ export class RedisService implements OnModuleDestroy {
         }
     }
 
+    async delByPrefix(prefix: string): Promise<void> {
+        if (!this.client) return;
+        try {
+            let cursor = '0';
+            do {
+                const [nextCursor, keys] = await this.client.scan(cursor, 'MATCH', `${prefix}*`, 'COUNT', 100);
+                if (keys.length > 0) {
+                    await this.client.del(...keys);
+                }
+                cursor = nextCursor;
+            } while (cursor !== '0');
+        } catch {
+            // Ignore cache errors
+        }
+    }
+
     async getJson<T>(key: string): Promise<T | null> {
         const raw = await this.get(key);
         if (!raw) return null;

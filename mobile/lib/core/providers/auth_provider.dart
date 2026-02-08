@@ -84,7 +84,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 
-  Future<bool> updateProfile({String? fullName, String? bio}) async {
+  Future<bool> updateProfile({String? fullName, String? bio, String? profilePhotoUrl}) async {
     try {
       final data = <String, dynamic>{};
       if (fullName != null && fullName.trim().isNotEmpty) {
@@ -92,6 +92,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
       }
       if (bio != null) {
         data['bio'] = bio.trim().isEmpty ? null : bio.trim();
+      }
+      if (profilePhotoUrl != null) {
+        data['profilePhotoUrl'] = profilePhotoUrl.trim().isEmpty ? null : profilePhotoUrl.trim();
       }
       if (data.isEmpty) return false;
       final user = await _repository.updateProfile(data);

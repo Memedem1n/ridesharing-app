@@ -3,9 +3,12 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum BookingStatus {
     PENDING = 'pending',
+    AWAITING_PAYMENT = 'awaiting_payment',
     CONFIRMED = 'confirmed',
     CHECKED_IN = 'checked_in',
     COMPLETED = 'completed',
+    DISPUTED = 'disputed',
+    REJECTED = 'rejected',
     EXPIRED = 'expired',
     CANCELLED_BY_PASSENGER = 'cancelled_by_passenger',
     CANCELLED_BY_DRIVER = 'cancelled_by_driver',
@@ -112,6 +115,22 @@ export class CheckInByPnrDto {
     tripId: string;
 }
 
+export class RejectBookingDto {
+    @ApiPropertyOptional({ description: 'Optional reject reason for moderation/audit' })
+    @IsOptional()
+    @IsString()
+    reason?: string;
+}
+
+export class RaiseDisputeDto {
+    @ApiProperty({ description: 'Dispute reason' })
+    @IsNotEmpty()
+    @IsString()
+    @MinLength(5)
+    @MaxLength(500)
+    reason: string;
+}
+
 export class BookingResponseDto {
     @ApiProperty()
     id: string;
@@ -163,6 +182,39 @@ export class BookingResponseDto {
 
     @ApiPropertyOptional()
     checkedInAt?: Date;
+
+    @ApiPropertyOptional()
+    acceptedAt?: Date;
+
+    @ApiPropertyOptional()
+    paidAt?: Date;
+
+    @ApiPropertyOptional()
+    completedAt?: Date;
+
+    @ApiPropertyOptional()
+    completionSource?: string;
+
+    @ApiPropertyOptional()
+    disputeStatus?: string;
+
+    @ApiPropertyOptional()
+    disputedAt?: Date;
+
+    @ApiPropertyOptional()
+    disputeReason?: string;
+
+    @ApiPropertyOptional()
+    disputeDeadlineAt?: Date;
+
+    @ApiPropertyOptional()
+    payout10ReleasedAt?: Date;
+
+    @ApiPropertyOptional()
+    payout90ReleasedAt?: Date;
+
+    @ApiPropertyOptional()
+    payoutHoldReason?: string;
 
     @ApiPropertyOptional()
     expiresAt?: Date;

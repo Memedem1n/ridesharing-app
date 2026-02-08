@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '@infrastructure/database/prisma.service';
 import { FcmService } from '@infrastructure/notifications/fcm.service';
 import {
@@ -28,14 +28,14 @@ export class MessagesService {
         });
 
         if (!booking) {
-            throw new NotFoundException('Rezervasyon bulunamadı');
+            throw new NotFoundException('Rezervasyon bulunamadÄ±');
         }
 
         const isPassenger = booking.passengerId === senderId;
         const isDriver = booking.trip.driverId === senderId;
 
         if (!isPassenger && !isDriver) {
-            throw new ForbiddenException('Bu konuşmaya erişim yetkiniz yok');
+            throw new ForbiddenException('Bu konuÅŸmaya eriÅŸim yetkiniz yok');
         }
 
         const receiverId = isPassenger ? booking.trip.driverId : booking.passengerId;
@@ -81,7 +81,7 @@ export class MessagesService {
                     { passengerId: userId },
                     { trip: { driverId: userId } },
                 ],
-                status: { in: ['pending', 'confirmed', 'checked_in', 'completed'] },
+                status: { in: ['pending', 'awaiting_payment', 'confirmed', 'checked_in', 'completed', 'disputed'] },
             },
             include: {
                 trip: {
@@ -146,12 +146,12 @@ export class MessagesService {
         });
 
         if (!booking) {
-            throw new NotFoundException('Rezervasyon bulunamadı');
+            throw new NotFoundException('Rezervasyon bulunamadÄ±');
         }
 
         const isParticipant = booking.passengerId === userId || booking.trip.driverId === userId;
         if (!isParticipant) {
-            throw new ForbiddenException('Bu konuşmaya erişim yetkiniz yok');
+            throw new ForbiddenException('Bu konuÅŸmaya eriÅŸim yetkiniz yok');
         }
 
         const skip = (page - 1) * limit;
@@ -244,3 +244,4 @@ export class MessagesService {
         return [];
     }
 }
+

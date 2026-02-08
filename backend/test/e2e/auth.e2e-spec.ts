@@ -1,4 +1,4 @@
-import request from 'supertest';
+import * as request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { cleanupDatabase, createTestApp, uniqueEmail, uniquePhone } from './utils';
@@ -88,3 +88,4 @@ describe('Auth E2E', () => {
         expect(verifyRes.body).toHaveProperty('refreshToken');
     });
 });
+

@@ -15,12 +15,14 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _bioController = TextEditingController();
+  final _photoUrlController = TextEditingController();
   bool _saving = false;
 
   @override
   void dispose() {
     _nameController.dispose();
     _bioController.dispose();
+    _photoUrlController.dispose();
     super.dispose();
   }
 
@@ -31,6 +33,7 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
     if (user != null && _nameController.text.isEmpty) {
       _nameController.text = user.fullName;
       _bioController.text = user.bio ?? '';
+      _photoUrlController.text = user.profilePhotoUrl ?? '';
     }
   }
 
@@ -41,6 +44,7 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
       final success = await ref.read(authProvider.notifier).updateProfile(
         fullName: _nameController.text,
         bio: _bioController.text,
+        profilePhotoUrl: _photoUrlController.text,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -58,6 +62,11 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(currentUserProvider);
+    final candidatePhoto = _photoUrlController.text.trim().isNotEmpty
+        ? _photoUrlController.text.trim()
+        : user?.profilePhotoUrl;
+    final hasPhoto = candidatePhoto != null
+        && (candidatePhoto.startsWith('http://') || candidatePhoto.startsWith('https://'));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profil Bilgileri')),
@@ -78,7 +87,15 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
                       shape: BoxShape.circle,
                       border: Border.all(color: AppColors.glassStroke),
                     ),
-                    child: const Icon(Icons.person, color: Colors.white, size: 40),
+                    child: ClipOval(
+                      child: hasPhoto
+                          ? Image.network(
+                              candidatePhoto,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(Icons.person, color: Colors.white, size: 40),
+                            )
+                          : const Icon(Icons.person, color: Colors.white, size: 40),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   Text(
@@ -126,6 +143,26 @@ class _ProfileDetailsScreenState extends ConsumerState<ProfileDetailsScreen> {
                         labelText: 'Hakkımda',
                         hintText: 'Kısa bir açıklama',
                       ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _photoUrlController,
+                      style: const TextStyle(color: AppColors.textPrimary),
+                      keyboardType: TextInputType.url,
+                      decoration: const InputDecoration(
+                        labelText: 'Profil Foto URL',
+                        hintText: 'https://...',
+                      ),
+                      onChanged: (_) => setState(() {}),
+                      validator: (value) {
+                        final text = (value ?? '').trim();
+                        if (text.isEmpty) return null;
+                        final isHttp = text.startsWith('http://') || text.startsWith('https://');
+                        if (!isHttp) {
+                          return 'URL http/https ile baslamali';
+                        }
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 20),
                     SizedBox(

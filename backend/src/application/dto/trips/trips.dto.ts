@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional, IsBoolean, IsEnum, IsDateString, IsUUID, Min, Max } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsOptional, IsBoolean, IsEnum, IsDateString, IsUUID, Min, Max, IsArray, ValidateNested } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -22,6 +22,119 @@ export enum PetLocation {
     FRONT = 'front',
     BACK = 'back',
     TRUNK = 'trunk',
+}
+
+export enum PickupType {
+    BUS_TERMINAL = 'bus_terminal',
+    REST_STOP = 'rest_stop',
+    CITY_CENTER = 'city_center',
+    ADDRESS = 'address',
+}
+
+export class RoutePointDto {
+    @ApiProperty()
+    @IsNumber()
+    lat: number;
+
+    @ApiProperty()
+    @IsNumber()
+    lng: number;
+}
+
+export class ViaCityDto {
+    @ApiProperty({ example: 'Eskisehir' })
+    @IsString()
+    city: string;
+
+    @ApiPropertyOptional({ example: 'Tepebasi' })
+    @IsOptional()
+    @IsString()
+    district?: string;
+
+    @ApiPropertyOptional({ type: [String] })
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    pickupSuggestions?: string[];
+}
+
+export class RouteSnapshotDto {
+    @ApiProperty({ example: 'osrm' })
+    @IsString()
+    provider: string;
+
+    @ApiProperty({ example: 452.4 })
+    @IsNumber()
+    distanceKm: number;
+
+    @ApiProperty({ example: 296.3 })
+    @IsNumber()
+    durationMin: number;
+
+    @ApiPropertyOptional({ type: [RoutePointDto] })
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => RoutePointDto)
+    points?: RoutePointDto[];
+}
+
+export class PickupPolicyDto {
+    @ApiProperty({ example: 'Eskisehir' })
+    @IsString()
+    city: string;
+
+    @ApiPropertyOptional({ example: 'Tepebasi' })
+    @IsOptional()
+    @IsString()
+    district?: string;
+
+    @ApiProperty({ example: true })
+    @IsBoolean()
+    pickupAllowed: boolean;
+
+    @ApiProperty({ enum: PickupType })
+    @IsEnum(PickupType)
+    pickupType: PickupType;
+
+    @ApiPropertyOptional({ example: 'Eskisehir Otogar kuzey girisi' })
+    @IsOptional()
+    @IsString()
+    note?: string;
+}
+
+export class RoutePreviewDto {
+    @ApiProperty()
+    @IsNumber()
+    departureLat: number;
+
+    @ApiProperty()
+    @IsNumber()
+    departureLng: number;
+
+    @ApiProperty()
+    @IsNumber()
+    arrivalLat: number;
+
+    @ApiProperty()
+    @IsNumber()
+    arrivalLng: number;
+}
+
+export class RouteAlternativeDto {
+    @ApiProperty()
+    id: string;
+
+    @ApiProperty({ type: RouteSnapshotDto })
+    route: RouteSnapshotDto;
+
+    @ApiProperty({ type: [ViaCityDto] })
+    viaCities: ViaCityDto[];
+}
+
+export class RoutePreviewResponseDto {
+    @ApiProperty({ type: [RouteAlternativeDto] })
+    alternatives: RouteAlternativeDto[];
 }
 
 export class CreateTripDto {
@@ -130,6 +243,26 @@ export class CreateTripDto {
     @ApiPropertyOptional()
     @IsOptional()
     preferences?: Record<string, any>;
+
+    @ApiPropertyOptional({ type: RouteSnapshotDto })
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => RouteSnapshotDto)
+    routeSnapshot?: RouteSnapshotDto;
+
+    @ApiPropertyOptional({ type: [ViaCityDto] })
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => ViaCityDto)
+    viaCities?: ViaCityDto[];
+
+    @ApiPropertyOptional({ type: [PickupPolicyDto] })
+    @IsOptional()
+    @IsArray()
+    @ValidateNested({ each: true })
+    @Type(() => PickupPolicyDto)
+    pickupPolicies?: PickupPolicyDto[];
 }
 
 export class UpdateTripDto {
@@ -274,6 +407,18 @@ export class TripResponseDto {
     @ApiPropertyOptional()
     arrivalAddress?: string;
 
+    @ApiPropertyOptional()
+    departureLat?: number;
+
+    @ApiPropertyOptional()
+    departureLng?: number;
+
+    @ApiPropertyOptional()
+    arrivalLat?: number;
+
+    @ApiPropertyOptional()
+    arrivalLng?: number;
+
     @ApiProperty()
     departureTime: Date;
 
@@ -306,6 +451,42 @@ export class TripResponseDto {
 
     @ApiPropertyOptional()
     busReferencePrice?: number;
+
+    @ApiPropertyOptional({ type: RouteSnapshotDto })
+    route?: RouteSnapshotDto;
+
+    @ApiPropertyOptional({ type: [ViaCityDto] })
+    viaCities?: ViaCityDto[];
+
+    @ApiPropertyOptional({ type: [PickupPolicyDto] })
+    pickupPolicies?: PickupPolicyDto[];
+
+    @ApiPropertyOptional({
+        type: Object,
+        example: { confirmedSeats: 2, passengerCount: 1 },
+    })
+    occupancy?: {
+        confirmedSeats: number;
+        passengerCount: number;
+    };
+
+    @ApiPropertyOptional({
+        type: [Object],
+        example: [{ id: 'user-id', fullName: 'Ali Veli', profilePhotoUrl: null, ratingAvg: 4.7, seats: 1 }],
+    })
+    passengers?: Array<{
+        id: string;
+        fullName: string;
+        profilePhotoUrl?: string;
+        ratingAvg: number;
+        seats: number;
+    }>;
+
+    @ApiPropertyOptional()
+    canViewPassengerList?: boolean;
+
+    @ApiPropertyOptional()
+    canViewLiveLocation?: boolean;
 
     @ApiProperty()
     createdAt: Date;

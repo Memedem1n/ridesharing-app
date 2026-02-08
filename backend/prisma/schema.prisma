@@ -33,6 +33,15 @@ model User {
   bannedUntil      DateTime? @map("banned_until")
   penaltyScore     Float     @default(0) @map("penalty_score")
   walletBalance    Float     @default(0) @map("wallet_balance")
+  payoutIbanMasked String?   @map("payout_iban_masked")
+  payoutIbanHash   String?   @map("payout_iban_hash")
+  payoutAccountHolderName String? @map("payout_account_holder_name")
+  payoutProviderAccountId String? @map("payout_provider_account_id")
+  payoutVerificationStatus String @default("none") @map("payout_verification_status")
+  payoutVerifiedAt DateTime? @map("payout_verified_at")
+  payoutBlockedUntil DateTime? @map("payout_blocked_until")
+  payoutRiskLevel String @default("low") @map("payout_risk_level")
+  payoutUpdatedAt DateTime? @map("payout_updated_at")
   referralCode     String    @unique @map("referral_code")
   referredBy       String?   @map("referred_by")
   createdAt        DateTime  @default(now()) @map("created_at")
@@ -41,6 +50,7 @@ model User {
   vehicles         Vehicle[]
   tripsAsDriver    Trip[]      @relation("DriverTrips")
   bookings         Booking[]
+  payoutLedgers    PayoutLedger[]
   sentMessages     Message[]   @relation("SentMessages")
   receivedMessages Message[]   @relation("ReceivedMessages")
   reviewsGiven     Review[]    @relation("ReviewsGiven")
@@ -125,6 +135,17 @@ model Booking {
   paymentStatus        String    @default("pending") @map("payment_status")
   paymentId            String?   @map("payment_id")
   expiresAt            DateTime? @map("expires_at")
+  acceptedAt           DateTime? @map("accepted_at")
+  paidAt               DateTime? @map("paid_at")
+  completedAt          DateTime? @map("completed_at")
+  completionSource     String?   @map("completion_source")
+  disputeStatus        String    @default("none") @map("dispute_status")
+  disputedAt           DateTime? @map("disputed_at")
+  disputeReason        String?   @map("dispute_reason")
+  disputeDeadlineAt    DateTime? @map("dispute_deadline_at")
+  payout10ReleasedAt   DateTime? @map("payout_10_released_at")
+  payout90ReleasedAt   DateTime? @map("payout_90_released_at")
+  payoutHoldReason     String?   @map("payout_hold_reason")
   cancellationTime     DateTime? @map("cancellation_time")
   cancellationPenalty  Float?    @map("cancellation_penalty")
   createdAt            DateTime  @default(now()) @map("created_at")
@@ -133,9 +154,34 @@ model Booking {
   trip                 Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
   passenger            User      @relation(fields: [passengerId], references: [id], onDelete: Cascade)
   messages             Message[]
+  payoutLedger         PayoutLedger?
   reviews              Review[]
   
   @@map("bookings")
+}
+
+model PayoutLedger {
+  id                 String    @id @default(uuid())
+  bookingId          String    @unique @map("booking_id")
+  driverId           String    @map("driver_id")
+  grossAmount        Float     @map("gross_amount")
+  commissionAmount   Float     @map("commission_amount")
+  driverNetAmount    Float     @map("driver_net_amount")
+  release10Amount    Float     @map("release_10_amount")
+  release90Amount    Float     @map("release_90_amount")
+  status             String    @default("pending")
+  stage10ReleasedAt  DateTime? @map("stage_10_released_at")
+  stage90ReleasedAt  DateTime? @map("stage_90_released_at")
+  holdReason         String?   @map("hold_reason")
+  lastError          String?   @map("last_error")
+  providerTransferId String?   @map("provider_transfer_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  booking            Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  driver             User      @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@map("payout_ledgers")
 }
 
 model Message {

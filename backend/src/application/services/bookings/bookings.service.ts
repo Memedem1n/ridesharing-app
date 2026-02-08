@@ -1,4 +1,4 @@
-﻿import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '@infrastructure/database/prisma.service';
 import { IyzicoService } from '@infrastructure/payment/iyzico.service';
 import { FcmService } from '@infrastructure/notifications/fcm.service';
@@ -14,7 +14,10 @@ import { v4 as uuid } from 'uuid';
 
 @Injectable()
 export class BookingsService {
+    private readonly logger = new Logger(BookingsService.name);
     private readonly holdMinutes: number;
+    private readonly disputeWindowHours: number;
+    private readonly autoCompleteDelayMinutes: number;
 
     constructor(
         private readonly prisma: PrismaService,
@@ -24,6 +27,8 @@ export class BookingsService {
         private readonly configService: ConfigService,
     ) {
         this.holdMinutes = Number(this.configService.get('BOOKING_HOLD_MINUTES') || 15);
+        this.disputeWindowHours = Number(this.configService.get('BOOKING_DISPUTE_WINDOW_HOURS') || 12);
+        this.autoCompleteDelayMinutes = Number(this.configService.get('BOOKING_AUTO_COMPLETE_DELAY_MINUTES') || 60);
     }
 
     async create(userId: string, dto: CreateBookingDto): Promise<BookingResponseDto> {
@@ -34,18 +39,22 @@ export class BookingsService {
             });
 
             if (!trip) {
-                throw new NotFoundException('Yolculuk bulunamadı');
+                this.logger.warn(`BOOKING_CREATE_TRIP_NOT_FOUND tripId=${dto.tripId} passengerId=${userId}`);
+                throw new NotFoundException('Yolculuk bulunamadi');
             }
 
-            if (trip.status !== 'published') {
-                throw new BadRequestException('Bu yolculuk artık müsait değil');
+            if (trip.status !== 'published' && trip.status !== 'full') {
+                this.logger.warn(`BOOKING_CREATE_TRIP_NOT_AVAILABLE tripId=${dto.tripId} status=${trip.status} passengerId=${userId}`);
+                throw new BadRequestException('Bu yolculuk artik musait degil');
             }
 
             if (trip.driverId === userId) {
-                throw new BadRequestException('Kendi ilanınıza rezervasyon yapamazsınız');
+                this.logger.warn(`BOOKING_CREATE_SELF_BOOKING tripId=${dto.tripId} driverId=${trip.driverId}`);
+                throw new BadRequestException('Kendi ilaniniza rezervasyon yapamazsiniz');
             }
 
             if (trip.availableSeats < dto.seats) {
+                this.logger.warn(`BOOKING_CREATE_NOT_ENOUGH_SEATS tripId=${dto.tripId} seats=${dto.seats} available=${trip.availableSeats}`);
                 throw new BadRequestException('Yeterli koltuk yok');
             }
 
@@ -53,31 +62,15 @@ export class BookingsService {
             const commissionAmount = this.iyzicoService.calculateCommission(priceTotal);
             const qrCode = this.generateQRCode();
             const pnrCode = await this.generateUniquePnrCode(tx);
-            const expiresAt = new Date(Date.now() + this.holdMinutes * 60 * 1000);
-            const remainingSeats = trip.availableSeats - dto.seats;
-
-            const updated = await tx.trip.updateMany({
-                where: {
-                    id: dto.tripId,
-                    status: 'published',
-                    availableSeats: { gte: dto.seats },
-                },
-                data: {
-                    availableSeats: { decrement: dto.seats },
-                    status: remainingSeats === 0 ? 'full' : 'published',
-                },
-            });
-
-            if (updated.count === 0) {
-                throw new BadRequestException('Yeterli koltuk yok');
-            }
+            const isInstant = Boolean(trip.instantBooking);
+            const now = new Date();
 
             const created = await tx.booking.create({
                 data: {
                     id: uuid(),
                     tripId: dto.tripId,
                     passengerId: userId,
-                    status: 'pending',
+                    status: isInstant ? 'awaiting_payment' : 'pending',
                     seats: dto.seats,
                     priceTotal,
                     commissionAmount,
@@ -86,7 +79,8 @@ export class BookingsService {
                     qrCode,
                     pnrCode,
                     paymentStatus: 'pending',
-                    expiresAt,
+                    acceptedAt: isInstant ? now : null,
+                    expiresAt: isInstant ? this.getPaymentExpiryFrom(now) : null,
                 },
                 include: {
                     trip: {
@@ -99,8 +93,88 @@ export class BookingsService {
             return created;
         });
 
-        await this.notifyNewBookingRequest(booking);
+        if (booking.status === 'pending') {
+            await this.notifyNewBookingRequest(booking);
+        }
+
         return this.mapToResponse(booking);
+    }
+
+    async accept(bookingId: string, driverId: string): Promise<BookingResponseDto> {
+        const booking = await this.prisma.booking.findUnique({
+            where: { id: bookingId },
+            include: {
+                trip: { include: { driver: true } },
+                passenger: true,
+            },
+        });
+
+        if (!booking) {
+            throw new NotFoundException('Rezervasyon bulunamadi');
+        }
+
+        if (booking.trip.driverId !== driverId) {
+            throw new ForbiddenException('Bu rezervasyona erisim yetkiniz yok');
+        }
+
+        if (booking.status !== 'pending') {
+            throw new BadRequestException('Sadece bekleyen rezervasyon kabul edilebilir');
+        }
+
+        const now = new Date();
+        const updated = await this.prisma.booking.update({
+            where: { id: bookingId },
+            data: {
+                status: 'awaiting_payment',
+                acceptedAt: now,
+                expiresAt: this.getPaymentExpiryFrom(now),
+            },
+            include: {
+                trip: { include: { driver: true } },
+                passenger: true,
+            },
+        });
+
+        return this.mapToResponse(updated);
+    }
+
+    async reject(bookingId: string, driverId: string, reason?: string): Promise<BookingResponseDto> {
+        const booking = await this.prisma.booking.findUnique({
+            where: { id: bookingId },
+            include: {
+                trip: { include: { driver: true } },
+                passenger: true,
+            },
+        });
+
+        if (!booking) {
+            throw new NotFoundException('Rezervasyon bulunamadi');
+        }
+
+        if (booking.trip.driverId !== driverId) {
+            throw new ForbiddenException('Bu rezervasyona erisim yetkiniz yok');
+        }
+
+        if (booking.status !== 'pending') {
+            throw new BadRequestException('Sadece bekleyen rezervasyon reddedilebilir');
+        }
+
+        const updated = await this.prisma.booking.update({
+            where: { id: bookingId },
+            data: {
+                status: 'rejected',
+                cancellationTime: new Date(),
+                cancellationPenalty: 0,
+                expiresAt: null,
+                ...(reason ? { disputeReason: reason.slice(0, 500) } : {}),
+            },
+            include: {
+                trip: { include: { driver: true } },
+                passenger: true,
+            },
+        });
+
+        return this.mapToResponse(updated);
     }
 
     async processPayment(userId: string, dto: ProcessPaymentDto): Promise<BookingResponseDto> {
@@ -113,24 +187,24 @@ export class BookingsService {
         });
 
         if (!booking) {
-            throw new NotFoundException('Rezervasyon bulunamadı');
+            throw new NotFoundException('Rezervasyon bulunamadi');
         }
 
         if (booking.passengerId !== userId) {
-            throw new ForbiddenException('Bu rezervasyona erişim yetkiniz yok');
+            throw new ForbiddenException('Bu rezervasyona erisim yetkiniz yok');
         }
 
         if (booking.paymentStatus === 'paid') {
-            throw new BadRequestException('Bu rezervasyon zaten ödendi');
+            throw new BadRequestException('Bu rezervasyon zaten odendi');
         }
 
-        if (booking.status !== 'pending') {
-            throw new BadRequestException('Bu rezervasyon ödeme beklemiyor');
+        if (booking.status !== 'awaiting_payment') {
+            throw new BadRequestException('Bu rezervasyon odeme beklemiyor');
         }
 
         if (booking.expiresAt && booking.expiresAt.getTime() < Date.now()) {
             await this.expireBooking(booking);
-            throw new BadRequestException('Rezervasyon süresi dolmuş');
+            throw new BadRequestException('Odeme suresi dolmus');
         }
 
         const result = await this.iyzicoService.processPayment(
@@ -141,46 +215,64 @@ export class BookingsService {
         );
 
         if (!result.success) {
-            await this.prisma.$transaction(async (tx) => {
-                await tx.booking.update({
-                    where: { id: dto.bookingId },
-                    data: {
-                        status: 'cancelled_by_passenger',
-                        cancellationTime: new Date(),
-                        cancellationPenalty: 0,
-                        paymentStatus: 'pending',
-                        expiresAt: null,
-                    },
-                });
-
-                await tx.trip.updateMany({
-                    where: {
-                        id: booking.tripId,
-                        status: { in: ['published', 'full'] },
-                    },
-                    data: {
-                        availableSeats: { increment: booking.seats },
-                        status: 'published',
-                    },
-                });
-            });
-
-            throw new BadRequestException(result.errorMessage || 'Ödeme işlemi başarısız');
+            throw new BadRequestException(result.errorMessage || 'Odeme islemi basarisiz');
         }
 
-        const updated = await this.prisma.booking.update({
+        const now = new Date();
+
+        await this.prisma.$transaction(async (tx) => {
+            const seatUpdate = await tx.trip.updateMany({
+                where: {
+                    id: booking.tripId,
+                    status: { in: ['published', 'full'] },
+                    availableSeats: { gte: booking.seats },
+                },
+                data: {
+                    availableSeats: { decrement: booking.seats },
+                },
+            });
+
+            if (seatUpdate.count === 0) {
+                throw new BadRequestException('Yeterli koltuk kalmadi');
+            }
+
+            const updatedTrip = await tx.trip.findUnique({
+                where: { id: booking.tripId },
+                select: { availableSeats: true },
+            });
+
+            await tx.booking.update({
+                where: { id: dto.bookingId },
+                data: {
+                    paymentStatus: 'paid',
+                    paymentId: result.paymentId,
+                    status: 'confirmed',
+                    paidAt: now,
+                    expiresAt: null,
+                },
+            });
+
+            if (updatedTrip) {
+                await tx.trip.update({
+                    where: { id: booking.tripId },
+                    data: {
+                        status: updatedTrip.availableSeats === 0 ? 'full' : 'published',
+                    },
+                });
+            }
+        });
+
+        const updated = await this.prisma.booking.findUnique({
             where: { id: dto.bookingId },
-            data: {
-                paymentStatus: 'paid',
-                paymentId: result.paymentId,
-                status: 'confirmed',
-                expiresAt: null,
-            },
             include: {
                 trip: { include: { driver: true } },
                 passenger: true,
             },
         });
+
+        if (!updated) {
+            throw new NotFoundException('Odeme sonrasi rezervasyon bulunamadi');
+        }
 
         await this.notifyBookingConfirmed(updated);
         return this.mapToResponse(updated);
@@ -196,15 +288,15 @@ export class BookingsService {
         });
 
         if (!booking) {
-            throw new NotFoundException('Geçersiz QR kod');
+            throw new NotFoundException('Gecersiz QR kod');
         }
 
         if (booking.trip.driverId !== driverId) {
-            throw new ForbiddenException('Bu yolculuk size ait değil');
+            throw new ForbiddenException('Bu yolculuk size ait degil');
         }
 
         if (booking.status !== 'confirmed') {
-            throw new BadRequestException('Bu rezervasyon onaylanmamış veya zaten check-in yapılmış');
+            throw new BadRequestException('Bu rezervasyon check-in icin uygun degil');
         }
 
         const updated = await this.prisma.booking.update({
@@ -214,11 +306,13 @@ export class BookingsService {
                 checkedInAt: new Date(),
             },
             include: {
-                trip: true,
+                trip: { include: { driver: true } },
                 passenger: true,
+                payoutLedger: true,
             },
         });
 
+        await this.releasePayoutForBooking(updated.id, 10);
         return this.mapToResponse(updated);
     }
 
@@ -249,7 +343,7 @@ export class BookingsService {
         }
 
         if (booking.status !== 'confirmed') {
-            throw new BadRequestException('Bu rezervasyon onaylanmamis veya zaten check-in yapilmis');
+            throw new BadRequestException('Bu rezervasyon check-in icin uygun degil');
         }
 
         const updated = await this.prisma.booking.update({
@@ -259,12 +353,188 @@ export class BookingsService {
                 checkedInAt: new Date(),
             },
             include: {
-                trip: true,
+                trip: { include: { driver: true } },
+                passenger: true,
+                payoutLedger: true,
+            },
+        });
+
+        await this.releasePayoutForBooking(updated.id, 10);
+        return this.mapToResponse(updated);
+    }
+
+    async completeByPassenger(bookingId: string, passengerId: string): Promise<BookingResponseDto> {
+        const booking = await this.prisma.booking.findUnique({
+            where: { id: bookingId },
+            include: {
+                trip: { include: { driver: true } },
                 passenger: true,
             },
         });
 
+        if (!booking) {
+            throw new NotFoundException('Rezervasyon bulunamadi');
+        }
+
+        if (booking.passengerId !== passengerId) {
+            throw new ForbiddenException('Bu rezervasyonu tamamlama yetkiniz yok');
+        }
+
+        if (booking.status !== 'checked_in') {
+            throw new BadRequestException('Sadece check-in yapilmis rezervasyon tamamlanabilir');
+        }
+
+        const now = new Date();
+        const updated = await this.prisma.booking.update({
+            where: { id: booking.id },
+            data: {
+                status: 'completed',
+                completedAt: now,
+                completionSource: 'passenger',
+                disputeStatus: 'none',
+                disputeDeadlineAt: this.getDisputeDeadlineFrom(now),
+            },
+            include: {
+                trip: { include: { driver: true } },
+                passenger: true,
+                payoutLedger: true,
+            },
+        });
+
         return this.mapToResponse(updated);
+    }
+
+    async raiseDispute(bookingId: string, userId: string, reason: string): Promise<BookingResponseDto> {
+        const booking = await this.prisma.booking.findUnique({
+            where: { id: bookingId },
+            include: {
+                trip: { include: { driver: true } },
+                passenger: true,
+                payoutLedger: true,
+            },
+        });
+
+        if (!booking) {
+            throw new NotFoundException('Rezervasyon bulunamadi');
+        }
+
+        const isPassenger = booking.passengerId === userId;
+        const isDriver = booking.trip.driverId === userId;
+        if (!isPassenger && !isDriver) {
+            throw new ForbiddenException('Bu rezervasyon icin itiraz acamazsiniz');
+        }
+
+        if (booking.status !== 'completed' && booking.status !== 'disputed') {
+            throw new BadRequestException('Ihtilaf sadece tamamlanmis rezervasyonlarda acilabilir');
+        }
+
+        if (!booking.disputeDeadlineAt || booking.disputeDeadlineAt.getTime() < Date.now()) {
+            throw new BadRequestException('Ihtilaf suresi dolmus');
+        }
+
+        if (booking.payout90ReleasedAt) {
+            throw new BadRequestException('Bu rezervasyon icin odeme dagitimi tamamlanmis');
+        }
+
+        const updated = await this.prisma.$transaction(async (tx) => {
+            const disputedBooking = await tx.booking.update({
+                where: { id: booking.id },
+                data: {
+                    status: 'disputed',
+                    disputeStatus: 'open',
+                    disputedAt: new Date(),
+                    disputeReason: reason.slice(0, 500),
+                    payoutHoldReason: 'dispute_open',
+                },
+                include: {
+                    trip: { include: { driver: true } },
+                    passenger: true,
+                    payoutLedger: true,
+                },
+            });
+
+            if (booking.payoutLedger) {
+                await tx.payoutLedger.update({
+                    where: { id: booking.payoutLedger.id },
+                    data: {
+                        status: 'hold',
+                        holdReason: 'dispute_open',
+                    },
+                });
+            }
+
+            return disputedBooking;
+        });
+
+        return this.mapToResponse(updated);
+    }
+
+    async autoCompleteEligibleBookings(): Promise<number> {
+        const now = new Date();
+        const candidates = await this.prisma.booking.findMany({
+            where: {
+                status: 'checked_in',
+                checkedInAt: { not: null },
+            },
+            include: {
+                trip: true,
+            },
+        });
+
+        let completed = 0;
+        for (const booking of candidates) {
+            const autoCompletionTime = this.getAutoCompletionTime(booking);
+            if (now.getTime() < autoCompletionTime.getTime()) {
+                continue;
+            }
+
+            await this.prisma.booking.update({
+                where: { id: booking.id },
+                data: {
+                    status: 'completed',
+                    completedAt: now,
+                    completionSource: 'auto',
+                    disputeStatus: 'none',
+                    disputeDeadlineAt: this.getDisputeDeadlineFrom(now),
+                },
+            });
+            completed++;
+        }
+
+        if (completed > 0) {
+            this.logger.log(`Auto-completed ${completed} bookings.`);
+        }
+        return completed;
+    }
+
+    async releasePendingPayouts(): Promise<{ stage10Released: number; stage90Released: number }> {
+        const paidBookings = await this.prisma.booking.findMany({
+            where: {
+                paymentStatus: 'paid',
+                status: { in: ['checked_in', 'completed'] },
+            },
+            select: { id: true },
+        });
+
+        let stage10Released = 0;
+        let stage90Released = 0;
+
+        for (const booking of paidBookings) {
+            const stage10Result = await this.releasePayoutForBooking(booking.id, 10);
+            if (stage10Result) {
+                stage10Released++;
+            }
+
+            const stage90Result = await this.releasePayoutForBooking(booking.id, 90);
+            if (stage90Result) {
+                stage90Released++;
+            }
+        }
+
+        if (stage10Released > 0 || stage90Released > 0) {
+            this.logger.log(`Released payouts: stage10=${stage10Released}, stage90=${stage90Released}`);
+        }
+        return { stage10Released, stage90Released };
     }
 
     async cancel(bookingId: string, userId: string): Promise<void> {
@@ -274,7 +544,7 @@ export class BookingsService {
         });
 
         if (!booking) {
-            throw new NotFoundException('Rezervasyon bulunamadı');
+            throw new NotFoundException('Rezervasyon bulunamadi');
         }
 
         const isPassenger = booking.passengerId === userId;
@@ -284,13 +554,20 @@ export class BookingsService {
             throw new ForbiddenException('Bu rezervasyonu iptal etme yetkiniz yok');
         }
 
-        // Calculate cancellation penalty
+        if (['checked_in', 'completed', 'disputed'].includes(booking.status)) {
+            throw new BadRequestException('Check-in sonrasi rezervasyon iptal edilemez');
+        }
+
+        if (['expired', 'cancelled_by_passenger', 'cancelled_by_driver', 'rejected'].includes(booking.status)) {
+            throw new BadRequestException('Rezervasyon zaten kapatilmis');
+        }
+
         const hoursUntilDeparture = (booking.trip.departureTime.getTime() - Date.now()) / (1000 * 60 * 60);
         let refundPercentage = 100;
         let penalty = 0;
 
         if (hoursUntilDeparture < 2) {
-            refundPercentage = 0; // No refund
+            refundPercentage = 0;
             penalty = Number(booking.priceTotal);
         } else if (hoursUntilDeparture < 24) {
             refundPercentage = 50;
@@ -299,36 +576,37 @@ export class BookingsService {
 
         let refundAmount = 0;
 
-        // Process refund if paid
-        if (booking.paymentStatus === 'paid' && refundPercentage > 0) {
+        if (booking.paymentStatus === 'paid' && booking.paymentId && refundPercentage > 0) {
             refundAmount = Number(booking.priceTotal) * (refundPercentage / 100);
             await this.iyzicoService.refundPayment(
-                booking.paymentId!,
+                booking.paymentId,
                 refundAmount,
-                isPassenger ? 'Yolcu iptali' : 'Sürücü iptali',
+                isPassenger ? 'Yolcu iptali' : 'Surucu iptali',
             );
         }
 
-        // Update booking
-        await this.prisma.booking.update({
-            where: { id: bookingId },
-            data: {
-                status: isPassenger ? 'cancelled_by_passenger' : 'cancelled_by_driver',
-                cancellationTime: new Date(),
-                cancellationPenalty: penalty,
-                paymentStatus: refundPercentage === 100 ? 'refunded' :
-                    refundPercentage > 0 ? 'partially_refunded' : 'paid',
-                expiresAt: null,
-            },
-        });
+        await this.prisma.$transaction(async (tx) => {
+            await tx.booking.update({
+                where: { id: bookingId },
+                data: {
+                    status: isPassenger ? 'cancelled_by_passenger' : 'cancelled_by_driver',
+                    cancellationTime: new Date(),
+                    cancellationPenalty: penalty,
+                    paymentStatus: refundPercentage === 100 ? 'refunded' :
+                        refundPercentage > 0 ? 'partially_refunded' : booking.paymentStatus,
+                    expiresAt: null,
+                },
+            });
 
-        // Restore seats
-        await this.prisma.trip.update({
-            where: { id: booking.tripId },
-            data: {
-                availableSeats: { increment: booking.seats },
-                status: 'published',
-            },
+            if (booking.status === 'confirmed') {
+                await tx.trip.update({
+                    where: { id: booking.tripId },
+                    data: {
+                        availableSeats: { increment: booking.seats },
+                        status: 'published',
+                    },
+                });
+            }
         });
 
         await this.notifyCancellation(booking, isPassenger ? 'passenger' : 'driver', refundAmount);
@@ -345,7 +623,7 @@ export class BookingsService {
         });
 
         return {
-            bookings: bookings.map(b => this.mapToResponse(b)),
+            bookings: bookings.map((b) => this.mapToResponse(b)),
             total: bookings.length,
         };
     }
@@ -356,7 +634,7 @@ export class BookingsService {
         });
 
         if (!trip || trip.driverId !== driverId) {
-            throw new ForbiddenException('Bu yolculuğa erişim yetkiniz yok');
+            throw new ForbiddenException('Bu yolculuga erisim yetkiniz yok');
         }
 
         const bookings = await this.prisma.booking.findMany({
@@ -369,7 +647,7 @@ export class BookingsService {
         });
 
         return {
-            bookings: bookings.map(b => this.mapToResponse(b)),
+            bookings: bookings.map((b) => this.mapToResponse(b)),
             total: bookings.length,
         };
     }
@@ -384,16 +662,31 @@ export class BookingsService {
         });
 
         if (!booking) {
-            throw new NotFoundException('Rezervasyon bulunamadı');
+            throw new NotFoundException('Rezervasyon bulunamadi');
         }
 
         const isPassenger = booking.passengerId === userId;
         const isDriver = booking.trip?.driverId === userId;
         if (!isPassenger && !isDriver) {
-            throw new ForbiddenException('Bu rezervasyona erişim yetkiniz yok');
+            throw new ForbiddenException('Bu rezervasyona erisim yetkiniz yok');
         }
 
         return this.mapToResponse(booking);
+    }
+
+    private getPaymentExpiryFrom(base: Date): Date {
+        return new Date(base.getTime() + this.holdMinutes * 60 * 1000);
+    }
+
+    private getDisputeDeadlineFrom(base: Date): Date {
+        return new Date(base.getTime() + this.disputeWindowHours * 60 * 60 * 1000);
+    }
+
+    private getAutoCompletionTime(booking: any): Date {
+        const baseline = booking.trip.estimatedArrivalTime
+            ? new Date(booking.trip.estimatedArrivalTime)
+            : new Date(new Date(booking.trip.departureTime).getTime() + 2 * 60 * 60 * 1000);
+        return new Date(baseline.getTime() + this.autoCompleteDelayMinutes * 60 * 1000);
     }
 
     private generateQRCode(): string {
@@ -433,28 +726,192 @@ export class BookingsService {
     }
 
     private async expireBooking(booking: any): Promise<void> {
+        await this.prisma.booking.update({
+            where: { id: booking.id },
+            data: {
+                status: 'expired',
+                cancellationTime: new Date(),
+                cancellationPenalty: 0,
+                paymentStatus: 'pending',
+                expiresAt: null,
+            },
+        });
+    }
+
+    private async releasePayoutForBooking(bookingId: string, stage: 10 | 90): Promise<boolean> {
+        let booking = await this.prisma.booking.findUnique({
+            where: { id: bookingId },
+            include: {
+                trip: { include: { driver: true } },
+                passenger: true,
+                payoutLedger: true,
+            },
+        });
+
+        if (!booking || booking.paymentStatus !== 'paid') {
+            return false;
+        }
+
+        const ledger = await this.ensurePayoutLedger(booking);
+        booking = { ...booking, payoutLedger: ledger };
+
+        if (stage === 10 && booking.payout10ReleasedAt) {
+            return false;
+        }
+        if (stage === 90 && booking.payout90ReleasedAt) {
+            return false;
+        }
+
+        if (stage === 90) {
+            if (booking.status !== 'completed') {
+                return false;
+            }
+            if (booking.disputeStatus === 'open') {
+                return false;
+            }
+            if (!booking.disputeDeadlineAt || booking.disputeDeadlineAt.getTime() > Date.now()) {
+                return false;
+            }
+            if (!booking.payout10ReleasedAt) {
+                await this.releasePayoutForBooking(booking.id, 10);
+                booking = await this.prisma.booking.findUnique({
+                    where: { id: bookingId },
+                    include: {
+                        trip: { include: { driver: true } },
+                        passenger: true,
+                        payoutLedger: true,
+                    },
+                }) as any;
+                if (!booking || !booking.payout10ReleasedAt) {
+                    return false;
+                }
+            }
+        }
+
+        const driver = booking.trip.driver;
+        if (driver.payoutVerificationStatus !== 'verified' || !driver.payoutProviderAccountId) {
+            await this.prisma.$transaction(async (tx) => {
+                await tx.booking.update({
+                    where: { id: booking.id },
+                    data: { payoutHoldReason: 'driver_payout_account_not_verified' },
+                });
+                await tx.payoutLedger.update({
+                    where: { id: ledger.id },
+                    data: {
+                        status: 'hold',
+                        holdReason: 'driver_payout_account_not_verified',
+                    },
+                });
+            });
+            return false;
+        }
+
+        const amount = stage === 10 ? Number(ledger.release10Amount) : Number(ledger.release90Amount);
+        if (amount <= 0) {
+            const now = new Date();
+            await this.prisma.$transaction(async (tx) => {
+                await tx.booking.update({
+                    where: { id: booking.id },
+                    data: stage === 10
+                        ? { payout10ReleasedAt: now, payoutHoldReason: null }
+                        : { payout90ReleasedAt: now, payoutHoldReason: null },
+                });
+                await tx.payoutLedger.update({
+                    where: { id: ledger.id },
+                    data: stage === 10
+                        ? { stage10ReleasedAt: now, status: 'partial_released', holdReason: null, lastError: null }
+                        : { stage90ReleasedAt: now, status: 'released', holdReason: null, lastError: null },
+                });
+            });
+            return true;
+        }
+
+        const payoutResult = await this.iyzicoService.releasePayout(
+            driver.payoutProviderAccountId,
+            amount,
+            `booking-${booking.id}-stage-${stage}`,
+        );
+
+        if (!payoutResult.success) {
+            await this.prisma.$transaction(async (tx) => {
+                await tx.booking.update({
+                    where: { id: booking.id },
+                    data: { payoutHoldReason: payoutResult.errorMessage || 'payout_release_failed' },
+                });
+                await tx.payoutLedger.update({
+                    where: { id: ledger.id },
+                    data: {
+                        status: 'hold',
+                        holdReason: 'payout_release_failed',
+                        lastError: payoutResult.errorMessage || 'payout_release_failed',
+                    },
+                });
+            });
+            return false;
+        }
+
+        const now = new Date();
         await this.prisma.$transaction(async (tx) => {
-            await tx.booking.update({
-                where: { id: booking.id },
+            await tx.user.update({
+                where: { id: driver.id },
                 data: {
-                    status: 'expired',
-                    cancellationTime: new Date(),
-                    cancellationPenalty: 0,
-                    paymentStatus: 'pending',
-                    expiresAt: null,
+                    walletBalance: { increment: amount },
                 },
             });
 
-            await tx.trip.updateMany({
-                where: {
-                    id: booking.tripId,
-                    status: { in: ['published', 'full'] },
-                },
-                data: {
-                    availableSeats: { increment: booking.seats },
-                    status: 'published',
-                },
+            await tx.booking.update({
+                where: { id: booking.id },
+                data: stage === 10
+                    ? { payout10ReleasedAt: now, payoutHoldReason: null }
+                    : { payout90ReleasedAt: now, payoutHoldReason: null },
             });
+
+            await tx.payoutLedger.update({
+                where: { id: ledger.id },
+                data: stage === 10
+                    ? {
+                        stage10ReleasedAt: now,
+                        status: 'partial_released',
+                        holdReason: null,
+                        lastError: null,
+                        providerTransferId: payoutResult.transferId,
+                    }
+                    : {
+                        stage90ReleasedAt: now,
+                        status: 'released',
+                        holdReason: null,
+                        lastError: null,
+                        providerTransferId: payoutResult.transferId,
+                    },
+            });
+        });
+
+        return true;
+    }
+
+    private async ensurePayoutLedger(booking: any): Promise<any> {
+        if (booking.payoutLedger) {
+            return booking.payoutLedger;
+        }
+
+        const grossAmount = Number(booking.priceTotal);
+        const commissionAmount = Number(booking.commissionAmount);
+        const driverNetAmount = Math.max(0, Math.round((grossAmount - commissionAmount) * 100) / 100);
+        const release10Amount = Math.round(driverNetAmount * 0.1 * 100) / 100;
+        const release90Amount = Math.round((driverNetAmount - release10Amount) * 100) / 100;
+
+        return this.prisma.payoutLedger.create({
+            data: {
+                id: uuid(),
+                bookingId: booking.id,
+                driverId: booking.trip.driverId,
+                grossAmount,
+                commissionAmount,
+                driverNetAmount,
+                release10Amount,
+                release90Amount,
+                status: 'pending',
+            },
         });
     }
 
@@ -479,14 +936,35 @@ export class BookingsService {
             priceTotal: Number(booking.priceTotal),
             commissionAmount: Number(booking.commissionAmount),
             itemType: booking.itemType,
-            itemDetails: booking.itemDetails,
+            itemDetails: this.parseItemDetails(booking.itemDetails),
             qrCode: booking.qrCode,
             pnrCode: booking.pnrCode || undefined,
-            checkedInAt: booking.checkedInAt,
-            expiresAt: booking.expiresAt,
+            checkedInAt: booking.checkedInAt || undefined,
+            acceptedAt: booking.acceptedAt || undefined,
+            paidAt: booking.paidAt || undefined,
+            completedAt: booking.completedAt || undefined,
+            completionSource: booking.completionSource || undefined,
+            disputeStatus: booking.disputeStatus || undefined,
+            disputedAt: booking.disputedAt || undefined,
+            disputeReason: booking.disputeReason || undefined,
+            disputeDeadlineAt: booking.disputeDeadlineAt || undefined,
+            payout10ReleasedAt: booking.payout10ReleasedAt || undefined,
+            payout90ReleasedAt: booking.payout90ReleasedAt || undefined,
+            payoutHoldReason: booking.payoutHoldReason || undefined,
+            expiresAt: booking.expiresAt || undefined,
             paymentStatus: booking.paymentStatus,
             createdAt: booking.createdAt,
         };
+    }
+
+    private parseItemDetails(raw: any): any {
+        if (!raw) return undefined;
+        if (typeof raw !== 'string') return raw;
+        try {
+            return JSON.parse(raw);
+        } catch {
+            return raw;
+        }
     }
 
     private async notifyNewBookingRequest(booking: any) {
@@ -616,4 +1094,3 @@ export class BookingsService {
         return formatter.format(date);
     }
 }
-

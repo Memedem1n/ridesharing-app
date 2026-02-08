@@ -14,40 +14,26 @@ export class BookingExpiryService {
 
         const expiredBookings = await this.prisma.booking.findMany({
             where: {
-                status: 'pending',
+                status: 'awaiting_payment',
                 expiresAt: { lt: now },
             },
-            include: { trip: true },
         });
 
         if (expiredBookings.length === 0) return;
 
         for (const booking of expiredBookings) {
-            await this.prisma.$transaction(async (tx) => {
-                await tx.booking.update({
-                    where: { id: booking.id },
-                    data: {
-                        status: 'expired',
-                        cancellationTime: now,
-                        cancellationPenalty: 0,
-                        paymentStatus: 'pending',
-                        expiresAt: null,
-                    },
-                });
-
-                await tx.trip.updateMany({
-                    where: {
-                        id: booking.tripId,
-                        status: { in: ['published', 'full'] },
-                    },
-                    data: {
-                        availableSeats: { increment: booking.seats },
-                        status: 'published',
-                    },
-                });
+            await this.prisma.booking.update({
+                where: { id: booking.id },
+                data: {
+                    status: 'expired',
+                    cancellationTime: now,
+                    cancellationPenalty: 0,
+                    paymentStatus: 'pending',
+                    expiresAt: null,
+                },
             });
         }
 
-        this.logger.warn(`Expired ${expiredBookings.length} pending bookings.`);
+        this.logger.warn(`Expired ${expiredBookings.length} awaiting-payment bookings.`);
     }
 }

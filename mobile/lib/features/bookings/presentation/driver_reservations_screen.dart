@@ -177,7 +177,7 @@ class _RequestCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dateFormat = DateFormat('dd MMM HH:mm', 'tr');
     final actionsState = ref.watch(bookingActionsProvider);
-    final canCancel = booking.status == BookingStatus.pending || booking.status == BookingStatus.confirmed;
+    final canCancel = booking.status == BookingStatus.awaitingPayment || booking.status == BookingStatus.confirmed;
 
     return GlassContainer(
       padding: const EdgeInsets.all(16),
@@ -281,9 +281,21 @@ class _RequestCard extends ConsumerWidget {
           if (booking.status == BookingStatus.pending) ...[
             Row(
               children: [
-                const Icon(Icons.schedule, size: 16, color: AppColors.warning),
-                const SizedBox(width: 8),
-                const Text('Ödeme bekleniyor', style: TextStyle(color: AppColors.textSecondary)),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: actionsState.isLoading ? null : () => _acceptBooking(ref, context),
+                    icon: const Icon(Icons.check),
+                    label: const Text('Kabul Et'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: actionsState.isLoading ? null : () => _rejectBooking(ref, context),
+                    icon: const Icon(Icons.close),
+                    label: const Text('Reddet'),
+                  ),
+                ),
               ],
             ),
           ],
@@ -349,6 +361,26 @@ class _RequestCard extends ConsumerWidget {
       }
     }
   }
+
+  Future<void> _acceptBooking(WidgetRef ref, BuildContext context) async {
+    final success = await ref.read(bookingActionsProvider.notifier).acceptBooking(booking.id);
+    if (success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rezervasyon kabul edildi')),
+      );
+      onRefresh();
+    }
+  }
+
+  Future<void> _rejectBooking(WidgetRef ref, BuildContext context) async {
+    final success = await ref.read(bookingActionsProvider.notifier).rejectBooking(booking.id);
+    if (success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rezervasyon reddedildi')),
+      );
+      onRefresh();
+    }
+  }
 }
 
 class _StatusBadge extends StatelessWidget {
@@ -360,9 +392,11 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
       BookingStatus.pending => ('Bekliyor', AppColors.warning),
+      BookingStatus.awaitingPayment => ('Ödeme Bekliyor', AppColors.warning),
       BookingStatus.confirmed => ('Onaylandı', AppColors.success),
       BookingStatus.checkedIn => ('Check-in', AppColors.info),
       BookingStatus.completed => ('Tamamlandı', AppColors.secondary),
+      BookingStatus.disputed => ('İncelemede', AppColors.warning),
       BookingStatus.cancelled => ('İptal', AppColors.error),
       _ => ('', AppColors.textTertiary),
     };

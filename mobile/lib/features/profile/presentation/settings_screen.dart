@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
@@ -37,19 +39,25 @@ class SettingsScreen extends ConsumerWidget {
                     title: strings.languageTurkish,
                     value: 'tr',
                     groupValue: code,
-                    onChanged: () => ref.read(localeProvider.notifier).setLocale(const Locale('tr', 'TR')),
+                    onChanged: () => ref
+                        .read(localeProvider.notifier)
+                        .setLocale(const Locale('tr', 'TR')),
                   ),
                   _LanguageTile(
                     title: strings.languageEnglish,
                     value: 'en',
                     groupValue: code,
-                    onChanged: () => ref.read(localeProvider.notifier).setLocale(const Locale('en', 'US')),
+                    onChanged: () => ref
+                        .read(localeProvider.notifier)
+                        .setLocale(const Locale('en', 'US')),
                   ),
                   _LanguageTile(
                     title: strings.languageArabic,
                     value: 'ar',
                     groupValue: code,
-                    onChanged: () => ref.read(localeProvider.notifier).setLocale(const Locale('ar', 'SA')),
+                    onChanged: () => ref
+                        .read(localeProvider.notifier)
+                        .setLocale(const Locale('ar', 'SA')),
                   ),
                 ],
               ),

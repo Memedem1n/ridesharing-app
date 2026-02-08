@@ -74,6 +74,46 @@ class BookingRepository {
     }
   }
 
+  Future<Booking> acceptBooking(String bookingId) async {
+    try {
+      final response = await _dio.post('/bookings/$bookingId/accept');
+      return Booking.fromJson(response.data);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  Future<Booking> rejectBooking(String bookingId, {String? reason}) async {
+    try {
+      final response = await _dio.post('/bookings/$bookingId/reject', data: {
+        if (reason != null && reason.isNotEmpty) 'reason': reason,
+      });
+      return Booking.fromJson(response.data);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  Future<Booking> completeBooking(String bookingId) async {
+    try {
+      final response = await _dio.post('/bookings/$bookingId/complete');
+      return Booking.fromJson(response.data);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  Future<Booking> raiseDispute(String bookingId, String reason) async {
+    try {
+      final response = await _dio.post('/bookings/$bookingId/dispute', data: {
+        'reason': reason,
+      });
+      return Booking.fromJson(response.data);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
   Future<void> cancelBooking(String id) async {
     try {
       await _dio.delete('/bookings/$id');

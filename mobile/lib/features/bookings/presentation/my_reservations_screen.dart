@@ -128,7 +128,9 @@ class _BookingCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final dateFormat = DateFormat('dd MMM yyyy, HH:mm', 'tr');
     final actionsState = ref.watch(bookingActionsProvider);
-    final canCancel = booking.status == BookingStatus.pending || booking.status == BookingStatus.confirmed;
+    final canCancel = booking.status == BookingStatus.pending
+      || booking.status == BookingStatus.awaitingPayment
+      || booking.status == BookingStatus.confirmed;
 
     return GlassContainer(
       padding: const EdgeInsets.all(16),
@@ -270,12 +272,35 @@ class _BookingCard extends ConsumerWidget {
             ),
           ],
 
-          if (!isPast && booking.status == BookingStatus.pending) ...[
+          if (!isPast && booking.status == BookingStatus.awaitingPayment) ...[
             const SizedBox(height: 12),
             FilledButton.icon(
               onPressed: actionsState.isLoading ? null : () => _processPayment(ref, context),
               icon: const Icon(Icons.payment),
-              label: const Text('Ödemeyi Tamamla (Mock)'),
+              label: const Text('Odemeyi Tamamla (Mock)'),
+            ),
+          ],
+
+          if (!isPast && booking.status == BookingStatus.checkedIn) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: actionsState.isLoading ? null : () => _completeBooking(ref, context),
+                    icon: const Icon(Icons.flag),
+                    label: const Text('Yolculugu Tamamla'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: actionsState.isLoading ? null : () => _raiseDispute(ref, context),
+                    icon: const Icon(Icons.report_problem_outlined),
+                    label: const Text('Sorun Bildir'),
+                  ),
+                ),
+              ],
             ),
           ],
 
@@ -351,6 +376,70 @@ class _BookingCard extends ConsumerWidget {
       }
     }
   }
+
+  Future<void> _completeBooking(WidgetRef ref, BuildContext context) async {
+    final success = await ref.read(bookingActionsProvider.notifier).completeBooking(booking.id);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Yolculuk tamamlandi' : 'Tamamlama basarisiz'),
+          backgroundColor: success ? AppColors.success : AppColors.error,
+        ),
+      );
+      if (success) {
+        ref.invalidate(myBookingsProvider);
+      }
+    }
+  }
+
+  Future<void> _raiseDispute(WidgetRef ref, BuildContext context) async {
+    final reasonController = TextEditingController();
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text('Sorun Bildir', style: TextStyle(color: AppColors.textPrimary)),
+        content: TextField(
+          controller: reasonController,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            hintText: 'Sorunu kisaca yazin',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgec')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Gonder')),
+        ],
+      ),
+    );
+
+    if (submitted != true) {
+      return;
+    }
+
+    final reason = reasonController.text.trim();
+    if (reason.length < 5) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('En az 5 karakter aciklama gerekli')),
+        );
+      }
+      return;
+    }
+
+    final success = await ref.read(bookingActionsProvider.notifier).raiseDispute(booking.id, reason);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(success ? 'Sorun kaydi olusturuldu' : 'Sorun kaydi olusturulamadi'),
+          backgroundColor: success ? AppColors.warning : AppColors.error,
+        ),
+      );
+      if (success) {
+        ref.invalidate(myBookingsProvider);
+      }
+    }
+  }
 }
 
 class _StatusBadge extends StatelessWidget {
@@ -362,9 +451,11 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, color, bg) = switch (status) {
       BookingStatus.pending => ('Onay Bekliyor', AppColors.warning, AppColors.warningBg),
+      BookingStatus.awaitingPayment => ('Odeme Bekliyor', AppColors.warning, AppColors.warningBg),
       BookingStatus.confirmed => ('Onaylandı', AppColors.success, AppColors.successBg),
       BookingStatus.checkedIn => ('Check-in', AppColors.info, AppColors.infoBg),
       BookingStatus.completed => ('Tamamlandı', AppColors.secondary, AppColors.glassBg),
+      BookingStatus.disputed => ('Incelemede', AppColors.warning, AppColors.warningBg),
       BookingStatus.cancelled => ('İptal', AppColors.error, AppColors.errorBg),
       BookingStatus.rejected => ('Reddedildi', AppColors.error, AppColors.errorBg),
     };

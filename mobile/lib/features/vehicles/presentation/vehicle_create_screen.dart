@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:dio/dio.dart';
@@ -12,7 +12,8 @@ class VehicleCreateScreen extends ConsumerStatefulWidget {
   const VehicleCreateScreen({super.key});
 
   @override
-  ConsumerState<VehicleCreateScreen> createState() => _VehicleCreateScreenState();
+  ConsumerState<VehicleCreateScreen> createState() =>
+      _VehicleCreateScreenState();
 }
 
 class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
@@ -47,7 +48,9 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
       if (token == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Oturum bulunamadı. Lütfen tekrar giriş yapın.'), backgroundColor: AppColors.error),
+            const SnackBar(
+                content: Text('Oturum bulunamadı. Lütfen tekrar giriş yapın.'),
+                backgroundColor: AppColors.error),
           );
         }
         return;
@@ -58,7 +61,9 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
       if (year == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Model yılı geçerli değil'), backgroundColor: AppColors.error),
+            const SnackBar(
+                content: Text('Model yılı geçerli değil'),
+                backgroundColor: AppColors.error),
           );
         }
         return;
@@ -69,7 +74,9 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
         'brand': _brandController.text.trim(),
         'model': _modelController.text.trim(),
         'year': year,
-        'color': _colorController.text.trim().isEmpty ? null : _colorController.text.trim(),
+        'color': _colorController.text.trim().isEmpty
+            ? null
+            : _colorController.text.trim(),
         'seats': _seats,
         'hasAc': _hasAc,
         'allowsPets': _allowsPets,
@@ -79,7 +86,9 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
       ref.invalidate(myVehiclesProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Araç eklendi'), backgroundColor: AppColors.success),
+          const SnackBar(
+              content: Text('Araç eklendi'),
+              backgroundColor: AppColors.success),
         );
         Navigator.of(context).pop();
       }
@@ -87,7 +96,9 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
       final apiError = ApiException.fromDioError(e);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(apiError.message), backgroundColor: AppColors.error),
+          SnackBar(
+              content: Text(apiError.message),
+              backgroundColor: AppColors.error),
         );
       }
     } finally {
@@ -118,37 +129,52 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       children: [
-                        _buildField(_plateController, 'Plaka', hint: '34ABC123'),
+                        _buildField(_plateController, 'Plaka',
+                            hint: '34ABC123'),
                         const SizedBox(height: 12),
                         _buildField(_brandController, 'Marka', hint: 'Toyota'),
                         const SizedBox(height: 12),
                         _buildField(_modelController, 'Model', hint: 'Corolla'),
                         const SizedBox(height: 12),
-                        _buildField(_yearController, 'Model Yılı', hint: '2022', keyboardType: TextInputType.number),
+                        _buildField(_yearController, 'Model Yılı',
+                            hint: '2022', keyboardType: TextInputType.number),
                         const SizedBox(height: 12),
-                        _buildField(_colorController, 'Renk (opsiyonel)', hint: 'Beyaz'),
+                        _buildField(_colorController, 'Renk (opsiyonel)',
+                            hint: 'Beyaz'),
                       ],
                     ),
                   ).animate().fadeIn().slideY(begin: 0.1),
                   const SizedBox(height: 20),
-
                   GlassContainer(
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Koltuk Sayısı', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+                        const Text('Koltuk Sayısı',
+                            style: TextStyle(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.bold)),
                         const SizedBox(height: 12),
                         Row(
                           children: [
                             IconButton(
-                              onPressed: _seats > 1 ? () => setState(() => _seats--) : null,
-                              icon: const Icon(Icons.remove_circle_outline, color: AppColors.primary),
+                              onPressed: _seats > 1
+                                  ? () => setState(() => _seats--)
+                                  : null,
+                              icon: const Icon(Icons.remove_circle_outline,
+                                  color: AppColors.primary),
                             ),
-                            Text('$_seats', style: const TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+                            Text('$_seats',
+                                style: const TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold)),
                             IconButton(
-                              onPressed: _seats < 8 ? () => setState(() => _seats++) : null,
-                              icon: const Icon(Icons.add_circle_outline, color: AppColors.primary),
+                              onPressed: _seats < 8
+                                  ? () => setState(() => _seats++)
+                                  : null,
+                              icon: const Icon(Icons.add_circle_outline,
+                                  color: AppColors.primary),
                             ),
                           ],
                         ),
@@ -156,28 +182,31 @@ class _VehicleCreateScreenState extends ConsumerState<VehicleCreateScreen> {
                         SwitchListTile(
                           value: _hasAc,
                           onChanged: (val) => setState(() => _hasAc = val),
-                          title: const Text('Klima var', style: TextStyle(color: AppColors.textPrimary)),
+                          title: const Text('Klima var',
+                              style: TextStyle(color: AppColors.textPrimary)),
                           contentPadding: EdgeInsets.zero,
-                          activeColor: AppColors.primary,
+                          activeThumbColor: AppColors.primary,
                         ),
                         SwitchListTile(
                           value: _allowsPets,
                           onChanged: (val) => setState(() => _allowsPets = val),
-                          title: const Text('Evcil hayvan kabul', style: TextStyle(color: AppColors.textPrimary)),
+                          title: const Text('Evcil hayvan kabul',
+                              style: TextStyle(color: AppColors.textPrimary)),
                           contentPadding: EdgeInsets.zero,
-                          activeColor: AppColors.primary,
+                          activeThumbColor: AppColors.primary,
                         ),
                         SwitchListTile(
                           value: _allowsSmoking,
-                          onChanged: (val) => setState(() => _allowsSmoking = val),
-                          title: const Text('Sigara kabul', style: TextStyle(color: AppColors.textPrimary)),
+                          onChanged: (val) =>
+                              setState(() => _allowsSmoking = val),
+                          title: const Text('Sigara kabul',
+                              style: TextStyle(color: AppColors.textPrimary)),
                           contentPadding: EdgeInsets.zero,
-                          activeColor: AppColors.primary,
+                          activeThumbColor: AppColors.primary,
                         ),
                       ],
                     ),
                   ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.1),
-
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,

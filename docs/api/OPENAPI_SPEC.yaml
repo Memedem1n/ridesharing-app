@@ -139,6 +139,25 @@ components:
         walletBalance:
           type: number
           format: decimal
+        payoutAccount:
+          type: object
+          properties:
+            ibanMasked:
+              type: string
+            accountHolderName:
+              type: string
+            verificationStatus:
+              type: string
+              enum: [none, pending, verified, rejected]
+            verifiedAt:
+              type: string
+              format: date-time
+            blockedUntil:
+              type: string
+              format: date-time
+            riskLevel:
+              type: string
+              enum: [low, medium, high]
         createdAt:
           type: string
           format: date-time
@@ -249,7 +268,7 @@ components:
           format: uuid
         status:
           type: string
-          enum: [pending, confirmed, checked_in, completed, cancelled_by_passenger, cancelled_by_driver]
+          enum: [pending, awaiting_payment, confirmed, checked_in, completed, disputed, rejected, expired, cancelled_by_passenger, cancelled_by_driver]
         seats:
           type: integer
         priceTotal:
@@ -265,6 +284,27 @@ components:
           type: string
         pnrCode:
           type: string
+        acceptedAt:
+          type: string
+          format: date-time
+        paidAt:
+          type: string
+          format: date-time
+        completedAt:
+          type: string
+          format: date-time
+        disputeStatus:
+          type: string
+          enum: [none, open, resolved]
+        disputeDeadlineAt:
+          type: string
+          format: date-time
+        payout10ReleasedAt:
+          type: string
+          format: date-time
+        payout90ReleasedAt:
+          type: string
+          format: date-time
         paymentStatus:
           type: string
           enum: [pending, paid, refunded, partially_refunded]
@@ -472,6 +512,83 @@ paths:
       responses:
         '200':
           description: Device token registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/me/payout-account:
+    get:
+      tags: [Users]
+      summary: Get my payout account
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Payout account status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ibanMasked:
+                    type: string
+                  accountHolderName:
+                    type: string
+                  verificationStatus:
+                    type: string
+                  verifiedAt:
+                    type: string
+                    format: date-time
+                  blockedUntil:
+                    type: string
+                    format: date-time
+                  riskLevel:
+                    type: string
+    post:
+      tags: [Users]
+      summary: Upsert payout account
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [iban, accountHolderName]
+              properties:
+                iban:
+                  type: string
+                accountHolderName:
+                  type: string
+      responses:
+        '200':
+          description: Payout account updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/me/payout-account/verify:
+    post:
+      tags: [Users]
+      summary: Verify payout account by challenge code
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [challengeCode]
+              properties:
+                challengeCode:
+                  type: string
+      responses:
+        '200':
+          description: Payout account verified
           content:
             application/json:
               schema:
@@ -705,6 +822,33 @@ paths:
               schema:
                 $ref: '#/components/schemas/Booking'
 
+  /bookings/payment:
+    post:
+      tags: [Bookings]
+      summary: Process booking payment
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bookingId, cardToken]
+              properties:
+                bookingId:
+                  type: string
+                  format: uuid
+                cardToken:
+                  type: string
+      responses:
+        '200':
+          description: Payment successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+
   /bookings/check-in:
     post:
       tags: [Bookings]
@@ -749,6 +893,109 @@ paths:
       responses:
         '200':
           description: Check-in successful
+
+  /bookings/{id}/accept:
+    post:
+      tags: [Bookings]
+      summary: Accept booking request (driver)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Booking accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+
+  /bookings/{id}/reject:
+    post:
+      tags: [Bookings]
+      summary: Reject booking request (driver)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Booking rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+
+  /bookings/{id}/complete:
+    post:
+      tags: [Bookings]
+      summary: Complete booking (passenger)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Booking completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+
+  /bookings/{id}/dispute:
+    post:
+      tags: [Bookings]
+      summary: Open dispute during dispute window
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Dispute opened
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
 
   # Payment Endpoints
   /payments/initiate:

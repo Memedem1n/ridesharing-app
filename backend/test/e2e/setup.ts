@@ -14,3 +14,4 @@ process.env.PORT = process.env.PORT || '3001';
 if (!process.env.DATABASE_URL?.includes('ridesharing_test')) {
     throw new Error('E2E tests require DATABASE_URL to point to ridesharing_test to avoid data loss.');
 }
+

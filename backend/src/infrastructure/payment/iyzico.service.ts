@@ -14,6 +14,19 @@ export interface RefundResult {
     errorMessage?: string;
 }
 
+export interface RegisterPayoutAccountResult {
+    success: boolean;
+    providerAccountId?: string;
+    verificationCode?: string;
+    errorMessage?: string;
+}
+
+export interface PayoutTransferResult {
+    success: boolean;
+    transferId?: string;
+    errorMessage?: string;
+}
+
 export interface CardInfo {
     cardNumber: string;
     expireMonth: string;
@@ -172,6 +185,44 @@ export class IyzicoService {
         }
 
         throw new Error('Iyzico card tokenization is not implemented');
+    }
+
+    async registerPayoutAccount(
+        userId: string,
+        iban: string,
+        accountHolderName: string,
+    ): Promise<RegisterPayoutAccountResult> {
+        this.logger.log(`Registering payout account for user ${userId}`);
+
+        if (this.useMock) {
+            const verificationCode = `${Math.floor(Math.random() * 9000) + 1000}`;
+            return {
+                success: true,
+                providerAccountId: `SUB_${Date.now()}_${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+                verificationCode,
+            };
+        }
+
+        void iban;
+        void accountHolderName;
+        throw new Error('Iyzico payout account registration is not implemented');
+    }
+
+    async releasePayout(
+        providerAccountId: string,
+        amount: number,
+        referenceId: string,
+    ): Promise<PayoutTransferResult> {
+        this.logger.log(`Releasing payout ${referenceId} to ${providerAccountId}: ₺${amount}`);
+
+        if (this.useMock) {
+            return {
+                success: true,
+                transferId: `PAYOUT_${Date.now()}_${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+            };
+        }
+
+        throw new Error('Iyzico payout release is not implemented');
     }
 
     calculateCommission(amount: number): number {

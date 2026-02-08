@@ -37,11 +37,22 @@ function Ensure-TestDatabase {
 
 Ensure-TestDatabase -Url $DatabaseUrl
 
-Push-Location (Join-Path $PSScriptRoot '..' 'backend')
+Push-Location (Join-Path (Join-Path $PSScriptRoot '..') 'backend')
 $env:DATABASE_URL = $DatabaseUrl
 
 npm run db:generate
-npx prisma db push
-npm run test:e2e
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Warning: prisma generate failed, continuing with existing client."
+}
+
+npx prisma db push --skip-generate
+if ($LASTEXITCODE -ne 0) {
+    Pop-Location
+    exit $LASTEXITCODE
+}
+
+npm run test:e2e -- --runInBand
+$exitCode = $LASTEXITCODE
 
 Pop-Location
+exit $exitCode

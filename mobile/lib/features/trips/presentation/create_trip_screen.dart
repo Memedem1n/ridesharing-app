@@ -1,16 +1,47 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+
+import '../../../core/api/api_client.dart';
+import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/vehicle_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/animated_buttons.dart';
 import '../../../core/widgets/location_autocomplete_field.dart';
-import '../../../core/providers/auth_provider.dart';
-import '../../../core/api/api_client.dart';
-import '../../../core/providers/vehicle_provider.dart';
 import '../../vehicles/domain/vehicle_models.dart';
-import 'package:dio/dio.dart';
+
+class _RouteAlt {
+  final String id;
+  final Map<String, dynamic> route;
+  final List<Map<String, dynamic>> viaCities;
+
+  const _RouteAlt(
+      {required this.id, required this.route, required this.viaCities});
+
+  double get distanceKm => (route['distanceKm'] ?? 0).toDouble();
+  double get durationMin => (route['durationMin'] ?? 0).toDouble();
+}
+
+class _PickupPolicyValue {
+  bool pickupAllowed = true;
+  String pickupType = 'city_center';
+  String note = '';
+
+  _PickupPolicyValue();
+
+  Map<String, dynamic> toJson(Map<String, dynamic> city) {
+    return {
+      'city': city['city'],
+      if (city['district'] != null) 'district': city['district'],
+      'pickupAllowed': pickupAllowed,
+      'pickupType': pickupType,
+      if (note.trim().isNotEmpty) 'note': note.trim(),
+    };
+  }
+}
 
 class CreateTripScreen extends ConsumerStatefulWidget {
   const CreateTripScreen({super.key});
@@ -21,30 +52,37 @@ class CreateTripScreen extends ConsumerStatefulWidget {
 
 class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   final _formKey = GlobalKey<FormState>();
-  
-  // Form controllers
+
   final _departureCityController = TextEditingController();
   final _arrivalCityController = TextEditingController();
   final _priceController = TextEditingController();
   final _descriptionController = TextEditingController();
+
   String? _departureAddress;
   String? _arrivalAddress;
   double? _departureLat;
   double? _departureLng;
   double? _arrivalLat;
   double? _arrivalLng;
-  
-  // Form state
+
   DateTime _departureDate = DateTime.now().add(const Duration(days: 1));
   TimeOfDay _departureTime = const TimeOfDay(hour: 9, minute: 0);
+
+  int _step = 0;
+  bool _isLoading = false;
+  bool _isRoutePreviewLoading = false;
+
   int _availableSeats = 3;
-  String _tripType = 'people'; // people, pets, cargo, food
+  String _tripType = 'people';
   bool _allowsPets = false;
   bool _allowsCargo = false;
   bool _womenOnly = false;
   bool _instantBooking = true;
-  bool _isLoading = false;
+
   String? _selectedVehicleId;
+  List<_RouteAlt> _routeAlternatives = const [];
+  int _selectedRouteIndex = 0;
+  final Map<String, _PickupPolicyValue> _pickupPolicies = {};
 
   @override
   void dispose() {
@@ -61,17 +99,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       initialDate: _departureDate,
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 90)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppColors.primary,
-              surface: AppColors.surface,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
     if (picked != null) {
       setState(() => _departureDate = picked);
@@ -82,46 +109,663 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     final picked = await showTimePicker(
       context: context,
       initialTime: _departureTime,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppColors.primary,
-              surface: AppColors.surface,
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
     if (picked != null) {
       setState(() => _departureTime = picked);
     }
   }
 
+  Future<void> _previewRoutes() async {
+    if (_departureLat == null ||
+        _departureLng == null ||
+        _arrivalLat == null ||
+        _arrivalLng == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content:
+                Text('Rota onizleme icin kalkis/varis konumu secmelisiniz.')),
+      );
+      return;
+    }
+
+    setState(() => _isRoutePreviewLoading = true);
+
+    try {
+      final dio = ref.read(dioProvider);
+      final token = await ref.read(authTokenProvider.future);
+      final response = await dio.post(
+        '/trips/route-preview',
+        data: {
+          'departureLat': _departureLat,
+          'departureLng': _departureLng,
+          'arrivalLat': _arrivalLat,
+          'arrivalLng': _arrivalLng,
+        },
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      final alternativesRaw =
+          (response.data['alternatives'] as List?) ?? const [];
+      final alternatives = alternativesRaw.whereType<Map>().map((item) {
+        final map = Map<String, dynamic>.from(item);
+        return _RouteAlt(
+          id: map['id']?.toString() ?? '',
+          route: Map<String, dynamic>.from(map['route'] as Map? ?? const {}),
+          viaCities: ((map['viaCities'] as List?) ?? const [])
+              .whereType<Map>()
+              .map((city) => Map<String, dynamic>.from(city))
+              .toList(),
+        );
+      }).toList();
+
+      setState(() {
+        _routeAlternatives = alternatives;
+        _selectedRouteIndex = 0;
+      });
+      _resetPickupPoliciesFromSelectedRoute();
+    } on DioException catch (e) {
+      final apiError = ApiException.fromDioError(e);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(apiError.message), backgroundColor: AppColors.error),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isRoutePreviewLoading = false);
+      }
+    }
+  }
+
+  void _resetPickupPoliciesFromSelectedRoute() {
+    _pickupPolicies.clear();
+    final selected = _selectedRoute;
+    if (selected == null) return;
+
+    for (final city in selected.viaCities) {
+      final key = _cityKey(city);
+      _pickupPolicies[key] = _PickupPolicyValue();
+    }
+    setState(() {});
+  }
+
+  _RouteAlt? get _selectedRoute {
+    if (_routeAlternatives.isEmpty) return null;
+    if (_selectedRouteIndex < 0 ||
+        _selectedRouteIndex >= _routeAlternatives.length) {
+      return _routeAlternatives.first;
+    }
+    return _routeAlternatives[_selectedRouteIndex];
+  }
+
+  String _cityKey(Map<String, dynamic> city) {
+    final cityName = city['city']?.toString().toLowerCase() ?? '';
+    final district = city['district']?.toString().toLowerCase() ?? '';
+    return '$cityName|$district';
+  }
+
+  bool _canContinueStep(int step) {
+    switch (step) {
+      case 0:
+        return (_departureCityController.text.trim().isNotEmpty &&
+            _arrivalCityController.text.trim().isNotEmpty);
+      case 1:
+        return _routeAlternatives.isNotEmpty;
+      case 2:
+        return _selectedRoute != null;
+      case 3:
+        return _selectedVehicleId != null &&
+            (_priceController.text.trim().isNotEmpty);
+      default:
+        return true;
+    }
+  }
+
+  void _nextStep() {
+    if (!_canContinueStep(_step)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Bu adimi tamamlamadan devam edemezsiniz.')),
+      );
+      return;
+    }
+
+    if (_step < 4) {
+      setState(() => _step += 1);
+    }
+  }
+
+  void _previousStep() {
+    if (_step > 0) {
+      setState(() => _step -= 1);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final vehiclesAsync = ref.watch(myVehiclesProvider);
+
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        title: const Text('Yolculuk Olustur'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppColors.darkGradient),
+        child: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: _StepHeader(currentStep: _step),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    child: _buildStepContent(vehiclesAsync),
+                  ),
+                ),
+                _buildBottomActions(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepContent(AsyncValue<List<Vehicle>> vehiclesAsync) {
+    switch (_step) {
+      case 0:
+        return _buildStepRouteBasics();
+      case 1:
+        return _buildStepRouteSelection();
+      case 2:
+        return _buildStepPickupPolicies();
+      case 3:
+        return _buildStepVehicleAndPricing(vehiclesAsync);
+      default:
+        return _buildStepReview();
+    }
+  }
+
+  Widget _buildStepRouteBasics() {
+    return GlassContainer(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Adim 1/5 - Nereden nereye?',
+              style: TextStyle(
+                  color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          LocationAutocompleteField(
+            controller: _departureCityController,
+            hintText: 'Nereden?',
+            icon: Icons.trip_origin,
+            iconColor: AppColors.primary,
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'Bu alan gerekli'
+                : null,
+            onSelected: (suggestion) {
+              _departureCityController.text = suggestion.city.trim().isNotEmpty
+                  ? suggestion.city
+                  : _departureCityController.text;
+              _departureAddress = suggestion.displayName;
+              _departureLat = suggestion.lat;
+              _departureLng = suggestion.lon;
+            },
+          ),
+          const SizedBox(height: 12),
+          LocationAutocompleteField(
+            controller: _arrivalCityController,
+            hintText: 'Nereye?',
+            icon: Icons.location_on,
+            iconColor: AppColors.accent,
+            validator: (value) => value == null || value.trim().isEmpty
+                ? 'Bu alan gerekli'
+                : null,
+            onSelected: (suggestion) {
+              _arrivalCityController.text = suggestion.city.trim().isNotEmpty
+                  ? suggestion.city
+                  : _arrivalCityController.text;
+              _arrivalAddress = suggestion.displayName;
+              _arrivalLat = suggestion.lat;
+              _arrivalLng = suggestion.lon;
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _selectDate,
+                  icon: const Icon(Icons.calendar_today),
+                  label: Text(
+                      DateFormat('dd MMM yyyy', 'tr').format(_departureDate)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _selectTime,
+                  icon: const Icon(Icons.access_time),
+                  label: Text(_departureTime.format(context)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ).animate().fadeIn().slideY(begin: 0.08);
+  }
+
+  Widget _buildStepRouteSelection() {
+    return GlassContainer(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Adim 2/5 - Rota secimi',
+              style: TextStyle(
+                  color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: GradientButton(
+              text: _isRoutePreviewLoading
+                  ? 'Rotalar getiriliyor...'
+                  : 'Rotalari Cikar',
+              icon: Icons.alt_route,
+              isLoading: _isRoutePreviewLoading,
+              onPressed: _isRoutePreviewLoading ? null : _previewRoutes,
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (_routeAlternatives.isEmpty)
+            const Text('Henüz rota cikarilmadi.',
+                style: TextStyle(color: AppColors.textSecondary))
+          else
+            for (int i = 0; i < _routeAlternatives.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _RouteAlternativeCard(
+                  alternative: _routeAlternatives[i],
+                  isSelected: i == _selectedRouteIndex,
+                  onTap: () {
+                    setState(() => _selectedRouteIndex = i);
+                    _resetPickupPoliciesFromSelectedRoute();
+                  },
+                ),
+              ),
+        ],
+      ),
+    ).animate().fadeIn().slideY(begin: 0.08);
+  }
+
+  Widget _buildStepPickupPolicies() {
+    final selected = _selectedRoute;
+    if (selected == null) {
+      return const GlassContainer(
+        padding: EdgeInsets.all(16),
+        child: Text('Once bir rota secmelisiniz.',
+            style: TextStyle(color: AppColors.textSecondary)),
+      );
+    }
+
+    return GlassContainer(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Adim 3/5 - Ara sehir yolcu alma',
+              style: TextStyle(
+                  color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          const Text(
+              'Her gecilen sehir/ilce icin yolcu alip almayacaginizi secin.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+          const SizedBox(height: 10),
+          if (selected.viaCities.isEmpty)
+            const Text('Bu rota icin ara sehir bulunamadi.',
+                style: TextStyle(color: AppColors.textSecondary))
+          else
+            for (final city in selected.viaCities)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _buildPickupPolicyCard(city),
+              ),
+        ],
+      ),
+    ).animate().fadeIn().slideY(begin: 0.08);
+  }
+
+  Widget _buildPickupPolicyCard(Map<String, dynamic> city) {
+    final key = _cityKey(city);
+    final value = _pickupPolicies.putIfAbsent(key, () => _PickupPolicyValue());
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.glassBgDark,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.glassStroke),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  city['district'] != null
+                      ? '${city['city']} / ${city['district']}'
+                      : city['city']?.toString() ?? '-',
+                  style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w600),
+                ),
+              ),
+              Switch.adaptive(
+                value: value.pickupAllowed,
+                onChanged: (next) => setState(() => value.pickupAllowed = next),
+                activeThumbColor: AppColors.primary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            key: ValueKey(
+                'pickup_${key}_${value.pickupType}_${value.pickupAllowed}'),
+            initialValue: value.pickupType,
+            items: const [
+              DropdownMenuItem(value: 'bus_terminal', child: Text('Otogar')),
+              DropdownMenuItem(
+                  value: 'rest_stop', child: Text('Dinlenme Tesisi')),
+              DropdownMenuItem(
+                  value: 'city_center', child: Text('Sehir Merkezi')),
+              DropdownMenuItem(value: 'address', child: Text('Adres')),
+            ],
+            onChanged: value.pickupAllowed
+                ? (next) {
+                    if (next != null) {
+                      setState(() => value.pickupType = next);
+                    }
+                  }
+                : null,
+            decoration: const InputDecoration(labelText: 'Alim tipi'),
+          ),
+          const SizedBox(height: 8),
+          TextFormField(
+            initialValue: value.note,
+            enabled: value.pickupAllowed,
+            decoration: const InputDecoration(labelText: 'Not (opsiyonel)'),
+            onChanged: (next) => value.note = next,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepVehicleAndPricing(AsyncValue<List<Vehicle>> vehiclesAsync) {
+    return GlassContainer(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Adim 4/5 - Arac ve fiyat',
+              style: TextStyle(
+                  color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          _buildVehicleSection(vehiclesAsync),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _priceController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+                labelText: 'Kisi basi fiyat', suffixText: '₺'),
+            validator: (value) =>
+                value == null || value.trim().isEmpty ? 'Fiyat gerekli' : null,
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: GlassContainer(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Koltuk',
+                          style: TextStyle(color: AppColors.textSecondary)),
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: _availableSeats > 1
+                                ? () => setState(() => _availableSeats -= 1)
+                                : null,
+                            icon: const Icon(Icons.remove_circle_outline,
+                                color: AppColors.primary),
+                          ),
+                          Text('$_availableSeats',
+                              style: const TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18)),
+                          IconButton(
+                            onPressed: _availableSeats < 7
+                                ? () => setState(() => _availableSeats += 1)
+                                : null,
+                            icon: const Icon(Icons.add_circle_outline,
+                                color: AppColors.primary),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ).animate().fadeIn().slideY(begin: 0.08);
+  }
+
+  Widget _buildStepReview() {
+    final selected = _selectedRoute;
+
+    return GlassContainer(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Adim 5/5 - Son ayarlar',
+              style: TextStyle(
+                  color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 10),
+          _TripTypeSelector(
+              selected: _tripType,
+              onChanged: (next) => setState(() => _tripType = next)),
+          const SizedBox(height: 12),
+          _buildSwitch('Evcil hayvana izin ver', Icons.pets, _allowsPets,
+              (v) => setState(() => _allowsPets = v)),
+          _buildSwitch('Kargoya izin ver', Icons.inventory_2, _allowsCargo,
+              (v) => setState(() => _allowsCargo = v)),
+          _buildSwitch('Sadece kadinlar', Icons.female, _womenOnly,
+              (v) => setState(() => _womenOnly = v)),
+          _buildSwitch('Aninda rezervasyon', Icons.flash_on, _instantBooking,
+              (v) => setState(() => _instantBooking = v)),
+          const SizedBox(height: 10),
+          TextFormField(
+            controller: _descriptionController,
+            maxLines: 3,
+            decoration:
+                const InputDecoration(labelText: 'Yolculuk notu (opsiyonel)'),
+          ),
+          const SizedBox(height: 12),
+          if (selected != null)
+            Text(
+              'Secili rota: ${selected.distanceKm.toStringAsFixed(1)} km, ${selected.durationMin.toStringAsFixed(0)} dk',
+              style:
+                  const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+            ),
+          const SizedBox(height: 8),
+          const Text('Yolculuk olustur butonu ile kaydi tamamlayabilirsiniz.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+        ],
+      ),
+    ).animate().fadeIn().slideY(begin: 0.08);
+  }
+
+  Widget _buildSwitch(
+      String label, IconData icon, bool value, ValueChanged<bool> onChanged) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.textSecondary, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+              child: Text(label,
+                  style: const TextStyle(color: AppColors.textPrimary))),
+          Switch.adaptive(
+              value: value,
+              onChanged: onChanged,
+              activeThumbColor: AppColors.primary),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVehicleSection(AsyncValue<List<Vehicle>> vehiclesAsync) {
+    return vehiclesAsync.when(
+      loading: () => const Text('Araclar yukleniyor...',
+          style: TextStyle(color: AppColors.textSecondary)),
+      error: (e, _) => Text('Araclar yuklenemedi: $e',
+          style: const TextStyle(color: AppColors.error)),
+      data: (vehicles) {
+        if (vehicles.isEmpty) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Arac bulunamadi. Once arac ekleyin.',
+                  style: TextStyle(color: AppColors.textSecondary)),
+              const SizedBox(height: 8),
+              GradientButton(
+                  text: 'Arac Ekle',
+                  icon: Icons.directions_car_outlined,
+                  onPressed: () => context.push('/vehicle-create')),
+            ],
+          );
+        }
+
+        final selectedId = _selectedVehicleId ?? vehicles.first.id;
+        _selectedVehicleId ??= vehicles.first.id;
+
+        return Column(
+          children: vehicles.map((vehicle) {
+            final selected = vehicle.id == selectedId;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InkWell(
+                onTap: () => setState(() => _selectedVehicleId = vehicle.id),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: selected ? AppColors.glassBg : AppColors.glassBgDark,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                        color: selected
+                            ? AppColors.primary
+                            : AppColors.glassStroke,
+                        width: selected ? 2 : 1),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.directions_car,
+                          color: AppColors.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          '${vehicle.brand} ${vehicle.model} - ${vehicle.licensePlate}',
+                          style: const TextStyle(color: AppColors.textPrimary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomActions() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      decoration: BoxDecoration(
+        color: AppColors.surface.withValues(alpha: 0.95),
+        border: Border(top: BorderSide(color: AppColors.glassStroke)),
+      ),
+      child: Row(
+        children: [
+          if (_step > 0)
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _previousStep,
+                icon: const Icon(Icons.arrow_back),
+                label: const Text('Geri'),
+              ),
+            ),
+          if (_step > 0) const SizedBox(width: 10),
+          Expanded(
+            child: GradientButton(
+              text: _step == 4
+                  ? (_isLoading ? 'Olusturuluyor...' : 'Yolculuk Olustur')
+                  : 'Devam Et',
+              icon: _step == 4 ? Icons.check_circle : Icons.arrow_forward,
+              isLoading: _isLoading,
+              onPressed: _isLoading
+                  ? null
+                  : () {
+                      if (_step == 4) {
+                        _createTrip();
+                      } else {
+                        _nextStep();
+                      }
+                    },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _createTrip() async {
     if (!_formKey.currentState!.validate()) return;
+    final selectedRoute = _selectedRoute;
+    if (selectedRoute == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Yolculuk olusturmadan once rota secmelisiniz.')),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
-      final vehicles = await ref.read(myVehiclesProvider.future);
-      final vehicleId = _selectedVehicleId ?? (vehicles.isNotEmpty ? vehicles.first.id : null);
-      if (vehicleId == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Lütfen önce bir araç ekleyin'),
-              backgroundColor: AppColors.warning,
-            ),
-          );
-        }
-        return;
-      }
-
       final dio = ref.read(dioProvider);
       final token = await ref.read(authTokenProvider.future);
-      
       final departureDateTime = DateTime(
         _departureDate.year,
         _departureDate.month,
@@ -130,467 +774,145 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         _departureTime.minute,
       );
 
-      final data = <String, dynamic>{
-        'departureCity': _departureCityController.text,
-        'arrivalCity': _arrivalCityController.text,
-        'departureTime': departureDateTime.toIso8601String(),
-        'availableSeats': _availableSeats,
-        'pricePerSeat': double.parse(_priceController.text),
-        'type': _tripType,
-        'allowsPets': _allowsPets,
-        'allowsCargo': _allowsCargo,
-        'womenOnly': _womenOnly,
-        'instantBooking': _instantBooking,
-        'description': _descriptionController.text,
-        'vehicleId': vehicleId,
-      };
-
-      if (_departureAddress != null && _departureAddress!.isNotEmpty) {
-        data['departureAddress'] = _departureAddress;
-      }
-      if (_arrivalAddress != null && _arrivalAddress!.isNotEmpty) {
-        data['arrivalAddress'] = _arrivalAddress;
-      }
-      if (_departureLat != null && _departureLng != null) {
-        data['departureLat'] = _departureLat;
-        data['departureLng'] = _departureLng;
-      }
-      if (_arrivalLat != null && _arrivalLng != null) {
-        data['arrivalLat'] = _arrivalLat;
-        data['arrivalLng'] = _arrivalLng;
-      }
+      final pickupPolicies = selectedRoute.viaCities.map((city) {
+        final key = _cityKey(city);
+        final value = _pickupPolicies[key] ?? _PickupPolicyValue();
+        return value.toJson(city);
+      }).toList();
 
       await dio.post(
         '/trips',
-        data: data,
+        data: {
+          'departureCity': _departureCityController.text.trim(),
+          'arrivalCity': _arrivalCityController.text.trim(),
+          if ((_departureAddress ?? '').isNotEmpty)
+            'departureAddress': _departureAddress,
+          if ((_arrivalAddress ?? '').isNotEmpty)
+            'arrivalAddress': _arrivalAddress,
+          if (_departureLat != null) 'departureLat': _departureLat,
+          if (_departureLng != null) 'departureLng': _departureLng,
+          if (_arrivalLat != null) 'arrivalLat': _arrivalLat,
+          if (_arrivalLng != null) 'arrivalLng': _arrivalLng,
+          'departureTime': departureDateTime.toIso8601String(),
+          'availableSeats': _availableSeats,
+          'pricePerSeat': double.parse(_priceController.text.trim()),
+          'type': _tripType,
+          'allowsPets': _allowsPets,
+          'allowsCargo': _allowsCargo,
+          'womenOnly': _womenOnly,
+          'instantBooking': _instantBooking,
+          'description': _descriptionController.text.trim(),
+          'vehicleId': _selectedVehicleId,
+          'routeSnapshot': selectedRoute.route,
+          'viaCities': selectedRoute.viaCities,
+          'pickupPolicies': pickupPolicies,
+        },
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Yolculuk başarıyla oluşturuldu!'),
-            backgroundColor: AppColors.success,
-          ),
-        );
-        context.pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Hata: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Yolculuk basariyla olusturuldu.'),
+            backgroundColor: AppColors.success),
+      );
+      context.pop();
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final apiError = ApiException.fromDioError(e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(apiError.message), backgroundColor: AppColors.error),
+      );
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
+}
+
+class _StepHeader extends StatelessWidget {
+  final int currentStep;
+
+  const _StepHeader({required this.currentStep});
 
   @override
   Widget build(BuildContext context) {
-    final vehiclesAsync = ref.watch(myVehiclesProvider);
-    final hasVehicle = vehiclesAsync.asData?.value.isNotEmpty ?? false;
-
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text('Yolculuk Oluştur'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.darkGradient),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Trip Type Selection
-                  const Text('Yolculuk Tipi', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 12),
-                  _TripTypeSelector(
-                    selected: _tripType,
-                    onChanged: (type) => setState(() => _tripType = type),
-                  ).animate().fadeIn(),
-
-                  const SizedBox(height: 24),
-
-                  // Route Card
-                  GlassContainer(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        LocationAutocompleteField(
-                          controller: _departureCityController,
-                          hintText: 'Nereden?',
-                          icon: Icons.trip_origin,
-                          iconColor: AppColors.primary,
-                          validator: (value) => value == null || value.trim().isEmpty ? 'Bu alan gerekli' : null,
-                          onSelected: (suggestion) {
-                            final city = suggestion.city.trim();
-                            if (city.isNotEmpty) {
-                              _departureCityController.text = city;
-                            }
-                            _departureAddress = suggestion.displayName;
-                            _departureLat = suggestion.lat;
-                            _departureLng = suggestion.lon;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        LocationAutocompleteField(
-                          controller: _arrivalCityController,
-                          hintText: 'Nereye?',
-                          icon: Icons.location_on,
-                          iconColor: AppColors.accent,
-                          validator: (value) => value == null || value.trim().isEmpty ? 'Bu alan gerekli' : null,
-                          onSelected: (suggestion) {
-                            final city = suggestion.city.trim();
-                            if (city.isNotEmpty) {
-                              _arrivalCityController.text = city;
-                            }
-                            _arrivalAddress = suggestion.displayName;
-                            _arrivalLat = suggestion.lat;
-                            _arrivalLng = suggestion.lon;
-                          },
-                        ),
-                      ],
-                    ),
-                  ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.1),
-
-                  const SizedBox(height: 20),
-
-                  _buildVehicleSection(vehiclesAsync).animate().fadeIn(delay: 150.ms).slideY(begin: 0.1),
-
-                  const SizedBox(height: 20),
-
-                  // Date & Time
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GlassContainer(
-                          padding: const EdgeInsets.all(16),
-                          child: InkWell(
-                            onTap: _selectDate,
-                            child: Row(
-                              children: [
-                                const Icon(Icons.calendar_today, color: AppColors.primary, size: 20),
-                                const SizedBox(width: 12),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Tarih', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                                    Text(
-                                      DateFormat('dd MMM', 'tr').format(_departureDate),
-                                      style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: GlassContainer(
-                          padding: const EdgeInsets.all(16),
-                          child: InkWell(
-                            onTap: _selectTime,
-                            child: Row(
-                              children: [
-                                const Icon(Icons.access_time, color: AppColors.accent, size: 20),
-                                const SizedBox(width: 12),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Text('Saat', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                                    Text(
-                                      _departureTime.format(context),
-                                      style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ).animate().fadeIn(delay: 200.ms),
-
-                  const SizedBox(height: 20),
-
-                  // Seats & Price
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GlassContainer(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Koltuk Sayısı', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  IconButton(
-                                    onPressed: _availableSeats > 1 ? () => setState(() => _availableSeats--) : null,
-                                    icon: const Icon(Icons.remove_circle_outline, color: AppColors.primary),
-                                  ),
-                                  Text(
-                                    '$_availableSeats',
-                                    style: const TextStyle(color: AppColors.textPrimary, fontSize: 24, fontWeight: FontWeight.bold),
-                                  ),
-                                  IconButton(
-                                    onPressed: _availableSeats < 7 ? () => setState(() => _availableSeats++) : null,
-                                    icon: const Icon(Icons.add_circle_outline, color: AppColors.primary),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: GlassContainer(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Kişi Başı Fiyat', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                              const SizedBox(height: 8),
-                              TextFormField(
-                                controller: _priceController,
-                                keyboardType: TextInputType.number,
-                                style: const TextStyle(color: AppColors.textPrimary, fontSize: 20, fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  suffixText: '₺',
-                                  suffixStyle: TextStyle(color: AppColors.primary, fontSize: 20),
-                                  hintText: '0',
-                                  hintStyle: TextStyle(color: AppColors.textTertiary),
-                                ),
-                                validator: (v) => v == null || v.isEmpty ? 'Fiyat girin' : null,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ).animate().fadeIn(delay: 300.ms),
-
-                  const SizedBox(height: 20),
-
-                  // Preferences
-                  GlassContainer(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Tercihler', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 16),
-                        _buildSwitch('Evcil hayvana izin ver', Icons.pets, _allowsPets, (v) => setState(() => _allowsPets = v)),
-                        _buildSwitch('Kargoya izin ver', Icons.inventory_2, _allowsCargo, (v) => setState(() => _allowsCargo = v)),
-                        _buildSwitch('Sadece kadınlar', Icons.female, _womenOnly, (v) => setState(() => _womenOnly = v)),
-                        _buildSwitch('Anında rezervasyon', Icons.flash_on, _instantBooking, (v) => setState(() => _instantBooking = v)),
-                      ],
-                    ),
-                  ).animate().fadeIn(delay: 400.ms),
-
-                  const SizedBox(height: 20),
-
-                  // Description
-                  GlassContainer(
-                    padding: const EdgeInsets.all(20),
-                    child: TextFormField(
-                      controller: _descriptionController,
-                      maxLines: 3,
-                      style: const TextStyle(color: AppColors.textPrimary),
-                      decoration: const InputDecoration(
-                        hintText: 'Yolculuk hakkında not ekleyin (isteğe bağlı)',
-                        hintStyle: TextStyle(color: AppColors.textTertiary),
-                        border: InputBorder.none,
-                      ),
-                    ),
-                  ).animate().fadeIn(delay: 500.ms),
-
-                  const SizedBox(height: 32),
-
-                  // Submit Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: GradientButton(
-                      text: _isLoading ? 'Oluşturuluyor...' : 'Yolculuk Oluştur',
-                      icon: Icons.check_circle,
-                      onPressed: (!_isLoading && hasVehicle) ? _createTrip : null,
-                    ),
-                  ).animate().fadeIn(delay: 600.ms).scale(),
-
-                  const SizedBox(height: 40),
-                ],
+    return Row(
+      children: List.generate(5, (index) {
+        final done = index <= currentStep;
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: Container(
+              height: 6,
+              decoration: BoxDecoration(
+                color: done ? AppColors.primary : AppColors.glassStroke,
+                borderRadius: BorderRadius.circular(20),
               ),
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildVehicleSection(AsyncValue<List<Vehicle>> vehiclesAsync) {
-    return vehiclesAsync.when(
-      loading: () => GlassContainer(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          children: const [
-            SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            SizedBox(width: 12),
-            Text('Araçlar yükleniyor...', style: TextStyle(color: AppColors.textSecondary)),
-          ],
-        ),
-      ),
-      error: (e, _) => GlassContainer(
-        padding: const EdgeInsets.all(20),
-        child: Text('Araçlar yüklenemedi: $e', style: const TextStyle(color: AppColors.error)),
-      ),
-      data: (vehicles) {
-        if (vehicles.isEmpty) {
-          return GlassContainer(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Araç bulunamadı', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                const Text('İlan verebilmek için önce araç eklemelisiniz.', style: TextStyle(color: AppColors.textSecondary)),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: GradientButton(
-                    text: 'Araç Ekle',
-                    icon: Icons.directions_car_outlined,
-                    onPressed: () => context.push('/vehicle-create'),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => context.push('/vehicle-verification'),
-                  child: const Text('Ruhsat Doğrula'),
-                ),
-              ],
-            ),
-          );
-        }
-
-        final selectedId = _selectedVehicleId ?? vehicles.first.id;
-
-        return GlassContainer(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Araç Seçimi', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 140,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: vehicles.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 12),
-                  itemBuilder: (context, index) {
-                    final vehicle = vehicles[index];
-                    final isSelected = vehicle.id == selectedId;
-
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedVehicleId = vehicle.id),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: 220,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppColors.glassBg : AppColors.glassBgDark,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isSelected ? AppColors.primary : AppColors.glassStroke,
-                            width: isSelected ? 2 : 1,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 36,
-                                  height: 36,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.glassBg,
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(Icons.directions_car, color: AppColors.primary, size: 20),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    '${vehicle.brand} ${vehicle.model}',
-                                    style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                Icon(
-                                  vehicle.verified ? Icons.verified : Icons.verified_outlined,
-                                  color: vehicle.verified ? AppColors.success : AppColors.textTertiary,
-                                  size: 18,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Text(vehicle.licensePlate, style: const TextStyle(color: AppColors.textSecondary)),
-                            const SizedBox(height: 6),
-                            Text('${vehicle.year} . ${vehicle.seats} koltuk', style: const TextStyle(color: AppColors.textTertiary)),
-                            if (vehicle.color != null) ...[
-                              const SizedBox(height: 6),
-                              Text(vehicle.color!, style: const TextStyle(color: AppColors.textTertiary)),
-                            ],
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
           ),
         );
-      },
+      }),
     );
   }
-  Widget _buildSwitch(String label, IconData icon, bool value, ValueChanged<bool> onChanged) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Icon(icon, color: AppColors.textSecondary, size: 20),
-          const SizedBox(width: 12),
-          Expanded(child: Text(label, style: const TextStyle(color: AppColors.textPrimary))),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: AppColors.primary,
-          ),
-        ],
+}
+
+class _RouteAlternativeCard extends StatelessWidget {
+  final _RouteAlt alternative;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _RouteAlternativeCard({
+    required this.alternative,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.glassBg : AppColors.glassBgDark,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+              color: isSelected ? AppColors.primary : AppColors.glassStroke,
+              width: isSelected ? 2 : 1),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text('Rota ${alternative.id}',
+                    style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w700)),
+                const Spacer(),
+                Text('${alternative.distanceKm.toStringAsFixed(1)} km',
+                    style: const TextStyle(color: AppColors.textSecondary)),
+                const SizedBox(width: 10),
+                Text('${alternative.durationMin.toStringAsFixed(0)} dk',
+                    style: const TextStyle(color: AppColors.textSecondary)),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              alternative.viaCities
+                  .map((city) => city['city'])
+                  .whereType<String>()
+                  .join(' -> '),
+              style:
+                  const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -606,13 +928,33 @@ class _TripTypeSelector extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _TypeChip(icon: Icons.people, label: 'İnsan', value: 'people', selected: selected, onTap: onChanged),
+        _TypeChip(
+            icon: Icons.people,
+            label: 'Insan',
+            value: 'people',
+            selected: selected,
+            onTap: onChanged),
         const SizedBox(width: 8),
-        _TypeChip(icon: Icons.pets, label: 'Hayvan', value: 'pets', selected: selected, onTap: onChanged),
+        _TypeChip(
+            icon: Icons.pets,
+            label: 'Hayvan',
+            value: 'pets',
+            selected: selected,
+            onTap: onChanged),
         const SizedBox(width: 8),
-        _TypeChip(icon: Icons.inventory_2, label: 'Kargo', value: 'cargo', selected: selected, onTap: onChanged),
+        _TypeChip(
+            icon: Icons.inventory_2,
+            label: 'Kargo',
+            value: 'cargo',
+            selected: selected,
+            onTap: onChanged),
         const SizedBox(width: 8),
-        _TypeChip(icon: Icons.restaurant, label: 'Gıda', value: 'food', selected: selected, onTap: onChanged),
+        _TypeChip(
+            icon: Icons.restaurant,
+            label: 'Gida',
+            value: 'food',
+            selected: selected,
+            onTap: onChanged),
       ],
     );
   }
@@ -646,11 +988,14 @@ class _TypeChip extends StatelessWidget {
             gradient: isSelected ? AppColors.primaryGradient : null,
             color: isSelected ? null : AppColors.glassBg,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isSelected ? Colors.transparent : AppColors.glassStroke),
+            border: Border.all(
+                color: isSelected ? Colors.transparent : AppColors.glassStroke),
           ),
           child: Column(
             children: [
-              Icon(icon, color: isSelected ? Colors.white : AppColors.textSecondary, size: 20),
+              Icon(icon,
+                  color: isSelected ? Colors.white : AppColors.textSecondary,
+                  size: 20),
               const SizedBox(height: 4),
               Text(
                 label,
@@ -667,8 +1012,3 @@ class _TypeChip extends StatelessWidget {
     );
   }
 }
-
-
-
-
-

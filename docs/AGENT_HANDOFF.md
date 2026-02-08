@@ -1,6 +1,6 @@
 ﻿# Agent Handoff (ridesharing-app)
 
-Last updated: 2026-02-08
+Last updated: 2026-02-09
 
 ## Scope
 This handoff captures the current technical state of the ridesharing app at:
@@ -86,6 +86,70 @@ C:\Users\barut\workspace\ridesharing-app
 - Updated runbook with admin verification operations guidance (`docs/runbooks.md`).
 - Validation results: `npm run type-check` and `npm test -- --runInBand` passed on backend; Flutter analyze reported only existing deprecation infos.
 - E2E tests were not executable in this session because `DATABASE_URL/TEST_DATABASE_URL` was not configured for test DB.
+- Implemented payout-account security endpoints under users:
+  - `GET /v1/users/me/payout-account`
+  - `POST /v1/users/me/payout-account`
+  - `POST /v1/users/me/payout-account/verify`
+- Enforced payout guardrails in backend:
+  - identity must be verified before payout account setup
+  - TR-IBAN format/checksum validation
+  - strict account-holder vs identity name matching
+  - challenge-code verification with attempt limits and temporary lock behavior
+- Implemented booking lifecycle hardening and new endpoints:
+  - `POST /v1/bookings/:id/accept`
+  - `POST /v1/bookings/:id/reject`
+  - `POST /v1/bookings/:id/complete`
+  - `POST /v1/bookings/:id/dispute`
+  - flow: `pending -> awaiting_payment -> confirmed -> checked_in -> completed/disputed`
+- Added staged settlement behavior:
+  - `%10` payout release attempt at check-in
+  - `%90` payout release after completion + dispute window
+  - cron service `BookingSettlementService` for auto-complete and payout release loops
+- Added Prisma migration `20260209003000_add_payout_and_booking_settlement`:
+  - new user payout fields
+  - new booking settlement/dispute fields
+  - new `payout_ledgers` table
+  - rollback expectation: drop `payout_ledgers` + remove added payout/dispute columns from `users` and `bookings`
+
+## Conversation summary (2026-02-09)
+- Continued implementation and hardening after payout/booking-flow changes with focus on profile UX, support pages, and full validation.
+- Mobile profile improvements:
+  - Added profile photo URL editing support in profile details form and profile avatar usage.
+  - Files: `mobile/lib/features/profile/presentation/profile_details_screen.dart`, `mobile/lib/features/profile/presentation/profile_screen.dart`, `mobile/lib/core/providers/auth_provider.dart`.
+- Added real (temporary) support/about content pages and routed them:
+  - New screen: `mobile/lib/features/profile/presentation/about_screen.dart`.
+  - Existing support screen wired in router: `mobile/lib/features/profile/presentation/help_support_screen.dart`.
+  - Router updates: `mobile/lib/core/router/app_router.dart`.
+- Backend profile DTO/service support for photo URL update:
+  - `backend/src/application/dto/users/users.dto.ts`
+  - `backend/src/application/services/users/users.service.ts`
+- E2E and API behavior stabilization:
+  - Fixed E2E `supertest` imports in all specs (`backend/test/e2e/*.ts`).
+  - Fixed action endpoint HTTP status semantics with `@HttpCode(200)` where needed:
+    - `backend/src/interfaces/http/bookings/bookings.controller.ts`
+    - `backend/src/interfaces/http/users/users.controller.ts`
+  - Fixed trip search query robustness for non-transformed query params (seats/page/limit parsing and date validation) in:
+    - `backend/src/application/services/trips/trips.service.ts`
+  - Added trip search cache invalidation on trip create/update/cancel and Redis prefix deletion support:
+    - `backend/src/application/services/trips/trips.service.ts`
+    - `backend/src/infrastructure/cache/redis.service.ts`
+  - Updated E2E expectation for booking lifecycle status (`awaiting_payment`) in:
+    - `backend/test/e2e/trips-bookings.e2e-spec.ts`
+- E2E runner script fixes:
+  - Fixed PowerShell path bug in `scripts/run-e2e.ps1` (`Join-Path` usage).
+  - Ensured E2E runs sequentially (`--runInBand`) to avoid cross-suite DB cleanup races.
+  - Added graceful handling when `prisma generate` fails with Windows file-lock EPERM.
+- Mobile test baseline fixed:
+  - Replaced default counter widget test with `ProviderScope` bootstrap smoke test:
+    - `mobile/test/widget_test.dart`
+- Validation run results on 2026-02-09:
+  - Backend: `npm run type-check` ✅, `npm test -- --runInBand` ✅ (6/6 suites, 42/42 tests).
+  - Backend E2E: `./scripts/run-e2e.ps1 -DatabaseUrl postgresql://postgres:postgres@localhost:5432/ridesharing_test` ✅ (5/5 suites, 8/8 tests).
+  - Mobile: `flutter analyze` ✅, `flutter test` ✅, `flutter build web` ✅.
+  - Responsive screenshot smoke outputs:
+    - `output/screens/login_ios_like.png`
+    - `output/screens/login_android_like.png`
+    - `output/screens/login_desktop.png`
 
 ## Selected skill set (use for future work)
 Repo skills:

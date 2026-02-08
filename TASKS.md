@@ -1,14 +1,17 @@
 ﻿# Task Status (Ridesharing SuperApp)
 
 Source: repo code/docs audit
-Last verification pass: 2026-02-08
+Last verification pass: 2026-02-09 (profile/help-about + backend e2e stabilization)
 
-## Open Items (Priority, 2026-02-08)
+## Open Items (Priority, 2026-02-09)
+- [ ] Trip creation parity v2: route alternatives + via-city pickup policy UX hardening (final polish/testing pending)
+- [ ] Trip detail parity v2: passenger roster and compact readability polish on all breakpoints
 - [ ] Android emulator E2E coverage: Android SDK emulator/AVD setup is missing in current environment
 - [ ] iOS release setup: real bundle identifier + App Store Connect key + signing profiles (blocked until paid Apple/App Store Connect setup is available)
 - [ ] E-Devlet integration: auto document checks (legal/process dependency)
 - [ ] Admin web panel UI (optional): admin moderation API exists, but a dedicated web panel is not in repo
 - [ ] Payment system (Iyzico): live payment/refund/tokenization + wallet reconciliation (defer to final phase)
+- [ ] Help/About/Support legal and operational copy finalization (current content is temporary demo text)
 
 ## Completed
 - [x] Project setup: Flutter + NestJS base stack
@@ -16,7 +19,13 @@ Last verification pass: 2026-02-08
 - [x] Maps integration: OpenStreetMap, markers, route drawing
 - [x] Trip management: create 4 trip types (people/pet/cargo/food), search, list
 - [x] Booking flow: request creation, driver approve/reject
+- [x] Booking lifecycle hardening: `pending -> awaiting_payment -> confirmed -> checked_in -> completed/disputed`
+- [x] Booking UX hardening: booking failure reasons are surfaced in mobile instead of generic failure text
 - [x] Boarding verification: QR generation + QR scan + PNR check-in endpoint
+- [x] Payout security baseline: driver payout account endpoints + TR IBAN validation + identity-name strict match + challenge verification
+- [x] Settlement jobs: auto-complete checked-in trips and staged payout release (`%10` check-in, `%90` post-completion window)
+- [x] Live location guard: passengers can view live location only after confirmed/paid booking states
+- [x] Trip detail compact redesign baseline: route map + occupancy summary + passenger roster visibility gating
 - [x] Messaging: real-time chat infra + UI
 - [x] Verification module:
   - [x] Identity upload + API
@@ -28,11 +37,14 @@ Last verification pass: 2026-02-08
 - [x] Auth OTP send/verify (Redis-backed) + Netgsm mock integration
 - [x] Device token registration endpoint (stored in user preferences)
 - [x] Profile menu routing to detail/vehicles/placeholders
+- [x] Profile photo edit support: backend `profilePhotoUrl` update + mobile profile photo URL form/preview
+- [x] Help/About/Support baseline screens: temporary realistic content with explicit demo note and date
+- [x] Backend e2e stabilization: supertest import fix, sequential run, endpoint status code alignment, search filter/caching fixes
 
 ## Required Fixes / Tech Debt
 - [ ] `README.md` historical roadmap sections can drift; treat this file as source of truth.
 
-## Verification Audit (2026-02-08)
+## Verification Audit (2026-02-09)
 - [x] Admin verification and bus-price controls exist under `/v1/admin` with `x-admin-key`.
 - [x] Live trip location exists on socket namespace `/location` (`join_trip`, `driver_location_update`) and mobile consumer flow exists.
 - [x] Push/SMS notification infrastructure exists (FCM + Netgsm), with mock/real mode by `USE_MOCK_INTEGRATIONS`.
@@ -40,8 +52,10 @@ Last verification pass: 2026-02-08
 - [x] Vehicle picker exists in create-trip flow and blocks trip creation when vehicle is missing.
 - [x] Multi-language exists for TR/EN/AR with locale persistence.
 - [x] E2E automation script exists at `scripts/run-e2e.ps1` with DB safety checks.
+- [x] E2E suite passes on test DB (`ridesharing_test`) with `--runInBand`.
 - [x] PNR check-in backend endpoint exists (`POST /bookings/check-in/pnr`) and mobile scanner calls it.
 - [x] Backend TR coordinate guard exists for trip create/update (coordinates must be inside Turkiye bounds).
+- [x] Trip search cache invalidates on create/update/cancel to avoid stale search results.
 
 ## QA Findings (2026-02-07)
 - [x] Create trip fails: backend rejected `description` (DTO whitelist). Fixed by adding `description` to CreateTripDto and mapping.
@@ -58,6 +72,7 @@ Last verification pass: 2026-02-08
 - [x] Trip detail “Mesaj” now opens chat if booking exists (shows info otherwise).
 - [x] Driver “My Trips” screen added and wired to `/trips/my`.
 - [ ] Real payment integration (Iyzico) still pending.
+- [ ] Live provider payout transfer integration (currently mock release path in service).
 - [ ] Android emulator E2E coverage blocked (no AVD configured).
 - [ ] iOS build setup: update bundle identifier from `com.example.ridesharing_app` to your real App ID.
 - [ ] iOS build setup: configure Codemagic App Store Connect API key + signing profiles.

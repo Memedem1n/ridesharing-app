@@ -70,3 +70,4 @@ export const cleanupDatabase = async (prisma: PrismaClient) => {
 
 export const uniqueEmail = (prefix = 'user') => `${prefix}_${Date.now()}_${Math.floor(Math.random() * 1000)}@test.local`;
 export const uniquePhone = () => `+90${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+

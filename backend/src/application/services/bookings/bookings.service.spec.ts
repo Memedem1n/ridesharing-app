@@ -88,6 +88,7 @@ describe('BookingsService', () => {
 
         service = module.get<BookingsService>(BookingsService);
         jest.clearAllMocks();
+        jest.spyOn(service as any, 'releasePayoutForBooking').mockResolvedValue(false);
     });
 
     it('checks in with valid pnr and trip id', async () => {
@@ -129,5 +130,48 @@ describe('BookingsService', () => {
         mockPrismaService.booking.findUnique.mockResolvedValue(confirmedBooking);
 
         await expect(service.checkInByPnr('driver-2', 'ABC123', 'trip-1')).rejects.toThrow(ForbiddenException);
+    });
+
+    it('accepts pending booking and moves it to awaiting_payment', async () => {
+        const pendingBooking = {
+            ...confirmedBooking,
+            status: 'pending',
+            paymentStatus: 'pending',
+        };
+        mockPrismaService.booking.findUnique.mockResolvedValue(pendingBooking);
+        mockPrismaService.booking.update.mockResolvedValue({
+            ...pendingBooking,
+            status: 'awaiting_payment',
+            acceptedAt: new Date(),
+            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        });
+
+        const result = await service.accept('booking-1', 'driver-1');
+        expect(result.status).toBe('awaiting_payment');
+    });
+
+    it('completes checked-in booking by passenger', async () => {
+        const checkedInBooking = {
+            ...confirmedBooking,
+            status: 'checked_in',
+            checkedInAt: new Date(),
+            trip: {
+                ...confirmedBooking.trip,
+                driver: {
+                    id: 'driver-1',
+                },
+            },
+        };
+        mockPrismaService.booking.findUnique.mockResolvedValue(checkedInBooking);
+        mockPrismaService.booking.update.mockResolvedValue({
+            ...checkedInBooking,
+            status: 'completed',
+            completedAt: new Date(),
+            completionSource: 'passenger',
+            disputeStatus: 'none',
+        });
+
+        const result = await service.completeByPassenger('booking-1', 'passenger-1');
+        expect(result.status).toBe('completed');
     });
 });

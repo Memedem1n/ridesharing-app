@@ -1,4 +1,4 @@
-import request from 'supertest';
+import * as request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { cleanupDatabase, createTestApp, uniqueEmail, uniquePhone } from './utils';
@@ -69,3 +69,4 @@ describe('Users E2E', () => {
         expect(res.body.preferences?.deviceTokens).toContain('device-token-1');
     });
 });
+

@@ -42,3 +42,30 @@ Manual verification decisions are handled via the backend admin API (`/v1/admin`
 3. Submit approve/reject decisions to the matching endpoint.
 4. Enforce reason entry for rejections in panel logic.
 
+## Payout and Dispute Operations
+Booking settlement uses staged release:
+- `%10` release at `checked_in`
+- `%90` release after `completed` + dispute window
+
+### Preconditions for payout release
+1. Driver payout account must be `verified`.
+2. Payout account setup is blocked until identity verification is complete.
+3. IBAN account holder name must match verified identity name.
+
+### Core user endpoints
+- `GET /v1/users/me/payout-account`
+- `POST /v1/users/me/payout-account`
+- `POST /v1/users/me/payout-account/verify`
+
+### Core booking endpoints
+- `POST /v1/bookings/:id/accept`
+- `POST /v1/bookings/:id/reject`
+- `POST /v1/bookings/:id/complete`
+- `POST /v1/bookings/:id/dispute`
+
+### Incident checklist (fraud-sensitive)
+1. Verify booking timeline (`acceptedAt`, `paidAt`, `checkedInAt`, `completedAt`).
+2. Check payout hold reason fields (`payoutHoldReason`, ledger `holdReason`).
+3. If dispute is open, do not manually release `%90` until case closure.
+4. Record every manual decision with operator, timestamp, and justification.
+

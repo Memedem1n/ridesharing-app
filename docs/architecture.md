@@ -1,6 +1,6 @@
 # Architecture Overview
 
-Last updated: 2026-02-08
+Last updated: 2026-02-08 (payout security flow)
 
 This document summarizes the current architecture for the ridesharing app.
 
@@ -17,6 +17,8 @@ This document summarizes the current architecture for the ridesharing app.
 3. Prisma persists to PostgreSQL.
 4. Redis is used for OTP and cache paths where configured; in-memory fallbacks exist.
 5. Booking boarding supports QR check-in and PNR check-in (`/v1/bookings/check-in`, `/v1/bookings/check-in/pnr`).
+6. Booking state now progresses as `pending -> awaiting_payment -> confirmed -> checked_in -> completed/disputed`.
+7. Settlement jobs release staged payouts (`%10` at check-in, `%90` after completion/dispute window).
 
 ## Realtime Flow
 - Chat: Socket.io namespace `/chat` for conversation messaging.
@@ -24,6 +26,7 @@ This document summarizes the current architecture for the ridesharing app.
 
 ## External Integrations
 - Payments: Iyzico service wired in backend; live mode requires `USE_MOCK_INTEGRATIONS=false` and valid credentials.
+- Payout account security: `/v1/users/me/payout-account*` endpoints enforce TR-IBAN validation, identity-name strict match, and challenge verification.
 - Notifications: Netgsm SMS + Firebase FCM (mock by default, real mode via env vars).
 - Address autocomplete: Nominatim (Turkey-focused query shaping in mobile service).
 - Route calculation: OSRM over OpenStreetMap data.

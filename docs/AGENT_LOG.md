@@ -373,3 +373,21 @@ Summary: Fixed README PNR status text to match implemented backend endpoint and 
 Commands: rg; apply_patch; npm run type-check; npm test -- --runInBand; npm run db:generate; scripts/run-e2e.ps1
 Files: README.md,docs/AGENT_LOG.md
 Notes: type-check/tests passed; e2e still blocked by missing DATABASE_URL/TEST_DATABASE_URL; eslint config missing in backend.
+
+## 2026-02-09 01:17
+Level: agent
+Agent: codex
+Task: Implement payout security and booking settlement flow
+Summary: Added payout-account verification endpoints, strict TR-IBAN + identity-name checks, booking accept/reject/complete/dispute flow, staged payout release jobs, schema migration, mobile booking actions, and API/runbook docs updates.
+Commands: npm run db:generate; npm run type-check; npm test -- --runInBand; flutter analyze
+Files: backend/prisma/schema.prisma,backend/prisma/migrations/20260209003000_add_payout_and_booking_settlement/migration.sql,backend/src/application/services/bookings/bookings.service.ts,backend/src/application/services/users/users.service.ts,backend/src/interfaces/http/bookings/bookings.controller.ts,backend/src/interfaces/http/users/users.controller.ts,mobile/lib/features/bookings/presentation/my_reservations_screen.dart,mobile/lib/features/bookings/presentation/driver_reservations_screen.dart,docs/api/OPENAPI_SPEC.yaml,docs/runbooks.md,TASKS.md,docs/AGENT_HANDOFF.md
+Notes: Backend type-check/tests passed. Flutter analyze returned existing deprecation infos only. E2E still blocked without DATABASE_URL/TEST_DATABASE_URL.
+
+## 2026-02-09 02:36
+Level: agent
+Agent: codex
+Task: Profile/support UX + backend e2e stabilization
+Summary: Completed profile photo support and help/about pages, fixed backend trip search/query-cache/action status issues, stabilized e2e runner and tests, validated backend+mobile checks.
+Commands: flutter analyze;flutter test;flutter build web;npm run type-check;npm test -- --runInBand;scripts/run-e2e.ps1
+Files: mobile/lib/core/router/app_router.dart,mobile/lib/features/profile/presentation/about_screen.dart,mobile/lib/features/profile/presentation/help_support_screen.dart,mobile/lib/features/profile/presentation/profile_details_screen.dart,mobile/lib/features/profile/presentation/profile_screen.dart,backend/src/application/services/trips/trips.service.ts,backend/src/interfaces/http/bookings/bookings.controller.ts,backend/src/interfaces/http/users/users.controller.ts,backend/src/infrastructure/cache/redis.service.ts,backend/test/e2e/*.ts,scripts/run-e2e.ps1,TASKS.md,docs/AGENT_HANDOFF.md
+Notes: E2E now passes on ridesharing_test; run-e2e still prints a non-fatal Prisma generate EPERM warning on Windows due query engine file lock.

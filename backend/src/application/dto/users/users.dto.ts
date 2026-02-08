@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsEnum, IsDateString, IsNotEmpty } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsEnum, IsDateString, IsNotEmpty, MinLength, MaxLength, IsUrl } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 // Define UserPreferencesDto FIRST
@@ -42,6 +42,14 @@ export class UpdateProfileDto {
 
     @ApiPropertyOptional()
     @IsOptional()
+    @IsUrl({
+        require_tld: false,
+        protocols: ['http', 'https'],
+    })
+    profilePhotoUrl?: string;
+
+    @ApiPropertyOptional()
+    @IsOptional()
     @IsDateString()
     dateOfBirth?: string;
 
@@ -70,6 +78,49 @@ export class DeviceTokenDto {
     @IsOptional()
     @IsString()
     platform?: string;
+}
+
+export class UpsertPayoutAccountDto {
+    @ApiProperty({ description: 'TR IBAN. Example: TRXXXXXXXXXXXXXXXXXXXXXX' })
+    @IsNotEmpty()
+    @IsString()
+    @MinLength(26)
+    @MaxLength(34)
+    iban: string;
+
+    @ApiProperty({ description: 'Account holder full name (must match verified identity)' })
+    @IsNotEmpty()
+    @IsString()
+    accountHolderName: string;
+}
+
+export class VerifyPayoutAccountDto {
+    @ApiProperty({ description: 'Micro verification code' })
+    @IsNotEmpty()
+    @IsString()
+    @MinLength(4)
+    @MaxLength(8)
+    challengeCode: string;
+}
+
+export class PayoutAccountDto {
+    @ApiPropertyOptional()
+    ibanMasked?: string;
+
+    @ApiPropertyOptional()
+    accountHolderName?: string;
+
+    @ApiProperty()
+    verificationStatus: string;
+
+    @ApiPropertyOptional()
+    verifiedAt?: Date;
+
+    @ApiPropertyOptional()
+    blockedUntil?: Date;
+
+    @ApiProperty()
+    riskLevel: string;
 }
 
 export class UserProfileDto {
@@ -126,6 +177,9 @@ export class UserProfileDto {
 
     @ApiProperty()
     referralCode: string;
+
+    @ApiPropertyOptional({ type: PayoutAccountDto })
+    payoutAccount?: PayoutAccountDto;
 
     @ApiProperty()
     createdAt: Date;

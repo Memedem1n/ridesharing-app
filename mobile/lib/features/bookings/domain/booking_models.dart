@@ -13,6 +13,10 @@ class Booking {
   final String? qrCode;
   final String? pnrCode;
   final DateTime? checkedInAt;
+  final DateTime? acceptedAt;
+  final DateTime? completedAt;
+  final DateTime? disputeDeadlineAt;
+  final String? disputeStatus;
   final DateTime createdAt;
   final Trip? trip;
 
@@ -29,6 +33,10 @@ class Booking {
     this.qrCode,
     this.pnrCode,
     this.checkedInAt,
+    this.acceptedAt,
+    this.completedAt,
+    this.disputeDeadlineAt,
+    this.disputeStatus,
     required this.createdAt,
     this.trip,
   });
@@ -48,24 +56,32 @@ class Booking {
       qrCode: json['qrCode'],
       pnrCode: json['pnrCode'],
       checkedInAt: json['checkedInAt'] != null ? DateTime.parse(json['checkedInAt']) : null,
+      acceptedAt: json['acceptedAt'] != null ? DateTime.parse(json['acceptedAt']) : null,
+      completedAt: json['completedAt'] != null ? DateTime.parse(json['completedAt']) : null,
+      disputeDeadlineAt: json['disputeDeadlineAt'] != null ? DateTime.parse(json['disputeDeadlineAt']) : null,
+      disputeStatus: json['disputeStatus'],
       createdAt: DateTime.parse(json['createdAt']),
       trip: json['trip'] != null ? Trip.fromJson(json['trip']) : null,
     );
   }
 }
 
-enum BookingStatus { pending, confirmed, checkedIn, completed, cancelled, rejected }
+enum BookingStatus { pending, awaitingPayment, confirmed, checkedIn, completed, disputed, cancelled, rejected }
 
 BookingStatus _parseStatus(String? raw) {
   switch (raw) {
     case 'pending':
       return BookingStatus.pending;
+    case 'awaiting_payment':
+      return BookingStatus.awaitingPayment;
     case 'confirmed':
       return BookingStatus.confirmed;
     case 'checked_in':
       return BookingStatus.checkedIn;
     case 'completed':
       return BookingStatus.completed;
+    case 'disputed':
+      return BookingStatus.disputed;
     case 'cancelled_by_passenger':
     case 'cancelled_by_driver':
     case 'cancelled':

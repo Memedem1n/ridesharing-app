@@ -1,4 +1,4 @@
-import {
+﻿import {
     WebSocketGateway,
     WebSocketServer,
     SubscribeMessage,
@@ -158,7 +158,7 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
             where: {
                 tripId,
                 passengerId: userId,
-                status: { in: ['pending', 'confirmed', 'checked_in'] },
+                status: { in: ['confirmed', 'checked_in', 'completed', 'disputed'] },
             },
             select: { id: true },
         });
@@ -210,3 +210,4 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
         return raw.startsWith('Bearer ') ? raw.slice(7) : raw;
     }
 }
+

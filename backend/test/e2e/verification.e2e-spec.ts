@@ -1,4 +1,4 @@
-import request from 'supertest';
+import * as request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { cleanupDatabase, createTestApp, uniqueEmail, uniquePhone } from './utils';
@@ -45,3 +45,4 @@ describe('Verification E2E', () => {
         expect(res.body).toHaveProperty('criminalRecordStatus');
     });
 });
+

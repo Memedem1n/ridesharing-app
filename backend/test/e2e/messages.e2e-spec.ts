@@ -1,4 +1,4 @@
-import request from 'supertest';
+import * as request from 'supertest';
 import { INestApplication } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 import { cleanupDatabase, createTestApp, uniqueEmail, uniquePhone } from './utils';
@@ -121,3 +121,4 @@ describe('Messages E2E', () => {
         expect(msgRes.body.messages.length).toBeGreaterThan(0);
     });
 });
+

@@ -25,6 +25,8 @@ import '../../features/profile/presentation/vehicles_screen.dart';
 import '../../features/vehicles/presentation/vehicle_create_screen.dart';
 import '../../features/profile/presentation/placeholder_screen.dart';
 import '../../features/profile/presentation/settings_screen.dart';
+import '../../features/profile/presentation/help_support_screen.dart';
+import '../../features/profile/presentation/about_screen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/locale_provider.dart';
 import '../theme/app_theme.dart';
@@ -121,10 +123,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/about',
-        builder: (context, state) => const PlaceholderScreen(
-          title: 'Hakkında',
-          message: 'Uygulama bilgileri yakında eklenecek.',
-        ),
+        builder: (context, state) => const AboutScreen(),
       ),
       GoRoute(
         path: '/forgot-password',
@@ -139,10 +138,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/help',
-        builder: (context, state) => const PlaceholderScreen(
-          title: 'Yardım ve Destek',
-          message: 'Destek merkezi yakında eklenecek.',
-        ),
+        builder: (context, state) => const HelpSupportScreen(),
       ),
     ],
   );
@@ -206,3 +202,4 @@ class MainShell extends ConsumerWidget {
     }
   }
 }
+
