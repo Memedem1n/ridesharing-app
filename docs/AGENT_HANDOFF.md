@@ -1,6 +1,6 @@
 ﻿# Agent Handoff (ridesharing-app)
 
-Last updated: 2026-02-07
+Last updated: 2026-02-08
 
 ## Scope
 This handoff captures the current technical state of the ridesharing app at:
@@ -92,6 +92,16 @@ Repo skills sync:
 - No AGENTS.md / CLAUDE.md / CURSOR.md in ridesharing-app.
 - Flutter linting: mobile/analysis_options.yaml includes flutter_lints.
 - Backend lint/test: package.json scripts (eslint, jest, tsc).
+- Definition of Done: code + relevant tests + docs + `docs/AGENT_LOG.md` entry are required.
+- API change rule: endpoint/DTO/response updates must be mirrored in `docs/api/OPENAPI_SPEC.yaml` in the same change set.
+- DB migration rule: any Prisma schema change requires a migration and rollback note in handoff/PR notes.
+- Breaking change rule: use feature flags or versioned APIs; avoid silent client-breaking changes.
+- Test rule: backend changes should add or update at least one relevant unit/e2e test.
+- Commit rule: prefer `feat|fix|chore|docs(scope): message`.
+- Security rule: never commit secrets; mask PII/tokens in logs.
+- Handoff freshness rule: keep conversation summary and referenced latest commit hash current.
+- CI rule: lint + tests + typecheck should pass before merge to `master`.
+- Ops rule: production bugfixes should include `docs/runbooks.md` update/note.
 
 
 

@@ -319,3 +319,12 @@ Task: Add rule to update long summary
 Summary: Added workflow rule to keep AGENT_HANDOFF conversation summary updated after each session.
 Commands: apply_patch
 Files: docs/AGENT_CONTEXT.md
+
+## 2026-02-08 22:20
+Level: agent
+Agent: codex
+Task: Add project delivery rules
+Summary: Added mandatory delivery/process rules to AGENT_CONTEXT and AGENT_HANDOFF; updated last-updated dates.
+Commands: apply_patch; git diff
+Files: docs/AGENT_CONTEXT.md,docs/AGENT_HANDOFF.md
+Notes: Added DoD, API/DB migration, breaking-change, test, commit, security, handoff freshness, CI gate, and runbook rules.

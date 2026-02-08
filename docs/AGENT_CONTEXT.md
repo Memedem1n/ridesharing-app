@@ -1,6 +1,6 @@
 ﻿# Agent Context (ridesharing-app)
 
-Last updated: 2026-02-07
+Last updated: 2026-02-08
 
 Purpose
 This file is the short on-ramp for new agents. Read this instead of scanning the whole repo.
@@ -50,6 +50,18 @@ Agent Workflow
 - After each work session, append to the long-form summary in `docs/AGENT_HANDOFF.md` (Conversation summary) so new agents can continue without rereading the repo.
 - Bootstrap helper: `scripts/agent-setup.ps1` (installs all curated skills, syncs into repo).
 - Skill sync helper: `scripts/skills-sync.ps1` (copies global skills into `.codex/skills`).
+
+Project Delivery Rules (mandatory)
+1. Definition of Done: a task is not done until code, relevant tests, and docs are updated, and `docs/AGENT_LOG.md` is appended.
+2. API changes: if an endpoint, DTO, or response shape changes, update `docs/api/OPENAPI_SPEC.yaml` and the affected mobile/backend callers in the same change set.
+3. Database changes: if `backend/prisma/schema.prisma` changes, include a Prisma migration and note rollback expectations in handoff notes.
+4. Breaking changes: gate with feature flags or route versioning (for example `/v2`); do not silently break existing clients.
+5. Test minimum: backend changes must include at least one relevant unit or e2e test update/addition.
+6. Commit message format: use `feat|fix|chore|docs(scope): message`.
+7. Security baseline: never commit secrets; mask tokens/PII in logs and debug output.
+8. Handoff freshness: after each session, update `docs/AGENT_HANDOFF.md` conversation summary and keep the latest commit hash accurate.
+9. CI gate: do not merge to `master` unless lint, tests, and typecheck pass.
+10. Operations: production bug fixes should include a runbook note/update in `docs/runbooks.md`.
 
 Project Skills
 - Default list: `docs/AGENT_SKILLS.md`
