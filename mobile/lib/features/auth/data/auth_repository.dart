@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_client.dart';
@@ -59,6 +61,18 @@ class AuthRepository {
   Future<User> updateProfile(Map<String, dynamic> data) async {
     try {
       final response = await _dio.put('/users/me', data: data);
+      return User.fromJson(response.data);
+    } on DioException catch (e) {
+      throw ApiException.fromDioError(e);
+    }
+  }
+
+  Future<User> uploadProfilePhoto(File file) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(file.path),
+      });
+      final response = await _dio.post('/users/me/profile-photo', data: formData);
       return User.fromJson(response.data);
     } on DioException catch (e) {
       throw ApiException.fromDioError(e);

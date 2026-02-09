@@ -104,21 +104,35 @@ export class PickupPolicyDto {
 }
 
 export class RoutePreviewDto {
-    @ApiProperty()
+    @ApiPropertyOptional()
+    @IsOptional()
     @IsNumber()
-    departureLat: number;
+    departureLat?: number;
 
-    @ApiProperty()
+    @ApiPropertyOptional()
+    @IsOptional()
     @IsNumber()
-    departureLng: number;
+    departureLng?: number;
 
-    @ApiProperty()
+    @ApiPropertyOptional()
+    @IsOptional()
     @IsNumber()
-    arrivalLat: number;
+    arrivalLat?: number;
 
-    @ApiProperty()
+    @ApiPropertyOptional()
+    @IsOptional()
     @IsNumber()
-    arrivalLng: number;
+    arrivalLng?: number;
+
+    @ApiPropertyOptional({ example: 'Istanbul' })
+    @IsOptional()
+    @IsString()
+    departureCity?: string;
+
+    @ApiPropertyOptional({ example: 'Ankara' })
+    @IsOptional()
+    @IsString()
+    arrivalCity?: string;
 }
 
 export class RouteAlternativeDto {

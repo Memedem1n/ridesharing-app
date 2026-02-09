@@ -99,6 +99,7 @@ class _TripCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final timeFormat = DateFormat('HH:mm');
     final dateFormat = DateFormat('dd MMM', 'tr');
+    final isFull = trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
 
     return GestureDetector(
       onTap: () => context.push('/trip/${trip.id}'),
@@ -107,6 +108,26 @@ class _TripCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (isFull)
+              Align(
+                alignment: Alignment.centerRight,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade700,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'Dolu',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            if (isFull) const SizedBox(height: 10),
             // Driver Info Row
             Row(
               children: [
@@ -194,11 +215,19 @@ class _TripCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.success.withValues(alpha: 0.2),
+                        color: isFull
+                            ? Colors.grey.withValues(alpha: 0.25)
+                            : AppColors.success.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text('${trip.availableSeats} koltuk',
-                        style: const TextStyle(color: AppColors.success, fontSize: 11, fontWeight: FontWeight.w600)),
+                      child: Text(
+                        isFull ? 'Dolu' : '${trip.availableSeats} koltuk',
+                        style: TextStyle(
+                          color: isFull ? Colors.grey.shade200 : AppColors.success,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
                   ],
                 ),

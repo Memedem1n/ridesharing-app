@@ -37,8 +37,11 @@ Last verification pass: 2026-02-09 (profile/help-about + backend e2e stabilizati
 - [x] Auth OTP send/verify (Redis-backed) + Netgsm mock integration
 - [x] Device token registration endpoint (stored in user preferences)
 - [x] Profile menu routing to detail/vehicles/placeholders
-- [x] Profile photo edit support: backend `profilePhotoUrl` update + mobile profile photo URL form/preview
+- [x] Profile photo upload support: backend `POST /v1/users/me/profile-photo` + mobile gallery upload flow (no URL input)
+- [x] Driver preferences in profile: edit + profile chip rendering (music, smoking, pets, AC, chattiness)
+- [x] Full-seat UX guardrails: search/booking/trip detail surfaces `Dolu` state and blocks booking actions
 - [x] Help/About/Support baseline screens: temporary realistic content with explicit demo note and date
+- [x] Login/Register responsive hardening: centered constrained layout for compact devices (iPhone class widths)
 - [x] Backend e2e stabilization: supertest import fix, sequential run, endpoint status code alignment, search filter/caching fixes
 
 ## Required Fixes / Tech Debt

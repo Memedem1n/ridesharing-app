@@ -614,7 +614,10 @@ export class BookingsService {
 
     async findMyBookings(userId: string): Promise<BookingListResponseDto> {
         const bookings = await this.prisma.booking.findMany({
-            where: { passengerId: userId },
+            where: {
+                passengerId: userId,
+                itemType: { not: 'chat_only' },
+            },
             orderBy: { createdAt: 'desc' },
             include: {
                 trip: true,
@@ -638,7 +641,10 @@ export class BookingsService {
         }
 
         const bookings = await this.prisma.booking.findMany({
-            where: { tripId },
+            where: {
+                tripId,
+                itemType: { not: 'chat_only' },
+            },
             orderBy: { createdAt: 'desc' },
             include: {
                 trip: true,

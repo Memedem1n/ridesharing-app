@@ -128,6 +128,11 @@ class MessageService {
     return items.map((json) => Conversation.fromJson(json)).toList();
   }
 
+  Future<Conversation> openTripConversation(String tripId) async {
+    final response = await _dio.post('/messages/open-trip/$tripId');
+    return Conversation.fromJson(Map<String, dynamic>.from(response.data as Map));
+  }
+
   Future<MessageList> getMessages(
     String bookingId,
     String currentUserId, {

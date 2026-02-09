@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/api_client.dart';
 import '../../features/auth/data/auth_repository.dart';
@@ -84,7 +86,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState(status: AuthStatus.unauthenticated);
   }
 
-  Future<bool> updateProfile({String? fullName, String? bio, String? profilePhotoUrl}) async {
+  Future<bool> updateProfile({
+    String? fullName,
+    String? bio,
+    DriverPreferences? preferences,
+  }) async {
     try {
       final data = <String, dynamic>{};
       if (fullName != null && fullName.trim().isNotEmpty) {
@@ -93,11 +99,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (bio != null) {
         data['bio'] = bio.trim().isEmpty ? null : bio.trim();
       }
-      if (profilePhotoUrl != null) {
-        data['profilePhotoUrl'] = profilePhotoUrl.trim().isEmpty ? null : profilePhotoUrl.trim();
+      if (preferences != null) {
+        data['preferences'] = preferences.toJson();
       }
       if (data.isEmpty) return false;
       final user = await _repository.updateProfile(data);
+      state = state.copyWith(user: user);
+      return true;
+    } on ApiException catch (e) {
+      state = state.copyWith(status: AuthStatus.error, error: e.message);
+      return false;
+    }
+  }
+
+  Future<bool> uploadProfilePhoto(File file) async {
+    try {
+      final user = await _repository.uploadProfilePhoto(file);
       state = state.copyWith(user: user);
       return true;
     } on ApiException catch (e) {

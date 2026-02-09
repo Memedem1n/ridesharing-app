@@ -21,6 +21,19 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   int _seats = 1;
 
   Future<void> _confirmBooking(Trip trip) async {
+    final isFull = trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
+    if (isFull) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bu yolculukta bos koltuk kalmadi.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+      return;
+    }
+
     final booking = await ref
         .read(bookingActionsProvider.notifier)
         .createBooking(trip.id, _seats);
@@ -116,6 +129,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           final price = trip.pricePerSeat * _seats;
           final commission = (price * 0.1).round();
           final total = price;
+          final isFull = trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
           final dateFormat = DateFormat('dd MMM yyyy', 'tr');
           final timeFormat = DateFormat('HH:mm');
 
@@ -124,6 +138,24 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (isFull)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade700,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'Dolu',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -211,7 +243,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                       ?.copyWith(fontWeight: FontWeight.bold)),
                             ),
                             IconButton.filled(
-                              onPressed: _seats < trip.availableSeats
+                              onPressed: !isFull && _seats < trip.availableSeats
                                   ? () => setState(() => _seats++)
                                   : null,
                               icon: const Icon(Icons.add),
@@ -281,7 +313,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         ),
         child: tripAsync.when(
           data: (trip) => ElevatedButton(
-            onPressed: trip == null || actionsState.isLoading
+            onPressed: trip == null ||
+                    actionsState.isLoading ||
+                    trip.availableSeats <= 0 ||
+                    trip.status.toLowerCase() == 'full'
                 ? null
                 : () => _confirmBooking(trip),
             child: actionsState.isLoading
@@ -290,7 +325,13 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                     width: 20,
                     child: CircularProgressIndicator(
                         strokeWidth: 2, color: Colors.white))
-                : const Text('Rezervasyon Yap'),
+                : Text(
+                    trip != null &&
+                            (trip.availableSeats <= 0 ||
+                                trip.status.toLowerCase() == 'full')
+                        ? 'Dolu'
+                        : 'Rezervasyon Yap',
+                  ),
           ),
           loading: () => const SizedBox.shrink(),
           error: (_, __) => const SizedBox.shrink(),

@@ -1,3 +1,5 @@
+import '../../../core/api/media_url.dart';
+
 // Booking models for ridesharing app
 
 class Booking {
@@ -48,7 +50,9 @@ class Booking {
       tripId: json['tripId'],
       passengerId: json['passengerId'],
       passengerName: json['passenger']?['fullName'] ?? json['passengerName'],
-      passengerAvatar: json['passenger']?['profilePhotoUrl'] ?? json['passengerAvatar'],
+      passengerAvatar: resolveMediaUrl(
+          json['passenger']?['profilePhotoUrl']?.toString() ??
+              json['passengerAvatar']?.toString()),
       seatCount: json['seats'] ?? json['seatCount'] ?? 1,
       totalPrice: (json['priceTotal'] ?? json['totalPrice'] ?? 0).toDouble(),
       serviceFee: (json['commissionAmount'] ?? json['serviceFee'] ?? 0).toDouble(),

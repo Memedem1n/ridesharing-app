@@ -120,5 +120,96 @@ describe('Messages E2E', () => {
 
         expect(msgRes.body.messages.length).toBeGreaterThan(0);
     });
+
+    it('opens trip chat without reservation and keeps it out of booking lists', async () => {
+        const driverPhone = uniquePhone();
+        const driverEmail = uniqueEmail('driver');
+        const passengerPhone = uniquePhone();
+        const passengerEmail = uniqueEmail('passenger');
+
+        const driverReg = await request(app.getHttpServer())
+            .post('/auth/register')
+            .send({
+                fullName: 'Driver User',
+                phone: driverPhone,
+                email: driverEmail,
+                password: 'SecurePass123!',
+            })
+            .expect(201);
+
+        const passengerReg = await request(app.getHttpServer())
+            .post('/auth/register')
+            .send({
+                fullName: 'Passenger User',
+                phone: passengerPhone,
+                email: passengerEmail,
+                password: 'SecurePass123!',
+            })
+            .expect(201);
+
+        const driverToken = driverReg.body.accessToken;
+        const passengerToken = passengerReg.body.accessToken;
+
+        const vehicleRes = await request(app.getHttpServer())
+            .post('/vehicles')
+            .set('Authorization', `Bearer ${driverToken}`)
+            .send({
+                brand: 'Toyota',
+                model: 'Corolla',
+                year: 2020,
+                color: 'White',
+                seats: 4,
+                licensePlate: `34CHT${Math.floor(Math.random() * 1000)}`,
+                hasAc: true,
+                allowsPets: false,
+                allowsSmoking: false,
+            })
+            .expect(201);
+
+        const departureTime = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const tripRes = await request(app.getHttpServer())
+            .post('/trips')
+            .set('Authorization', `Bearer ${driverToken}`)
+            .send({
+                vehicleId: vehicleRes.body.id,
+                type: 'people',
+                departureCity: 'Istanbul',
+                arrivalCity: 'Ankara',
+                departureTime: departureTime.toISOString(),
+                availableSeats: 3,
+                pricePerSeat: 150,
+            })
+            .expect(201);
+
+        const openRes = await request(app.getHttpServer())
+            .post(`/messages/open-trip/${tripRes.body.id}`)
+            .set('Authorization', `Bearer ${passengerToken}`)
+            .expect(200);
+
+        expect(openRes.body.bookingId).toBeTruthy();
+
+        const sendRes = await request(app.getHttpServer())
+            .post('/messages')
+            .set('Authorization', `Bearer ${passengerToken}`)
+            .send({ bookingId: openRes.body.bookingId, message: 'Rezervasyon oncesi soru' })
+            .expect(201);
+
+        expect(sendRes.body.message).toBe('Rezervasyon oncesi soru');
+
+        const msgRes = await request(app.getHttpServer())
+            .get(`/messages/conversation/${openRes.body.bookingId}`)
+            .set('Authorization', `Bearer ${driverToken}`)
+            .expect(200);
+
+        expect(msgRes.body.messages.length).toBeGreaterThan(0);
+
+        const myBookingsRes = await request(app.getHttpServer())
+            .get('/bookings/my')
+            .set('Authorization', `Bearer ${passengerToken}`)
+            .expect(200);
+
+        const chatOnlyEntry = (myBookingsRes.body.bookings as any[]).find((booking) => booking.id === openRes.body.bookingId);
+        expect(chatOnlyEntry).toBeUndefined();
+    });
 });
 

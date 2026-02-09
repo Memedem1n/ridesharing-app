@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -13,6 +14,7 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../../../core/api/api_client.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/booking_provider.dart';
+import '../../../core/providers/message_provider.dart';
 import '../../../core/providers/trip_provider.dart';
 import '../../../core/services/route_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -38,6 +40,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
   bool _locationConnected = false;
   bool _roomJoined = false;
   bool _shareLocation = false;
+  bool _isOpeningChat = false;
   LatLng? _driverLocation;
   StreamSubscription<Position>? _positionSub;
   TripRouteSnapshot? _fallbackRoute;
@@ -194,6 +197,17 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
   }
 
   Future<void> _book(Trip trip) async {
+    final isFull = trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
+    if (isFull) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bu yolculukta bos koltuk kalmadi.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isBooking = true);
 
     final booking = await ref
@@ -246,11 +260,44 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
         status == BookingStatus.disputed;
   }
 
-  Widget _buildMessageButton(BuildContext context, Trip trip,
-      AsyncValue<List<Booking>> bookingsAsync) {
+  Future<void> _openChatForTrip(Trip trip) async {
+    if (_isOpeningChat) return;
+    setState(() => _isOpeningChat = true);
+
+    try {
+      final conversation =
+          await ref.read(messageServiceProvider).openTripConversation(trip.id);
+      if (!mounted) return;
+
+      final tripInfo = '${trip.departureCity} -> ${trip.arrivalCity}';
+      final otherName = conversation.otherName.trim().isNotEmpty
+          ? conversation.otherName
+          : trip.driverName;
+
+      context.push(
+        '/chat/${conversation.id}?name=${Uri.encodeComponent(otherName)}&trip=${Uri.encodeComponent(tripInfo)}',
+      );
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final apiError = ApiException.fromDioError(e);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(apiError.message)),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Mesajlasma acilamadi: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isOpeningChat = false);
+      }
+    }
+  }
+
+  Widget _buildMessageButton(BuildContext context, Trip trip) {
     final currentUser = ref.read(currentUserProvider);
     final isDriver = currentUser?.id == trip.driverId;
-    final tripInfo = '${trip.departureCity} -> ${trip.arrivalCity}';
 
     if (isDriver) {
       return OutlinedButton.icon(
@@ -269,54 +316,20 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
       );
     }
 
-    return bookingsAsync.when(
-      loading: () => OutlinedButton.icon(
-        onPressed: null,
-        icon: const Icon(Icons.message, size: 18),
-        label: const Text('Mesaj'),
+    return OutlinedButton.icon(
+      onPressed: _isOpeningChat ? null : () => _openChatForTrip(trip),
+      icon: _isOpeningChat
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Icon(Icons.message, size: 18),
+      label: Text(_isOpeningChat ? 'Aciliyor...' : 'Mesaj'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: AppColors.primary,
+        side: const BorderSide(color: AppColors.primary),
       ),
-      error: (e, _) => OutlinedButton.icon(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Mesajlar yuklenemedi: $e')),
-          );
-        },
-        icon: const Icon(Icons.message, size: 18),
-        label: const Text('Mesaj'),
-      ),
-      data: (bookings) {
-        final booking = _findBookingForTrip(bookings, trip.id);
-
-        return OutlinedButton.icon(
-          onPressed: () {
-            if (booking == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Mesaj icin once rezervasyon gerekli.')),
-              );
-              return;
-            }
-
-            if (booking.status == BookingStatus.cancelled ||
-                booking.status == BookingStatus.rejected) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Bu rezervasyon icin mesaj gonderilemez.')),
-              );
-              return;
-            }
-
-            context.push(
-                '/chat/${booking.id}?name=${Uri.encodeComponent(trip.driverName)}&trip=${Uri.encodeComponent(tripInfo)}');
-          },
-          icon: const Icon(Icons.message, size: 18),
-          label: const Text('Mesaj'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.primary,
-            side: const BorderSide(color: AppColors.primary),
-          ),
-        );
-      },
     );
   }
 
@@ -654,7 +667,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                 const SizedBox(height: 14),
                 SizedBox(
                     width: 120,
-                    child: _buildMessageButton(context, trip, bookingsAsync)),
+                    child: _buildMessageButton(context, trip)),
                 const SizedBox(height: 16),
               ],
             ),
@@ -726,6 +739,8 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
   }
 
   Widget _buildBookingBar(Trip trip, double totalPrice) {
+    final isFull = trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
@@ -734,67 +749,93 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
       ),
       child: SafeArea(
         top: false,
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            GlassContainer(
-              borderRadius: 14,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              child: Row(
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.remove,
-                        color: AppColors.primary, size: 18),
-                    onPressed: _selectedSeats > 1
-                        ? () => setState(() => _selectedSeats -= 1)
-                        : null,
-                    constraints:
-                        const BoxConstraints(minWidth: 30, minHeight: 30),
-                    padding: EdgeInsets.zero,
+            if (isFull)
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade700,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'Dolu',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
                   ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text('$_selectedSeats',
+                ),
+              ),
+            Row(
+              children: [
+                GlassContainer(
+                  borderRadius: 14,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove,
+                            color: AppColors.primary, size: 18),
+                        onPressed: !isFull && _selectedSeats > 1
+                            ? () => setState(() => _selectedSeats -= 1)
+                            : null,
+                        constraints:
+                            const BoxConstraints(minWidth: 30, minHeight: 30),
+                        padding: EdgeInsets.zero,
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        child: Text('$_selectedSeats',
+                            style: const TextStyle(
+                                color: AppColors.textPrimary,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add,
+                            color: AppColors.primary, size: 18),
+                        onPressed: !isFull && _selectedSeats < trip.availableSeats
+                            ? () => setState(() => _selectedSeats += 1)
+                            : null,
+                        constraints:
+                            const BoxConstraints(minWidth: 30, minHeight: 30),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text('₺${totalPrice.toStringAsFixed(0)}',
+                          style: const TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold)),
+                      Text(
+                        isFull ? 'Koltuk yok' : '$_selectedSeats koltuk',
                         style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold)),
+                            color: AppColors.textSecondary, fontSize: 11),
+                      ),
+                    ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.add,
-                        color: AppColors.primary, size: 18),
-                    onPressed: _selectedSeats < trip.availableSeats
-                        ? () => setState(() => _selectedSeats += 1)
-                        : null,
-                    constraints:
-                        const BoxConstraints(minWidth: 30, minHeight: 30),
-                    padding: EdgeInsets.zero,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('₺${totalPrice.toStringAsFixed(0)}',
-                      style: const TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold)),
-                  Text('$_selectedSeats koltuk',
-                      style: const TextStyle(
-                          color: AppColors.textSecondary, fontSize: 11)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            GradientButton(
-              text: _isBooking ? 'Isleniyor...' : 'Rezerve Et',
-              icon: Icons.check_circle,
-              isLoading: _isBooking,
-              onPressed: _isBooking ? null : () => _book(trip),
+                ),
+                const SizedBox(width: 12),
+                GradientButton(
+                  text: isFull
+                      ? 'Dolu'
+                      : (_isBooking ? 'Isleniyor...' : 'Rezerve Et'),
+                  icon: Icons.check_circle,
+                  isLoading: _isBooking && !isFull,
+                  onPressed: _isBooking || isFull ? null : () => _book(trip),
+                ),
+              ],
             ),
           ],
         ),
@@ -993,3 +1034,4 @@ class _PassengerRow extends StatelessWidget {
     );
   }
 }
+

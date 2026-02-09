@@ -9,6 +9,7 @@ class LocationAutocompleteField extends StatefulWidget {
   final IconData icon;
   final Color iconColor;
   final ValueChanged<LocationSuggestion>? onSelected;
+  final ValueChanged<String>? onTextChanged;
   final FormFieldValidator<String>? validator;
 
   const LocationAutocompleteField({
@@ -18,6 +19,7 @@ class LocationAutocompleteField extends StatefulWidget {
     required this.icon,
     required this.iconColor,
     this.onSelected,
+    this.onTextChanged,
     this.validator,
   });
 
@@ -107,7 +109,10 @@ class _LocationAutocompleteFieldState extends State<LocationAutocompleteField> {
                 : null,
           ),
           validator: widget.validator,
-          onChanged: _onChanged,
+          onChanged: (value) {
+            widget.onTextChanged?.call(value);
+            _onChanged(value);
+          },
         ),
         if (_suggestions.isNotEmpty)
           Container(

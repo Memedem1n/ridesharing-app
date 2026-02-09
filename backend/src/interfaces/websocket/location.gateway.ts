@@ -159,6 +159,7 @@ export class LocationGateway implements OnGatewayConnection, OnGatewayDisconnect
                 tripId,
                 passengerId: userId,
                 status: { in: ['confirmed', 'checked_in', 'completed', 'disputed'] },
+                paymentStatus: 'paid',
             },
             select: { id: true },
         });

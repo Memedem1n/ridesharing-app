@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/providers/locale_provider.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../auth/domain/auth_models.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -84,6 +85,16 @@ class ProfileScreen extends ConsumerWidget {
                       _StatItem(label: 'Üyelik', value: user == null ? '-' : 'Yeni'),
                     ],
                   ),
+                  const SizedBox(height: 18),
+                  if (user != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _buildPreferenceChips(user.preferences),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -139,6 +150,36 @@ class ProfileScreen extends ConsumerWidget {
       ),
     );
   }
+
+  List<Widget> _buildPreferenceChips(DriverPreferences preferences) {
+    final chips = <Widget>[];
+    chips.add(_PreferenceChip(
+      icon: Icons.volume_up_outlined,
+      label: preferences.music?.trim().isNotEmpty == true
+          ? 'Müzik: ${preferences.music}'
+          : 'Müzik: Farketmez',
+    ));
+    chips.add(_PreferenceChip(
+      icon: Icons.smoke_free_outlined,
+      label: preferences.smoking == true ? 'Sigara molası var' : 'Sigara yok',
+    ));
+    chips.add(_PreferenceChip(
+      icon: Icons.pets_outlined,
+      label: preferences.pets == true ? 'Evcil hayvan kabul' : 'Evcil hayvan yok',
+    ));
+    chips.add(_PreferenceChip(
+      icon: Icons.ac_unit_outlined,
+      label: preferences.ac == true ? 'Klima açık' : 'Klima kapalı',
+    ));
+
+    final chatLabel = switch (preferences.chattiness) {
+      'quiet' => 'Sohbet: Sessiz',
+      'chatty' => 'Sohbet: Sever',
+      _ => 'Sohbet: Normal',
+    };
+    chips.add(_PreferenceChip(icon: Icons.chat_bubble_outline, label: chatLabel));
+    return chips;
+  }
 }
 
 class _StatItem extends StatelessWidget {
@@ -175,6 +216,40 @@ class _MenuItem extends StatelessWidget {
       subtitle: subtitle != null ? Text(subtitle!) : null,
       trailing: const Icon(Icons.chevron_right),
       onTap: onTap,
+    );
+  }
+}
+
+class _PreferenceChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _PreferenceChip({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColors.glassBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.glassStroke),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: AppColors.textSecondary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

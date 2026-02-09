@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Query, UseGuards, Request, HttpCode } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { MessagesService } from '@application/services/messages/messages.service';
 import {
     SendMessageDto,
     GetConversationDto,
+    ConversationDto,
     MessageResponseDto,
     ConversationListDto,
     MessageListDto,
@@ -16,6 +17,14 @@ import {
 @ApiBearerAuth()
 export class MessagesController {
     constructor(private readonly messagesService: MessagesService) { }
+
+    @Post('open-trip/:tripId')
+    @HttpCode(200)
+    @ApiOperation({ summary: 'Open or reuse trip chat without reservation' })
+    @ApiResponse({ status: 200, description: 'Conversation opened', type: ConversationDto })
+    async openTripConversation(@Request() req, @Param('tripId') tripId: string): Promise<ConversationDto> {
+        return this.messagesService.openTripConversation(req.user.sub, tripId);
+    }
 
     @Get('conversations')
     @ApiOperation({ summary: 'Get all conversations' })

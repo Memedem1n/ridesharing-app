@@ -1,7 +1,9 @@
-import { Controller, Get, Put, Post, Body, UseGuards, Request, Param, HttpCode } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Put, Post, Body, UseGuards, Request, Param, HttpCode, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UsersService } from '@application/services/users/users.service';
+import { createUploadOptions } from '../uploads/upload.utils';
 import {
     UpdateProfileDto,
     UserProfileDto,
@@ -30,6 +32,37 @@ export class UsersController {
     @ApiResponse({ status: 200, description: 'Profile updated', type: UserProfileDto })
     async updateMe(@Request() req, @Body() dto: UpdateProfileDto): Promise<UserProfileDto> {
         return this.usersService.updateProfile(req.user.sub, dto);
+    }
+
+    @Post('me/profile-photo')
+    @HttpCode(200)
+    @ApiOperation({ summary: 'Upload current user profile photo' })
+    @ApiConsumes('multipart/form-data')
+    @ApiBody({
+        schema: {
+            type: 'object',
+            properties: {
+                file: {
+                    type: 'string',
+                    format: 'binary',
+                },
+            },
+        },
+    })
+    @ApiResponse({ status: 200, description: 'Profile photo updated', type: UserProfileDto })
+    @UseInterceptors(
+        FileInterceptor(
+            'file',
+            createUploadOptions('./uploads/profile', /\/(jpg|jpeg|png|webp)$/, 'Only image files are allowed!'),
+        ),
+    )
+    async uploadProfilePhoto(@Request() req, @UploadedFile() file: Express.Multer.File): Promise<UserProfileDto> {
+        if (!file) {
+            throw new BadRequestException('File is required');
+        }
+
+        const fileUrl = `/uploads/profile/${file.filename}`;
+        return this.usersService.updateProfile(req.user.sub, { profilePhotoUrl: fileUrl });
     }
 
     @Post('me/device-token')

@@ -150,6 +150,28 @@ C:\Users\barut\workspace\ridesharing-app
     - `output/screens/login_ios_like.png`
     - `output/screens/login_android_like.png`
     - `output/screens/login_desktop.png`
+- Conversation continuation (2026-02-09, late session):
+  - Replaced profile photo URL flow with file upload flow end-to-end:
+    - backend `POST /v1/users/me/profile-photo` multipart endpoint + e2e test
+    - mobile gallery pick/upload + resolved relative `/uploads/...` URLs
+  - Added profile driver-preference edit/display parity improvements:
+    - profile details form supports music/smoking/pets/ac/chattiness edits
+    - profile page renders preference chips
+  - Booking/full-capacity hardening:
+    - search cards and booking/trip detail flows show `Dolu` state and disable booking actions when no seats
+  - Messaging access flow changed to allow opening trip chat without reservation gate (trip-detail message CTA opens/creates conversation)
+  - Login/register responsive hardening for compact widths:
+    - centered constrained form layout (`maxWidth: 480`) to reduce layout drift on iPhone-class screens
+  - OpenAPI metadata cleanup:
+    - `docs/api/OPENAPI_SPEC.yaml` title normalized to ASCII-safe text
+  - Demo users prepared directly in DB for two-account booking tests:
+    - `driver_demo_20260209@demo.local` / `Test1234!` (`+905551112233`)
+    - `passenger_demo_20260209@demo.local` / `Test1234!` (`+905551112244`)
+  - Validation rerun:
+    - backend unit/typecheck ✅ (`44/44`)
+    - backend e2e ✅ (`10/10`)
+    - mobile analyze/test ✅
+  - Note: no frontend host/process was started during final pass per user request.
 
 ## Selected skill set (use for future work)
 Repo skills:

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../api/api_client.dart';
+import '../api/media_url.dart';
 
 class TripRoutePoint {
   final double lat;
@@ -116,7 +117,7 @@ class TripPassenger {
     return TripPassenger(
       id: json['id']?.toString() ?? '',
       fullName: json['fullName']?.toString() ?? '',
-      profilePhotoUrl: json['profilePhotoUrl']?.toString(),
+      profilePhotoUrl: resolveMediaUrl(json['profilePhotoUrl']?.toString()),
       ratingAvg: (json['ratingAvg'] ?? 0).toDouble(),
       seats: json['seats'] ?? 1,
     );
@@ -209,7 +210,8 @@ class Trip {
           json['driver']?['id']?.toString() ??
           '',
       driverName: json['driver']?['fullName']?.toString() ?? 'Surucu',
-      driverPhoto: json['driver']?['profilePhotoUrl']?.toString(),
+      driverPhoto:
+          resolveMediaUrl(json['driver']?['profilePhotoUrl']?.toString()),
       driverRating: (json['driver']?['ratingAvg'] ?? 0).toDouble(),
       status: json['status']?.toString() ?? 'published',
       departureCity: json['departureCity']?.toString() ?? '',

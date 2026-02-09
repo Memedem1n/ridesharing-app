@@ -68,5 +68,20 @@ describe('Users E2E', () => {
 
         expect(res.body.preferences?.deviceTokens).toContain('device-token-1');
     });
+
+    it('uploads profile photo', async () => {
+        const fakeJpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
+
+        const res = await request(app.getHttpServer())
+            .post('/users/me/profile-photo')
+            .set('Authorization', `Bearer ${accessToken}`)
+            .attach('file', fakeJpeg, {
+                filename: 'avatar.jpg',
+                contentType: 'image/jpeg',
+            })
+            .expect(200);
+
+        expect(res.body.profilePhotoUrl).toContain('/uploads/profile/');
+    });
 });
 

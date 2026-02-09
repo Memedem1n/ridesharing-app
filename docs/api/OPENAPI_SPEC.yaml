@@ -1,6 +1,6 @@
 ﻿openapi: 3.1.0
 info:
-  title: PaylaÅŸÄ±mlÄ± Yolculuk API
+  title: Paylasimli Yolculuk API
   description: |
     REST API for ride-sharing application supporting people, pets, cargo, and food transportation.
     
@@ -491,6 +491,33 @@ paths:
               schema:
                 $ref: '#/components/schemas/User'
 
+  /users/me/profile-photo:
+    post:
+      tags: [Users]
+      summary: Upload current user profile photo
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Profile photo updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid file payload
+
   /users/me/device-token:
     post:
       tags: [Users]
@@ -767,6 +794,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Trip'
+
+  /trips/route-preview:
+    post:
+      tags: [Trips]
+      summary: Preview route alternatives
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                departureLat:
+                  type: number
+                departureLng:
+                  type: number
+                arrivalLat:
+                  type: number
+                arrivalLng:
+                  type: number
+                departureCity:
+                  type: string
+                arrivalCity:
+                  type: string
+      responses:
+        '201':
+          description: Route alternatives
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alternatives:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        route:
+                          type: object
+                        viaCities:
+                          type: array
+                          items:
+                            type: object
 
   /trips/{id}:
     get:
@@ -1058,7 +1132,36 @@ paths:
                     unreadCount:
                       type: integer
 
-  /messages/{bookingId}:
+  /messages/open-trip/{tripId}:
+    post:
+      tags: [Messages]
+      summary: Open or reuse trip chat without reservation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Conversation opened
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookingId:
+                    type: string
+                    format: uuid
+                  tripInfo:
+                    type: object
+                  otherUser:
+                    type: object
+
+  /messages/conversation/{bookingId}:
     get:
       tags: [Messages]
       summary: Get messages for booking

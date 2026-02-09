@@ -391,3 +391,12 @@ Summary: Completed profile photo support and help/about pages, fixed backend tri
 Commands: flutter analyze;flutter test;flutter build web;npm run type-check;npm test -- --runInBand;scripts/run-e2e.ps1
 Files: mobile/lib/core/router/app_router.dart,mobile/lib/features/profile/presentation/about_screen.dart,mobile/lib/features/profile/presentation/help_support_screen.dart,mobile/lib/features/profile/presentation/profile_details_screen.dart,mobile/lib/features/profile/presentation/profile_screen.dart,backend/src/application/services/trips/trips.service.ts,backend/src/interfaces/http/bookings/bookings.controller.ts,backend/src/interfaces/http/users/users.controller.ts,backend/src/infrastructure/cache/redis.service.ts,backend/test/e2e/*.ts,scripts/run-e2e.ps1,TASKS.md,docs/AGENT_HANDOFF.md
 Notes: E2E now passes on ridesharing_test; run-e2e still prints a non-fatal Prisma generate EPERM warning on Windows due query engine file lock.
+
+## 2026-02-09 04:50
+Level: agent
+Agent: codex
+Task: Profile upload + booking/full UX + responsive auth
+Summary: Implemented profile photo file upload flow, driver preference UI, full-seat booking guards, direct trip chat open, responsive login/register layout; reran mobile/backend tests and backend e2e.
+Commands: flutter analyze;flutter test;npm run type-check;npm test -- --runInBand;scripts/run-e2e.ps1
+Files: backend/src/interfaces/http/users/users.controller.ts,backend/src/application/dto/users/users.dto.ts,backend/test/e2e/users.e2e-spec.ts,mobile/lib/features/profile/presentation/profile_details_screen.dart,mobile/lib/features/profile/presentation/profile_screen.dart,mobile/lib/features/trips/presentation/trip_detail_screen.dart,mobile/lib/features/search/presentation/search_results_screen.dart,mobile/lib/features/bookings/presentation/booking_screen.dart,mobile/lib/features/auth/presentation/login_screen.dart,mobile/lib/features/auth/presentation/register_screen.dart,TASKS.md,docs/AGENT_HANDOFF.md
+Notes: Created demo driver/passenger users in DB for two-account reservation tests.

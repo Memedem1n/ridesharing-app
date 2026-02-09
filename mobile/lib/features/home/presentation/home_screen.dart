@@ -65,6 +65,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final screenWidth = mediaQuery.size.width;
+    final isCompactWidth = screenWidth <= 390;
+    final horizontalPadding = isCompactWidth ? 14.0 : 20.0;
+    final sectionBottomInset =
+        kBottomNavigationBarHeight + mediaQuery.padding.bottom + 28;
+
     final user = ref.watch(currentUserProvider);
     final popularRoutesAsync = ref.watch(popularRoutesProvider);
     final recentBookingsAsync = ref.watch(recentBookingsProvider);
@@ -106,7 +113,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 // Header
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.all(20),
+                    padding: EdgeInsets.all(horizontalPadding),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -133,6 +140,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       color: AppColors.textPrimary,
                                       shadows: [Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(0, 2))],
                                     ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ).animate().fadeIn(delay: 100.ms).slideX(begin: -0.1),
                                 ],
                               ),
@@ -158,7 +167,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                         // Search card
                         GlassContainer(
-                          padding: const EdgeInsets.all(20),
+                          padding: EdgeInsets.all(isCompactWidth ? 16 : 20),
                           child: Column(
                             children: [
                               LocationAutocompleteField(
@@ -175,65 +184,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 iconColor: AppColors.accent,
                               ),
                               const SizedBox(height: 20),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: InkWell(
-                                      onTap: () async {
-                                        final picked = await showDatePicker(
-                                          context: context,
-                                          initialDate: _selectedDate,
-                                          firstDate: DateTime.now(),
-                                          lastDate: DateTime.now().add(const Duration(days: 90)),
-                                        );
-                                        if (picked != null) {
-                                          setState(() => _selectedDate = picked);
-                                        }
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.glassBgDark,
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(color: AppColors.glassStroke),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            const Icon(Icons.calendar_today, size: 18, color: AppColors.textSecondary),
-                                            const SizedBox(width: 8),
-                                            Text(dateLabel, style: const TextStyle(color: AppColors.textPrimary)),
-                                          ],
-                                        ),
-                                      ),
+                              if (isCompactWidth)
+                                Column(
+                                  children: [
+                                    _buildDateSelector(context, dateLabel),
+                                    const SizedBox(height: 12),
+                                    _buildPassengerSelector(),
+                                  ],
+                                )
+                              else
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildDateSelector(context, dateLabel),
                                     ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.glassBgDark,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: AppColors.glassStroke),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          IconButton(
-                                            icon: const Icon(Icons.remove_circle_outline, color: AppColors.primary),
-                                            onPressed: _passengers > 1 ? () => setState(() => _passengers--) : null,
-                                          ),
-                                          Text('$_passengers', style: const TextStyle(color: AppColors.textPrimary)),
-                                          IconButton(
-                                            icon: const Icon(Icons.add_circle_outline, color: AppColors.primary),
-                                            onPressed: _passengers < 8 ? () => setState(() => _passengers++) : null,
-                                          ),
-                                        ],
-                                      ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _buildPassengerSelector(),
                                     ),
-                                  ),
-                                ],
-                              ),
+                                  ],
+                                ),
                               const SizedBox(height: 16),
                               SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
@@ -283,7 +253,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 // Popular routes
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      16,
+                      horizontalPadding,
+                      12,
+                    ),
                     child: Text(
                       'Popüler Güzergahlar',
                       style: const TextStyle(
@@ -302,7 +277,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: LinearProgressIndicator(color: AppColors.primary),
                     ),
                     error: (e, _) => Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                       child: GlassContainer(
                         padding: const EdgeInsets.all(16),
                         child: Text('Rotalar yüklenemedi: $e', style: const TextStyle(color: AppColors.error)),
@@ -311,7 +286,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     data: (routes) {
                       if (routes.isEmpty) {
                         return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                           child: GlassContainer(
                             padding: const EdgeInsets.all(16),
                             child: const Text('Henüz popüler rota yok. İlk yolculukları sen başlat!', style: TextStyle(color: AppColors.textSecondary)),
@@ -323,7 +298,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         height: 140,
                         child: ListView(
                           scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                           children: routes.map((route) {
                             return _RouteCard(
                               from: route.from,
@@ -342,7 +317,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 // Recent trips
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
+                    padding: EdgeInsets.fromLTRB(
+                      horizontalPadding,
+                      28,
+                      horizontalPadding,
+                      12,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -364,7 +344,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
                 SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                   sliver: SliverToBoxAdapter(
                     child: recentBookingsAsync.when(
                       loading: () => const Padding(
@@ -396,9 +376,74 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 100)),
+                SliverToBoxAdapter(child: SizedBox(height: sectionBottomInset)),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateSelector(BuildContext context, String dateLabel) {
+    return InkWell(
+      onTap: () async {
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: _selectedDate,
+          firstDate: DateTime.now(),
+          lastDate: DateTime.now().add(const Duration(days: 90)),
+        );
+        if (picked != null) {
+          setState(() => _selectedDate = picked);
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: AppColors.glassBgDark,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.glassStroke),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_today,
+                size: 18, color: AppColors.textSecondary),
+            const SizedBox(width: 8),
+            Text(dateLabel, style: const TextStyle(color: AppColors.textPrimary)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPassengerSelector() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.glassBgDark,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.glassStroke),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+            padding: EdgeInsets.zero,
+            icon: const Icon(Icons.remove_circle_outline, color: AppColors.primary),
+            onPressed: _passengers > 1 ? () => setState(() => _passengers--) : null,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text('$_passengers',
+                style: const TextStyle(color: AppColors.textPrimary)),
+          ),
+          IconButton(
+            constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+            padding: EdgeInsets.zero,
+            icon: const Icon(Icons.add_circle_outline, color: AppColors.primary),
+            onPressed: _passengers < 8 ? () => setState(() => _passengers++) : null,
           ),
         ],
       ),

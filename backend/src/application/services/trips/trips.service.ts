@@ -106,14 +106,44 @@ export class TripsService {
     }
 
     async routePreview(dto: RoutePreviewDto): Promise<RoutePreviewResponseDto> {
+        let departureLat = dto.departureLat;
+        let departureLng = dto.departureLng;
+        let arrivalLat = dto.arrivalLat;
+        let arrivalLng = dto.arrivalLng;
+
+        if ((departureLat === undefined || departureLng === undefined) && dto.departureCity?.trim()) {
+            const resolved = await this.forwardGeocodeCity(dto.departureCity);
+            if (resolved) {
+                departureLat = resolved.lat;
+                departureLng = resolved.lng;
+            }
+        }
+
+        if ((arrivalLat === undefined || arrivalLng === undefined) && dto.arrivalCity?.trim()) {
+            const resolved = await this.forwardGeocodeCity(dto.arrivalCity);
+            if (resolved) {
+                arrivalLat = resolved.lat;
+                arrivalLng = resolved.lng;
+            }
+        }
+
+        if (
+            departureLat === undefined
+            || departureLng === undefined
+            || arrivalLat === undefined
+            || arrivalLng === undefined
+        ) {
+            throw new BadRequestException('Rota onizleme icin kalkis ve varis konumu secilmeli');
+        }
+
         this.validateTripCoordinates(
-            dto.departureLat,
-            dto.departureLng,
-            dto.arrivalLat,
-            dto.arrivalLng,
+            departureLat,
+            departureLng,
+            arrivalLat,
+            arrivalLng,
         );
 
-        const url = `${this.osrmBaseUrl}/route/v1/driving/${dto.departureLng},${dto.departureLat};${dto.arrivalLng},${dto.arrivalLat}`;
+        const url = `${this.osrmBaseUrl}/route/v1/driving/${departureLng},${departureLat};${arrivalLng},${arrivalLat}`;
 
         try {
             const response = await axios.get(url, {
@@ -150,6 +180,7 @@ export class TripsService {
                     .filter((point: any) => Number.isFinite(point.lat) && Number.isFinite(point.lng));
 
                 const viaCities = await this.inferViaCities(points);
+                const simplifiedPoints = this.downsampleRoutePoints(points, 280);
                 const distanceKm = Number((Number(route.distance || 0) / 1000).toFixed(1));
                 const durationMin = Number((Number(route.duration || 0) / 60).toFixed(1));
 
@@ -159,7 +190,7 @@ export class TripsService {
                         provider: 'osrm',
                         distanceKm,
                         durationMin,
-                        points,
+                        points: simplifiedPoints,
                     },
                     viaCities,
                 });
@@ -171,7 +202,30 @@ export class TripsService {
             if (error instanceof BadRequestException) {
                 throw error;
             }
-            throw new BadRequestException('Rota onizleme su anda olusturulamiyor');
+            const fallbackDistanceKm = this.haversineDistanceKm(
+                departureLat,
+                departureLng,
+                arrivalLat,
+                arrivalLng,
+            );
+            const fallbackDurationMin = Number(((fallbackDistanceKm / 70) * 60).toFixed(1));
+            return {
+                alternatives: [
+                    {
+                        id: 'route_fallback',
+                        route: {
+                            provider: 'fallback',
+                            distanceKm: Number(fallbackDistanceKm.toFixed(1)),
+                            durationMin: Number.isFinite(fallbackDurationMin) ? fallbackDurationMin : 0,
+                            points: [
+                                { lat: departureLat, lng: departureLng },
+                                { lat: arrivalLat, lng: arrivalLng },
+                            ],
+                        },
+                        viaCities: [],
+                    },
+                ],
+            };
         }
     }
 
@@ -264,7 +318,10 @@ export class TripsService {
                 driver: true,
                 vehicle: true,
                 bookings: {
-                    where: { status: { in: ['confirmed', 'checked_in', 'completed', 'disputed'] } },
+                    where: {
+                        status: { in: ['confirmed', 'checked_in', 'completed', 'disputed'] },
+                        paymentStatus: 'paid',
+                    },
                     include: {
                         passenger: {
                             select: {
@@ -287,6 +344,7 @@ export class TripsService {
         const isConfirmedPassengerViewer = Boolean(
             viewerId && trip.bookings.some((booking: any) =>
                 booking.passengerId === viewerId
+                && booking.paymentStatus === 'paid'
                 && ['confirmed', 'checked_in', 'completed', 'disputed'].includes(booking.status)
             )
         );
@@ -737,8 +795,11 @@ export class TripsService {
         const dedupe = new Set<string>();
         const viaCities: ViaCityDto[] = [];
 
-        for (const point of sampled) {
-            const resolved = await this.reverseGeocodeCity(point.lat, point.lng);
+        const resolvedCities = await Promise.all(
+            sampled.map((point) => this.reverseGeocodeCity(point.lat, point.lng)),
+        );
+
+        for (const resolved of resolvedCities) {
             if (!resolved) continue;
             const key = `${resolved.city.toLowerCase()}|${(resolved.district || '').toLowerCase()}`;
             if (dedupe.has(key)) continue;
@@ -767,6 +828,49 @@ export class TripsService {
         return Array.from(indexes)
             .sort((a, b) => a - b)
             .map((index) => points[index]);
+    }
+
+    private downsampleRoutePoints(
+        points: Array<{ lat: number; lng: number }>,
+        maxPoints: number,
+    ): Array<{ lat: number; lng: number }> {
+        if (!points.length) return [];
+        if (points.length <= maxPoints) return points;
+
+        const sampled = this.sampleRoutePoints(points, maxPoints);
+        if (!sampled.length) return [];
+
+        const first = points[0];
+        const last = points[points.length - 1];
+        if (
+            sampled[0].lat !== first.lat
+            || sampled[0].lng !== first.lng
+        ) {
+            sampled[0] = first;
+        }
+        if (
+            sampled[sampled.length - 1].lat !== last.lat
+            || sampled[sampled.length - 1].lng !== last.lng
+        ) {
+            sampled[sampled.length - 1] = last;
+        }
+        return sampled;
+    }
+
+    private haversineDistanceKm(
+        lat1: number,
+        lng1: number,
+        lat2: number,
+        lng2: number,
+    ): number {
+        const toRad = (deg: number) => (deg * Math.PI) / 180;
+        const earthRadiusKm = 6371;
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a = Math.sin(dLat / 2) ** 2
+            + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return earthRadiusKm * c;
     }
 
     private async reverseGeocodeCity(lat: number, lng: number): Promise<{ city: string; district?: string } | null> {
@@ -807,6 +911,58 @@ export class TripsService {
                 city,
                 district: district || undefined,
             };
+        } catch {
+            return null;
+        }
+    }
+
+    private async forwardGeocodeCity(query: string): Promise<{ lat: number; lng: number } | null> {
+        const normalized = query.trim();
+        if (!normalized) {
+            return null;
+        }
+
+        const variants = [normalized, `${normalized}, Turkiye`];
+        for (const variant of variants) {
+            const resolved = await this.forwardGeocodeByQuery(variant);
+            if (resolved) {
+                return resolved;
+            }
+        }
+
+        return null;
+    }
+
+    private async forwardGeocodeByQuery(query: string): Promise<{ lat: number; lng: number } | null> {
+        try {
+            const response = await axios.get(`${this.nominatimBaseUrl}/search`, {
+                params: {
+                    format: 'jsonv2',
+                    q: query,
+                    countrycodes: 'tr',
+                    addressdetails: 1,
+                    limit: 3,
+                },
+                timeout: 8000,
+                headers: {
+                    'User-Agent': 'ridesharing-app/1.0',
+                },
+            });
+
+            const rows = Array.isArray(response.data) ? response.data : [];
+            for (const row of rows) {
+                const lat = Number(row?.lat);
+                const lng = Number(row?.lon);
+                if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+                    continue;
+                }
+                if (!this.isWithinTurkey(lat, lng)) {
+                    continue;
+                }
+                return { lat, lng };
+            }
+
+            return null;
         } catch {
             return null;
         }

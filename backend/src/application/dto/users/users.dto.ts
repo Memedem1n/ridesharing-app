@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean, IsEnum, IsDateString, IsNotEmpty, MinLength, MaxLength, IsUrl } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsEnum, IsDateString, IsNotEmpty, MinLength, MaxLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 // Define UserPreferencesDto FIRST
@@ -42,10 +42,7 @@ export class UpdateProfileDto {
 
     @ApiPropertyOptional()
     @IsOptional()
-    @IsUrl({
-        require_tld: false,
-        protocols: ['http', 'https'],
-    })
+    @IsString()
     profilePhotoUrl?: string;
 
     @ApiPropertyOptional()

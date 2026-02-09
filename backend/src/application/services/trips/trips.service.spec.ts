@@ -8,6 +8,7 @@ import { RedisService } from '@infrastructure/cache/redis.service';
 import { FcmService } from '@infrastructure/notifications/fcm.service';
 import { NetgsmService } from '@infrastructure/notifications/netgsm.service';
 import { IyzicoService } from '@infrastructure/payment/iyzico.service';
+import axios from 'axios';
 
 describe('TripsService', () => {
     let service: TripsService;
@@ -109,6 +110,10 @@ describe('TripsService', () => {
         jest.clearAllMocks();
     });
 
+    afterEach(() => {
+        jest.restoreAllMocks();
+    });
+
     it('accepts coordinates inside Turkiye bounds on create', async () => {
         mockPrismaService.vehicle.findFirst.mockResolvedValue({ id: 'vehicle-1' });
         mockPrismaService.trip.create.mockResolvedValue(baseTrip);
@@ -162,6 +167,50 @@ describe('TripsService', () => {
             service.update('trip-1', 'driver-1', {
                 departureLat: 41.01,
             }),
+        ).rejects.toThrow(BadRequestException);
+    });
+
+    it('builds route preview by geocoding departure and arrival city names', async () => {
+        jest.spyOn(service as any, 'forwardGeocodeCity').mockImplementation(async (query: string) => {
+            if (query === 'Istanbul') return { lat: 41.0082, lng: 28.9784 };
+            if (query === 'Ankara') return { lat: 39.9208, lng: 32.8541 };
+            return null;
+        });
+        jest.spyOn(service as any, 'inferViaCities').mockResolvedValue([
+            { city: 'Eskisehir', district: 'Odunpazari', pickupSuggestions: ['Otogar'] },
+        ]);
+        jest.spyOn(axios, 'get').mockResolvedValue({
+            data: {
+                routes: [
+                    {
+                        distance: 451_200,
+                        duration: 17_400,
+                        geometry: {
+                            coordinates: [
+                                [28.9784, 41.0082],
+                                [30.5, 40.6],
+                                [32.8541, 39.9208],
+                            ],
+                        },
+                    },
+                ],
+            },
+        } as any);
+
+        const result = await service.routePreview({
+            departureCity: 'Istanbul',
+            arrivalCity: 'Ankara',
+        });
+
+        expect(result.alternatives).toHaveLength(1);
+        expect(result.alternatives[0].id).toBe('route_1');
+        expect(result.alternatives[0].route.points).toHaveLength(3);
+        expect(result.alternatives[0].viaCities).toHaveLength(1);
+    });
+
+    it('rejects route preview when no departure/arrival info is provided', async () => {
+        await expect(
+            service.routePreview({}),
         ).rejects.toThrow(BadRequestException);
     });
 });

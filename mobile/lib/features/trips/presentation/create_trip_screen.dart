@@ -1,13 +1,16 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/vehicle_provider.dart';
+import '../../../core/services/location_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/animated_buttons.dart';
 import '../../../core/widgets/location_autocomplete_field.dart';
@@ -52,6 +55,7 @@ class CreateTripScreen extends ConsumerStatefulWidget {
 
 class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   final _formKey = GlobalKey<FormState>();
+  final LocationService _locationService = LocationService();
 
   final _departureCityController = TextEditingController();
   final _arrivalCityController = TextEditingController();
@@ -116,14 +120,13 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   }
 
   Future<void> _previewRoutes() async {
-    if (_departureLat == null ||
-        _departureLng == null ||
-        _arrivalLat == null ||
-        _arrivalLng == null) {
+    final departureText = _departureCityController.text.trim();
+    final arrivalText = _arrivalCityController.text.trim();
+    if (departureText.isEmpty || arrivalText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content:
-                Text('Rota onizleme icin kalkis/varis konumu secmelisiniz.')),
+          content: Text('Rota cikarmak icin kalkis ve varis alanlarini doldurun.'),
+        ),
       );
       return;
     }
@@ -131,17 +134,27 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     setState(() => _isRoutePreviewLoading = true);
 
     try {
+      await _ensureCoordinatesFromInputs();
+
       final dio = ref.read(dioProvider);
       final token = await ref.read(authTokenProvider.future);
+      final payload = <String, dynamic>{
+        'departureCity': _departureCityController.text.trim(),
+        'arrivalCity': _arrivalCityController.text.trim(),
+      };
+      if (_departureLat != null) payload['departureLat'] = _departureLat;
+      if (_departureLng != null) payload['departureLng'] = _departureLng;
+      if (_arrivalLat != null) payload['arrivalLat'] = _arrivalLat;
+      if (_arrivalLng != null) payload['arrivalLng'] = _arrivalLng;
+
       final response = await dio.post(
         '/trips/route-preview',
-        data: {
-          'departureLat': _departureLat,
-          'departureLng': _departureLng,
-          'arrivalLat': _arrivalLat,
-          'arrivalLng': _arrivalLng,
-        },
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        data: payload,
+        options: Options(
+          headers: {'Authorization': 'Bearer $token'},
+          sendTimeout: const Duration(seconds: 15),
+          receiveTimeout: const Duration(seconds: 35),
+        ),
       );
 
       final alternativesRaw =
@@ -157,6 +170,18 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               .toList(),
         );
       }).toList();
+
+      if (alternatives.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Rota bulunamadi. Kalkis/varis icin daha net bir sehir veya ilce secin.',
+            ),
+          ),
+        );
+        return;
+      }
 
       setState(() {
         _routeAlternatives = alternatives;
@@ -175,6 +200,62 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         setState(() => _isRoutePreviewLoading = false);
       }
     }
+  }
+
+  Future<LocationSuggestion?> _resolveSuggestion(String input) async {
+    final query = input.trim();
+    if (query.isEmpty) return null;
+
+    final results = await _locationService.search(query);
+    if (results.isEmpty) return null;
+
+    final normalized = query.toLowerCase();
+    for (final suggestion in results) {
+      if (suggestion.city.trim().toLowerCase() == normalized) {
+        return suggestion;
+      }
+    }
+
+    return results.first;
+  }
+
+  Future<bool> _ensureCoordinatesFromInputs() async {
+    bool changed = false;
+
+    if (_departureLat == null || _departureLng == null) {
+      final suggestion = await _resolveSuggestion(_departureCityController.text);
+      if (suggestion != null) {
+        _departureLat = suggestion.lat;
+        _departureLng = suggestion.lon;
+        _departureAddress ??= suggestion.displayName;
+        if (_departureCityController.text.trim().isEmpty) {
+          _departureCityController.text = suggestion.city;
+        }
+        changed = true;
+      }
+    }
+
+    if (_arrivalLat == null || _arrivalLng == null) {
+      final suggestion = await _resolveSuggestion(_arrivalCityController.text);
+      if (suggestion != null) {
+        _arrivalLat = suggestion.lat;
+        _arrivalLng = suggestion.lon;
+        _arrivalAddress ??= suggestion.displayName;
+        if (_arrivalCityController.text.trim().isEmpty) {
+          _arrivalCityController.text = suggestion.city;
+        }
+        changed = true;
+      }
+    }
+
+    if (changed && mounted) {
+      setState(() {});
+    }
+
+    return _departureLat != null &&
+        _departureLng != null &&
+        _arrivalLat != null &&
+        _arrivalLng != null;
   }
 
   void _resetPickupPoliciesFromSelectedRoute() {
@@ -202,6 +283,71 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     final cityName = city['city']?.toString().toLowerCase() ?? '';
     final district = city['district']?.toString().toLowerCase() ?? '';
     return '$cityName|$district';
+  }
+
+  List<LatLng> _routePoints(_RouteAlt alternative) {
+    final rawPoints = (alternative.route['points'] as List?) ?? const [];
+    return rawPoints.whereType<Map>().map((point) {
+      final map = Map<String, dynamic>.from(point);
+      final lat = (map['lat'] ?? 0).toDouble();
+      final lng = (map['lng'] ?? 0).toDouble();
+      return LatLng(lat, lng);
+    }).where((point) => point.latitude != 0 || point.longitude != 0).toList();
+  }
+
+  LatLng _routeMapCenter() {
+    final selected = _selectedRoute;
+    if (selected != null) {
+      final points = _routePoints(selected);
+      if (points.isNotEmpty) {
+        return points[(points.length / 2).floor()];
+      }
+    }
+
+    if (_departureLat != null && _departureLng != null) {
+      return LatLng(_departureLat!, _departureLng!);
+    }
+    return const LatLng(41.0082, 28.9784);
+  }
+
+  List<Polyline> _routePreviewPolylines() {
+    final polylines = <Polyline>[];
+    for (int i = 0; i < _routeAlternatives.length; i++) {
+      final points = _routePoints(_routeAlternatives[i]);
+      if (points.length < 2) continue;
+      final isSelected = i == _selectedRouteIndex;
+      polylines.add(
+        Polyline(
+          points: points,
+          color: isSelected
+              ? AppColors.primary
+              : AppColors.textTertiary.withValues(alpha: 0.45),
+          strokeWidth: isSelected ? 5 : 3,
+        ),
+      );
+    }
+    return polylines;
+  }
+
+  List<Marker> _routePreviewMarkers() {
+    final selected = _selectedRoute;
+    if (selected == null) return const [];
+    final points = _routePoints(selected);
+    if (points.length < 2) return const [];
+    return [
+      Marker(
+        point: points.first,
+        width: 32,
+        height: 32,
+        child: const Icon(Icons.trip_origin, color: AppColors.primary, size: 20),
+      ),
+      Marker(
+        point: points.last,
+        width: 34,
+        height: 34,
+        child: const Icon(Icons.location_on, color: AppColors.accent, size: 24),
+      ),
+    ];
   }
 
   bool _canContinueStep(int step) {
@@ -309,6 +455,18 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             hintText: 'Nereden?',
             icon: Icons.trip_origin,
             iconColor: AppColors.primary,
+            onTextChanged: (_) {
+              _departureAddress = null;
+              _departureLat = null;
+              _departureLng = null;
+              if (_routeAlternatives.isNotEmpty) {
+                setState(() {
+                  _routeAlternatives = const [];
+                  _selectedRouteIndex = 0;
+                  _pickupPolicies.clear();
+                });
+              }
+            },
             validator: (value) => value == null || value.trim().isEmpty
                 ? 'Bu alan gerekli'
                 : null,
@@ -327,6 +485,18 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             hintText: 'Nereye?',
             icon: Icons.location_on,
             iconColor: AppColors.accent,
+            onTextChanged: (_) {
+              _arrivalAddress = null;
+              _arrivalLat = null;
+              _arrivalLng = null;
+              if (_routeAlternatives.isNotEmpty) {
+                setState(() {
+                  _routeAlternatives = const [];
+                  _selectedRouteIndex = 0;
+                  _pickupPolicies.clear();
+                });
+              }
+            },
             validator: (value) => value == null || value.trim().isEmpty
                 ? 'Bu alan gerekli'
                 : null,
@@ -366,6 +536,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   }
 
   Widget _buildStepRouteSelection() {
+    final routePolylines = _routePreviewPolylines();
+    final routeMarkers = _routePreviewMarkers();
+
     return GlassContainer(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -388,9 +561,53 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           ),
           const SizedBox(height: 10),
           if (_routeAlternatives.isEmpty)
-            const Text('Henüz rota cikarilmadi.',
-                style: TextStyle(color: AppColors.textSecondary))
-          else
+            const Text(
+              'Henuz rota cikarilmadi. Kalkis/varis metni yaziliysa sistem koordinati otomatik cozmeye calisir.',
+              style: TextStyle(color: AppColors.textSecondary),
+            )
+          else ...[
+            Container(
+              height: 220,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.glassStroke),
+              ),
+              child: FlutterMap(
+                options: MapOptions(
+                  initialCenter: _routeMapCenter(),
+                  initialZoom: 6.5,
+                  backgroundColor: AppColors.background,
+                ),
+                children: [
+                  TileLayer(
+                    urlTemplate:
+                        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                    subdomains: const ['a', 'b', 'c', 'd'],
+                    userAgentPackageName: 'com.example.ridesharing_app',
+                  ),
+                  PolylineLayer(polylines: routePolylines),
+                  MarkerLayer(markers: routeMarkers),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                for (int i = 0; i < _routeAlternatives.length; i++)
+                  ChoiceChip(
+                    label: Text('Rota ${i + 1}'),
+                    selected: i == _selectedRouteIndex,
+                    onSelected: (_) {
+                      setState(() => _selectedRouteIndex = i);
+                      _resetPickupPoliciesFromSelectedRoute();
+                    },
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
             for (int i = 0; i < _routeAlternatives.length; i++)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -403,11 +620,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                   },
                 ),
               ),
+          ],
         ],
       ),
     ).animate().fadeIn().slideY(begin: 0.08);
   }
-
   Widget _buildStepPickupPolicies() {
     final selected = _selectedRoute;
     if (selected == null) {
@@ -1012,3 +1229,5 @@ class _TypeChip extends StatelessWidget {
     );
   }
 }
+
+
