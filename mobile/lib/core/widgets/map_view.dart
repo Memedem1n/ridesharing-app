@@ -42,28 +42,26 @@ class _MapViewState extends State<MapView> {
         onTap: widget.isSelecting && widget.onLocationSelected != null
             ? (_, latLng) => widget.onLocationSelected!(latLng)
             : null,
-        backgroundColor: AppColors.background, // Match app background until tiles load
+        backgroundColor:
+            AppColors.background, // Match app background until tiles load
       ),
       children: [
         // 1. Tile Layer - CartoDB Dark Matter (No API Key required)
         TileLayer(
-          urlTemplate: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+          urlTemplate:
+              'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
           subdomains: const ['a', 'b', 'c', 'd'],
-          userAgentPackageName: 'com.example.ridesharing_app',
+          userAgentPackageName: 'com.yoliva.app',
           maxNativeZoom: 19,
           maxZoom: 19,
-          // Error handling for failed tile loads
-          errorImage: const AssetImage('assets/images/tile_error.png'),
-          // Fallback behavior - tiles will show background color if they fail
-          fallbackUrl: null, // No fallback URL, will use background color
         ),
 
         // 2. Route Layer
         PolylineLayer(
           polylines: widget.polylines.map((p) {
-             // Convert generic Polyline to flutter_map Polyline if needed
-             // But we are passing flutter_map Polylines directly in Home
-             return p;
+            // Convert generic Polyline to flutter_map Polyline if needed
+            // But we are passing flutter_map Polylines directly in Home
+            return p;
           }).toList(),
         ),
 

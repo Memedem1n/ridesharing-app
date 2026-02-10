@@ -28,10 +28,11 @@ class _GradientButtonState extends State<GradientButton> {
 
   @override
   Widget build(BuildContext context) {
-    final colors = widget.gradientColors ?? [
-      AppColors.primary,
-      AppColors.primaryDark,
-    ];
+    final colors = widget.gradientColors ??
+        [
+          AppColors.primary,
+          AppColors.primaryDark,
+        ];
 
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
@@ -40,7 +41,8 @@ class _GradientButtonState extends State<GradientButton> {
       onTap: widget.isLoading ? null : widget.onPressed,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        transform: Matrix4.diagonal3Values(_isPressed ? 0.97 : 1.0, _isPressed ? 0.97 : 1.0, 1.0),
+        transform: Matrix4.diagonal3Values(
+            _isPressed ? 0.97 : 1.0, _isPressed ? 0.97 : 1.0, 1.0),
         child: Container(
           height: 56,
           decoration: BoxDecoration(
@@ -97,8 +99,9 @@ class _GradientButtonState extends State<GradientButton> {
           ),
         ),
       ),
-    ).animate(target: _isPressed ? 1 : 0)
-     .shimmer(duration: 600.ms, color: Colors.white.withValues(alpha: 0.3));
+    )
+        .animate(target: _isPressed ? 1 : 0)
+        .shimmer(duration: 600.ms, color: Colors.white.withValues(alpha: 0.3));
   }
 }
 
@@ -227,14 +230,16 @@ class PulseFloatingButton extends StatelessWidget {
           ),
         ),
       ),
-    ).animate(
-      onPlay: (controller) => controller.repeat(reverse: true),
-    ).scale(
-      begin: const Offset(1, 1),
-      end: const Offset(1.05, 1.05),
-      duration: 1500.ms,
-      curve: Curves.easeInOut,
-    );
+    )
+        .animate(
+          onPlay: (controller) => controller.repeat(reverse: true),
+        )
+        .scale(
+          begin: const Offset(1, 1),
+          end: const Offset(1.05, 1.05),
+          duration: 1500.ms,
+          curve: Curves.easeInOut,
+        );
   }
 }
 
@@ -258,7 +263,7 @@ class RippleIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final iconColor = color ?? AppColors.textSecondary;
-    
+
     final button = Container(
       decoration: BoxDecoration(
         color: iconColor.withValues(alpha: 0.08),
@@ -305,14 +310,15 @@ class _SocialLoginButtonState extends State<SocialLoginButton> {
   @override
   Widget build(BuildContext context) {
     final config = _getProviderConfig();
-    
+
     return GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) => setState(() => _isPressed = false),
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
-        transform: Matrix4.diagonal3Values(_isPressed ? 0.95 : 1.0, _isPressed ? 0.95 : 1.0, 1.0),
+        transform: Matrix4.diagonal3Values(
+            _isPressed ? 0.95 : 1.0, _isPressed ? 0.95 : 1.0, 1.0),
         height: 56,
         decoration: BoxDecoration(
           color: config['bgColor'] as Color,
@@ -357,15 +363,15 @@ class _SocialLoginButtonState extends State<SocialLoginButton> {
     switch (widget.provider.toLowerCase()) {
       case 'google':
         return {
-          'icon': '🔵',
+          'icon': 'G',
           'text': 'Google ile devam et',
           'bgColor': Colors.white,
-          'borderColor': AppColors.border,
-          'textColor': AppColors.textPrimary,
+          'borderColor': AppColors.neutralBorder,
+          'textColor': AppColors.primaryDark,
         };
       case 'apple':
         return {
-          'icon': '🍎',
+          'icon': 'A',
           'text': 'Apple ile devam et',
           'bgColor': Colors.black,
           'borderColor': Colors.black,
@@ -373,15 +379,15 @@ class _SocialLoginButtonState extends State<SocialLoginButton> {
         };
       case 'facebook':
         return {
-          'icon': '📘',
+          'icon': 'f',
           'text': 'Facebook ile devam et',
-          'bgColor': const Color(0xFF1877F2),
-          'borderColor': const Color(0xFF1877F2),
+          'bgColor': AppColors.primaryDark,
+          'borderColor': AppColors.primaryDark,
           'textColor': Colors.white,
         };
       default:
         return {
-          'icon': '👤',
+          'icon': 'U',
           'text': 'Devam et',
           'bgColor': AppColors.surfaceVariant,
           'borderColor': AppColors.border,

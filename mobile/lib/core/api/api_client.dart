@@ -1,11 +1,33 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-const String baseUrl = String.fromEnvironment(
-  'API_BASE_URL',
-  defaultValue: 'http://localhost:3000/v1',
-);
+const String _envBaseUrl = String.fromEnvironment('API_BASE_URL');
+const String _envWebBaseUrl = String.fromEnvironment('WEB_API_BASE_URL');
+
+String _resolveBaseUrl() {
+  if (_envBaseUrl.trim().isNotEmpty) {
+    return _envBaseUrl.trim();
+  }
+  if (kIsWeb) {
+    if (_envWebBaseUrl.trim().isNotEmpty) {
+      return _envWebBaseUrl.trim();
+    }
+    final host = Uri.base.host;
+    if (host.isNotEmpty) {
+      return 'http://$host:3000/v1';
+    }
+    return 'http://localhost:3000/v1';
+  }
+  if (defaultTargetPlatform == TargetPlatform.android) {
+    // Android emulator cannot reach host machine through localhost.
+    return 'http://10.0.2.2:3000/v1';
+  }
+  return 'http://localhost:3000/v1';
+}
+
+final String baseUrl = _resolveBaseUrl();
 
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(BaseOptions(
@@ -33,18 +55,19 @@ final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
 
 class AuthInterceptor extends Interceptor {
   final Ref ref;
-  
+
   AuthInterceptor(this.ref);
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
+  void onRequest(
+      RequestOptions options, RequestInterceptorHandler handler) async {
     final storage = ref.read(secureStorageProvider);
     final token = await storage.read(key: 'access_token');
-    
+
     if (token != null) {
       options.headers['Authorization'] = 'Bearer $token';
     }
-    
+
     handler.next(options);
   }
 
@@ -59,7 +82,7 @@ class AuthInterceptor extends Interceptor {
         final storage = ref.read(secureStorageProvider);
         final newToken = await storage.read(key: 'access_token');
         opts.headers['Authorization'] = 'Bearer $newToken';
-        
+
         try {
           final response = await ref.read(dioProvider).fetch(opts);
           handler.resolve(response);
@@ -77,17 +100,19 @@ class AuthInterceptor extends Interceptor {
     try {
       final storage = ref.read(secureStorageProvider);
       final refreshToken = await storage.read(key: 'refresh_token');
-      
+
       if (refreshToken == null) return false;
-      
+
       final response = await Dio().post(
         '$baseUrl/auth/refresh',
         data: {'refreshToken': refreshToken},
       );
-      
+
       if (response.statusCode == 200) {
-        await storage.write(key: 'access_token', value: response.data['accessToken']);
-        await storage.write(key: 'refresh_token', value: response.data['refreshToken']);
+        await storage.write(
+            key: 'access_token', value: response.data['accessToken']);
+        await storage.write(
+            key: 'refresh_token', value: response.data['refreshToken']);
         return true;
       }
     } catch (e) {
@@ -132,7 +157,8 @@ class ApiException implements Exception {
       }
     }
 
-    return ApiException(message: message, statusCode: statusCode, errors: errors);
+    return ApiException(
+        message: message, statusCode: statusCode, errors: errors);
   }
 
   @override

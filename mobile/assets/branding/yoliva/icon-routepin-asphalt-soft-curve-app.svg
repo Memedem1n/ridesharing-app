@@ -1,0 +1,28 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgCurve" x1="96" y1="88" x2="936" y2="940" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2F6B57"/>
+      <stop offset="1" stop-color="#1F4B3D"/>
+    </linearGradient>
+    <linearGradient id="asphaltCurveBig" x1="420" y1="382" x2="580" y2="646" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5F6764"/>
+      <stop offset="1" stop-color="#2F3633"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="1024" height="1024" rx="226" fill="url(#bgCurve)"/>
+  <rect x="56" y="56" width="912" height="912" rx="190" fill="#295B4B"/>
+  <path d="M512 160C375 160 268 267 268 404C268 601 512 766 512 766C512 766 756 601 756 404C756 267 649 160 512 160Z" fill="#ECF3EF"/>
+
+  <path d="M512 640C512 598 512 560 512 490C512 456 472 418 430 384M512 490C512 456 552 418 594 384" stroke="url(#asphaltCurveBig)" stroke-width="84" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M512 640C512 598 512 560 512 490C512 456 472 418 430 384M512 490C512 456 552 418 594 384" stroke="#2E3532" stroke-width="62" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M512 640C512 598 512 560 512 490C512 456 472 418 430 384M512 490C512 456 552 418 594 384" stroke="#D0D8D3" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="12 18"/>
+  <path d="M498 612L505 602M532 606L525 596M472 566L479 556M554 566L547 556M446 520L453 512M578 520L571 512" stroke="#727B77" stroke-width="4.6" stroke-linecap="round" opacity="0.42"/>
+  <rect x="487" y="640" width="50" height="15" rx="5.5" fill="#E8EFEB"/>
+  <path d="M495 640L505 628H519L529 640Z" fill="#E8EFEB"/>
+  <circle cx="500" cy="656" r="4" fill="#2E3532"/>
+  <circle cx="524" cy="656" r="4" fill="#2E3532"/>
+
+  <path d="M512 274C540 290 546 344 512 380C478 344 484 290 512 274Z" fill="#92C4A4"/>
+  <path d="M512 294V370" stroke="#4E8A69" stroke-width="7.6" stroke-linecap="round"/>
+  <path d="M512 322L533 309M512 342L535 328M512 322L491 309M512 342L489 328" stroke="#5F9977" stroke-width="4.7" stroke-linecap="round"/>
+</svg>

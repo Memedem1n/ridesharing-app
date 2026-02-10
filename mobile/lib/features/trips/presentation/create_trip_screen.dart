@@ -75,6 +75,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   int _step = 0;
   bool _isLoading = false;
   bool _isRoutePreviewLoading = false;
+  bool _isEstimateLoading = false;
 
   int _availableSeats = 3;
   String _tripType = 'people';
@@ -87,6 +88,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   List<_RouteAlt> _routeAlternatives = const [];
   int _selectedRouteIndex = 0;
   final Map<String, _PickupPolicyValue> _pickupPolicies = {};
+  double? _estimatedDistanceKm;
+  double? _estimatedDurationMin;
+  double? _estimatedTotalCost;
+  String? _estimateProvider;
 
   @override
   void dispose() {
@@ -125,7 +130,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     if (departureText.isEmpty || arrivalText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Rota cikarmak icin kalkis ve varis alanlarini doldurun.'),
+          content:
+              Text('Rota cikarmak icin kalkis ve varis alanlarini doldurun.'),
         ),
       );
       return;
@@ -176,7 +182,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Rota bulunamadi. Kalkis/varis icin daha net bir sehir veya ilce secin.',
+              'Rota bulunamadı. Kalkış/varış için daha net bir şehir veya ilçe seçin.',
             ),
           ),
         );
@@ -188,6 +194,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         _selectedRouteIndex = 0;
       });
       _resetPickupPoliciesFromSelectedRoute();
+      _syncEstimateFromSelectedRoute();
+      await _estimateRouteCost();
     } on DioException catch (e) {
       final apiError = ApiException.fromDioError(e);
       if (!mounted) return;
@@ -223,7 +231,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     bool changed = false;
 
     if (_departureLat == null || _departureLng == null) {
-      final suggestion = await _resolveSuggestion(_departureCityController.text);
+      final suggestion =
+          await _resolveSuggestion(_departureCityController.text);
       if (suggestion != null) {
         _departureLat = suggestion.lat;
         _departureLng = suggestion.lon;
@@ -258,6 +267,63 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         _arrivalLng != null;
   }
 
+  void _syncEstimateFromSelectedRoute() {
+    final selected = _selectedRoute;
+    if (selected == null) {
+      _estimatedDistanceKm = null;
+      _estimatedDurationMin = null;
+      return;
+    }
+    _estimatedDistanceKm = selected.distanceKm;
+    _estimatedDurationMin = selected.durationMin;
+  }
+
+  Future<void> _estimateRouteCost() async {
+    final hasCoordinates = _departureLat != null &&
+        _departureLng != null &&
+        _arrivalLat != null &&
+        _arrivalLng != null;
+    if (!hasCoordinates) return;
+
+    setState(() => _isEstimateLoading = true);
+    try {
+      final dio = ref.read(dioProvider);
+      final response = await dio.post(
+        '/routes/estimate',
+        data: {
+          'departureCity': _departureCityController.text.trim(),
+          'arrivalCity': _arrivalCityController.text.trim(),
+          'departureLat': _departureLat,
+          'departureLng': _departureLng,
+          'arrivalLat': _arrivalLat,
+          'arrivalLng': _arrivalLng,
+          'tripType': _tripType,
+          'seats': _availableSeats,
+          'peakTraffic': false,
+        },
+      );
+
+      final data = (response.data is Map)
+          ? Map<String, dynamic>.from(response.data as Map)
+          : <String, dynamic>{};
+      if (!mounted) return;
+      setState(() {
+        _estimatedDistanceKm =
+            (data['distanceKm'] ?? _estimatedDistanceKm ?? 0).toDouble();
+        _estimatedDurationMin =
+            (data['durationMin'] ?? _estimatedDurationMin ?? 0).toDouble();
+        _estimatedTotalCost = (data['estimatedCost'] ?? 0).toDouble();
+        _estimateProvider = data['provider']?.toString();
+      });
+    } on DioException {
+      // Soft-fail: keep route creation flow usable even if estimate API is unavailable.
+    } finally {
+      if (mounted) {
+        setState(() => _isEstimateLoading = false);
+      }
+    }
+  }
+
   void _resetPickupPoliciesFromSelectedRoute() {
     _pickupPolicies.clear();
     final selected = _selectedRoute;
@@ -287,12 +353,16 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
   List<LatLng> _routePoints(_RouteAlt alternative) {
     final rawPoints = (alternative.route['points'] as List?) ?? const [];
-    return rawPoints.whereType<Map>().map((point) {
-      final map = Map<String, dynamic>.from(point);
-      final lat = (map['lat'] ?? 0).toDouble();
-      final lng = (map['lng'] ?? 0).toDouble();
-      return LatLng(lat, lng);
-    }).where((point) => point.latitude != 0 || point.longitude != 0).toList();
+    return rawPoints
+        .whereType<Map>()
+        .map((point) {
+          final map = Map<String, dynamic>.from(point);
+          final lat = (map['lat'] ?? 0).toDouble();
+          final lng = (map['lng'] ?? 0).toDouble();
+          return LatLng(lat, lng);
+        })
+        .where((point) => point.latitude != 0 || point.longitude != 0)
+        .toList();
   }
 
   LatLng _routeMapCenter() {
@@ -339,7 +409,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         point: points.first,
         width: 32,
         height: 32,
-        child: const Icon(Icons.trip_origin, color: AppColors.primary, size: 20),
+        child:
+            const Icon(Icons.trip_origin, color: AppColors.primary, size: 20),
       ),
       Marker(
         point: points.last,
@@ -394,7 +465,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Yolculuk Olustur'),
+        title: const Text('Yolculuk Oluştur'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -562,7 +633,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           const SizedBox(height: 10),
           if (_routeAlternatives.isEmpty)
             const Text(
-              'Henuz rota cikarilmadi. Kalkis/varis metni yaziliysa sistem koordinati otomatik cozmeye calisir.',
+              'Henüz rota çıkarılmadı. Kalkış/varış metni yazılıysa sistem koordinatı otomatik çözmeye çalışır.',
               style: TextStyle(color: AppColors.textSecondary),
             )
           else ...[
@@ -584,7 +655,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                     urlTemplate:
                         'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
                     subdomains: const ['a', 'b', 'c', 'd'],
-                    userAgentPackageName: 'com.example.ridesharing_app',
+                    userAgentPackageName: 'com.yoliva.app',
                   ),
                   PolylineLayer(polylines: routePolylines),
                   MarkerLayer(markers: routeMarkers),
@@ -600,9 +671,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                   ChoiceChip(
                     label: Text('Rota ${i + 1}'),
                     selected: i == _selectedRouteIndex,
-                    onSelected: (_) {
+                    onSelected: (_) async {
                       setState(() => _selectedRouteIndex = i);
                       _resetPickupPoliciesFromSelectedRoute();
+                      _syncEstimateFromSelectedRoute();
+                      await _estimateRouteCost();
                     },
                   ),
               ],
@@ -614,9 +687,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                 child: _RouteAlternativeCard(
                   alternative: _routeAlternatives[i],
                   isSelected: i == _selectedRouteIndex,
-                  onTap: () {
+                  onTap: () async {
                     setState(() => _selectedRouteIndex = i);
                     _resetPickupPoliciesFromSelectedRoute();
+                    _syncEstimateFromSelectedRoute();
+                    await _estimateRouteCost();
                   },
                 ),
               ),
@@ -625,6 +700,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       ),
     ).animate().fadeIn().slideY(begin: 0.08);
   }
+
   Widget _buildStepPickupPolicies() {
     final selected = _selectedRoute;
     if (selected == null) {
@@ -649,7 +725,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
           const SizedBox(height: 10),
           if (selected.viaCities.isEmpty)
-            const Text('Bu rota icin ara sehir bulunamadi.',
+            const Text('Bu rota için ara şehir bulunamadı.',
                 style: TextStyle(color: AppColors.textSecondary))
           else
             for (final city in selected.viaCities)
@@ -741,11 +817,13 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           const SizedBox(height: 10),
           _buildVehicleSection(vehiclesAsync),
           const SizedBox(height: 12),
+          _buildRouteEstimateCard(),
+          const SizedBox(height: 12),
           TextFormField(
             controller: _priceController,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
-                labelText: 'Kisi basi fiyat', suffixText: '₺'),
+                labelText: 'Kişi başı fiyat', suffixText: '\u20BA'),
             validator: (value) =>
                 value == null || value.trim().isEmpty ? 'Fiyat gerekli' : null,
           ),
@@ -765,7 +843,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                         children: [
                           IconButton(
                             onPressed: _availableSeats > 1
-                                ? () => setState(() => _availableSeats -= 1)
+                                ? () {
+                                    setState(() => _availableSeats -= 1);
+                                    _estimateRouteCost();
+                                  }
                                 : null,
                             icon: const Icon(Icons.remove_circle_outline,
                                 color: AppColors.primary),
@@ -777,7 +858,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                                   fontSize: 18)),
                           IconButton(
                             onPressed: _availableSeats < 7
-                                ? () => setState(() => _availableSeats += 1)
+                                ? () {
+                                    setState(() => _availableSeats += 1);
+                                    _estimateRouteCost();
+                                  }
                                 : null,
                             icon: const Icon(Icons.add_circle_outline,
                                 color: AppColors.primary),
@@ -809,7 +893,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           const SizedBox(height: 10),
           _TripTypeSelector(
               selected: _tripType,
-              onChanged: (next) => setState(() => _tripType = next)),
+              onChanged: (next) async {
+                setState(() => _tripType = next);
+                await _estimateRouteCost();
+              }),
           const SizedBox(height: 12),
           _buildSwitch('Evcil hayvana izin ver', Icons.pets, _allowsPets,
               (v) => setState(() => _allowsPets = v)),
@@ -839,6 +926,97 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         ],
       ),
     ).animate().fadeIn().slideY(begin: 0.08);
+  }
+
+  Widget _buildRouteEstimateCard() {
+    final hasEstimate = _estimatedTotalCost != null &&
+        _estimatedDistanceKm != null &&
+        _estimatedDurationMin != null;
+
+    if (!hasEstimate) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.glassBgDark,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.glassStroke),
+        ),
+        child: Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Tahmini maliyet için önce rota çıkarın.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+            ),
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: _isEstimateLoading ? null : _estimateRouteCost,
+              child: Text(_isEstimateLoading ? 'Hesaplanıyor...' : 'Hesapla'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final perSeatSuggestion = _availableSeats > 0
+        ? (_estimatedTotalCost! / _availableSeats)
+        : _estimatedTotalCost!;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.glassBgDark,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.glassStroke),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.insights, color: AppColors.primary, size: 18),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Rota tahmini',
+                  style: TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: _isEstimateLoading ? null : _estimateRouteCost,
+                child: Text(_isEstimateLoading ? 'Yenileniyor...' : 'Yenile'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${_estimatedDistanceKm!.toStringAsFixed(1)} km • ${_estimatedDurationMin!.toStringAsFixed(0)} dk',
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Toplam tahmini maliyet: TL ${_estimatedTotalCost!.toStringAsFixed(0)}',
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            'Öneri (kişi başı): TL ${perSeatSuggestion.toStringAsFixed(0)} • Kaynak: ${(_estimateProvider ?? 'osrm').toUpperCase()}',
+            style:
+                const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildSwitch(
@@ -872,7 +1050,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Arac bulunamadi. Once arac ekleyin.',
+              const Text('Araç bulunamadı. Önce araç ekleyin.',
                   style: TextStyle(color: AppColors.textSecondary)),
               const SizedBox(height: 8),
               GradientButton(
@@ -947,7 +1125,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           Expanded(
             child: GradientButton(
               text: _step == 4
-                  ? (_isLoading ? 'Olusturuluyor...' : 'Yolculuk Olustur')
+                  ? (_isLoading ? 'Oluşturuluyor...' : 'Yolculuk Oluştur')
                   : 'Devam Et',
               icon: _step == 4 ? Icons.check_circle : Icons.arrow_forward,
               isLoading: _isLoading,
@@ -1229,5 +1407,3 @@ class _TypeChip extends StatelessWidget {
     );
   }
 }
-
-

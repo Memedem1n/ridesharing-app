@@ -27,7 +27,7 @@ class BoardingQRScreen extends ConsumerWidget {
     final resolvedPnr = _resolvePnrCode();
     final qrData = (qrCode != null && qrCode!.isNotEmpty)
         ? qrCode!
-        : 'RIDESHARE:$bookingId:${DateTime.now().millisecondsSinceEpoch}';
+        : 'YOLIVA:$bookingId:${DateTime.now().millisecondsSinceEpoch}';
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -51,7 +51,8 @@ class BoardingQRScreen extends ConsumerWidget {
                       children: [
                         // Header
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
                             gradient: AppColors.primaryGradient,
                             borderRadius: BorderRadius.circular(20),
@@ -91,11 +92,11 @@ class BoardingQRScreen extends ConsumerWidget {
                             embeddedImage: null,
                             eyeStyle: const QrEyeStyle(
                               eyeShape: QrEyeShape.square,
-                              color: Color(0xFF1A1A2E),
+                              color: AppColors.primaryDark,
                             ),
                             dataModuleStyle: const QrDataModuleStyle(
                               dataModuleShape: QrDataModuleShape.square,
-                              color: Color(0xFF1A1A2E),
+                              color: AppColors.primaryDark,
                             ),
                           ),
                         ).animate().scale(delay: 200.ms),
@@ -104,7 +105,8 @@ class BoardingQRScreen extends ConsumerWidget {
 
                         // PNR Code
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 12),
                           decoration: BoxDecoration(
                             color: AppColors.glassBgDark,
                             borderRadius: BorderRadius.circular(12),
@@ -138,14 +140,18 @@ class BoardingQRScreen extends ConsumerWidget {
                                   GestureDetector(
                                     onTap: () {
                                       // Copy to clipboard
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         SnackBar(
-                                          content: Text('PNR kodu kopyalandi: $resolvedPnr'),
+                                          content: Text(
+                                              'PNR kodu kopyalandi: $resolvedPnr'),
                                           backgroundColor: AppColors.success,
                                         ),
                                       );
                                     },
-                                    child: const Icon(Icons.copy, color: AppColors.textSecondary, size: 20),
+                                    child: const Icon(Icons.copy,
+                                        color: AppColors.textSecondary,
+                                        size: 20),
                                   ),
                                 ],
                               ),
@@ -162,8 +168,11 @@ class BoardingQRScreen extends ConsumerWidget {
                             (index) => Expanded(
                               child: Container(
                                 height: 2,
-                                margin: const EdgeInsets.symmetric(horizontal: 2),
-                                color: index.isEven ? AppColors.glassStroke : Colors.transparent,
+                                margin:
+                                    const EdgeInsets.symmetric(horizontal: 2),
+                                color: index.isEven
+                                    ? AppColors.glassStroke
+                                    : Colors.transparent,
                               ),
                             ),
                           ),
@@ -178,17 +187,31 @@ class BoardingQRScreen extends ConsumerWidget {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('GUZERGAH', style: TextStyle(color: AppColors.textTertiary, fontSize: 10, letterSpacing: 1)),
+                                const Text('GUZERGAH',
+                                    style: TextStyle(
+                                        color: AppColors.textTertiary,
+                                        fontSize: 10,
+                                        letterSpacing: 1)),
                                 const SizedBox(height: 4),
-                                Text(tripInfo, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+                                Text(tripInfo,
+                                    style: const TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontWeight: FontWeight.bold)),
                               ],
                             ),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                const Text('KOLTUK', style: TextStyle(color: AppColors.textTertiary, fontSize: 10, letterSpacing: 1)),
+                                const Text('KOLTUK',
+                                    style: TextStyle(
+                                        color: AppColors.textTertiary,
+                                        fontSize: 10,
+                                        letterSpacing: 1)),
                                 const SizedBox(height: 4),
-                                Text('$seats kisi', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                                Text('$seats kisi',
+                                    style: const TextStyle(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.bold)),
                               ],
                             ),
                           ],
@@ -202,17 +225,33 @@ class BoardingQRScreen extends ConsumerWidget {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('YOLCU', style: TextStyle(color: AppColors.textTertiary, fontSize: 10, letterSpacing: 1)),
+                                const Text('YOLCU',
+                                    style: TextStyle(
+                                        color: AppColors.textTertiary,
+                                        fontSize: 10,
+                                        letterSpacing: 1)),
                                 const SizedBox(height: 4),
-                                Text(passengerName, style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w500)),
+                                Text(passengerName,
+                                    style: const TextStyle(
+                                        color: AppColors.textPrimary,
+                                        fontWeight: FontWeight.w500)),
                               ],
                             ),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                const Text('REZERVASYON', style: TextStyle(color: AppColors.textTertiary, fontSize: 10, letterSpacing: 1)),
+                                const Text('REZERVASYON',
+                                    style: TextStyle(
+                                        color: AppColors.textTertiary,
+                                        fontSize: 10,
+                                        letterSpacing: 1)),
                                 const SizedBox(height: 4),
-                                Text('#${bookingId.substring(0, 8).toUpperCase()}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12, fontFamily: 'monospace')),
+                                Text(
+                                    '#${bookingId.substring(0, 8).toUpperCase()}',
+                                    style: const TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 12,
+                                        fontFamily: 'monospace')),
                               ],
                             ),
                           ],
@@ -234,13 +273,15 @@ class BoardingQRScreen extends ConsumerWidget {
                             color: AppColors.warning.withValues(alpha: 0.15),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.info_outline, color: AppColors.warning),
+                          child: const Icon(Icons.info_outline,
+                              color: AppColors.warning),
                         ),
                         const SizedBox(width: 16),
                         const Expanded(
                           child: Text(
                             'QR kodu taratin veya PNR kodunu\nsurucuye soyleyin.',
-                            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                            style: TextStyle(
+                                color: AppColors.textSecondary, fontSize: 13),
                           ),
                         ),
                       ],
@@ -290,11 +331,11 @@ class BoardingQRScreen extends ConsumerWidget {
   }
 
   String _resolvePnrCode() {
-    final raw = (pnrCode ?? '').toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    final raw =
+        (pnrCode ?? '').toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
     if (raw.length == 6) {
       return raw;
     }
     return _generatePNR(bookingId);
   }
 }
-

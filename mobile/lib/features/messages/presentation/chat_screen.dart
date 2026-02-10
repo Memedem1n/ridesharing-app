@@ -437,7 +437,7 @@ class _MessageBubble extends StatelessWidget {
                   Icon(
                     message.isRead ? Icons.done_all : Icons.done,
                     size: 14,
-                    color: message.isRead ? Colors.lightBlueAccent : Colors.white70,
+                    color: message.isRead ? AppColors.successLight : Colors.white70,
                   ),
                 ],
               ],

@@ -3,77 +3,82 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:ui';
 
 class AppColors {
-  // Primary - Vibrant Cyan/Teal
-  static const primary = Color(0xFF00D9FF);
-  static const primaryLight = Color(0xFF5EEAFF);
-  static const primaryDark = Color(0xFF00A8CC);
-  
-  // Secondary - Purple
-  static const secondary = Color(0xFF7C3AED);
-  static const secondaryLight = Color(0xFFA78BFA);
-  
-  // Accent - Coral/Orange
-  static const accent = Color(0xFFFF6B6B);
-  static const accentLight = Color(0xFFFF9F9F);
-  
+  // Primary - Muted green tones
+  static const primary = Color(0xFF2F6B57);
+  static const primaryLight = Color(0xFF5F8D76);
+  static const primaryDark = Color(0xFF1F4B3D);
+
+  // Secondary - Sage
+  static const secondary = Color(0xFF7FA58C);
+  static const secondaryLight = Color(0xFFA6C2B1);
+
+  // Accent - Deeper green (no blue/purple bias)
+  static const accent = Color(0xFF4F8B71);
+  static const accentLight = Color(0xFF6EA58D);
+
   // Dark Theme Colors
-  static const background = Color(0xFF0A0E17);
-  static const surface = Color(0xFF141B2D);
-  static const surfaceVariant = Color(0xFF1E2A3D);
-  static const surfaceLight = Color(0xFF253449);
-  
+  static const background = Color(0xFF0E1511);
+  static const surface = Color(0xFF16211B);
+  static const surfaceVariant = Color(0xFF1F2D25);
+  static const surfaceLight = Color(0xFF2A3C33);
+
   // Text colors - HIGH CONTRAST for readability
-  static const textPrimary = Color(0xFFF8FAFC);        // Almost white
-  static const textSecondary = Color(0xFFB8C5D6);       // Light gray-blue
-  static const textTertiary = Color(0xFF6B7C93);        // Medium gray
-  static const textMuted = Color(0xFF4A5568);           // Muted gray
-  
+  static const textPrimary = Color(0xFFF5F8F6); // Almost white
+  static const textSecondary = Color(0xFFC7D4CB); // Light sage gray
+  static const textTertiary = Color(0xFF8DA191); // Medium sage gray
+  static const textMuted = Color(0xFF66776B); // Muted green-gray
+
+  // Neutral surfaces for light web sections
+  static const neutralBg = Color(0xFFF3F6F4);
+  static const neutralInput = Color(0xFFF1F6F3);
+  static const neutralBorder = Color(0xFFD4DED8);
+
   // Glass effect colors
-  static const glassBg = Color(0x1AFFFFFF);             // 10% white
-  static const glassStroke = Color(0x33FFFFFF);         // 20% white border
-  static const glassBgDark = Color(0x0DFFFFFF);         // 5% white
-  
+  static const glassBg = Color(0x1AFFFFFF); // 10% white
+  static const glassStroke = Color(0x33FFFFFF); // 20% white border
+  static const glassBgDark = Color(0x0DFFFFFF); // 5% white
+
   // Semantic colors
   static const success = Color(0xFF10B981);
   static const successLight = Color(0xFF34D399);
   static const successBg = Color(0x1A10B981);
-  
+
   static const warning = Color(0xFFF59E0B);
   static const warningLight = Color(0xFFFBBF24);
   static const warningBg = Color(0x1AF59E0B);
-  
+
   static const error = Color(0xFFEF4444);
   static const errorLight = Color(0xFFF87171);
   static const errorBg = Color(0x1AEF4444);
-  
-  static const info = Color(0xFF3B82F6);
-  static const infoLight = Color(0xFF60A5FA);
-  static const infoBg = Color(0x1A3B82F6);
-  
+
+  static const info = Color(0xFF4FA978);
+  static const infoLight = Color(0xFF78C798);
+  static const infoBg = Color(0x1A4FA978);
+
   // Backward compatibility
   static const border = glassStroke;
   static const text = textPrimary;
   static const subtext = textSecondary;
-  
+
   // Gradients
   static const LinearGradient primaryGradient = LinearGradient(
-    colors: [Color(0xFF00D9FF), Color(0xFF7C3AED)],
+    colors: [Color(0xFF2F6B57), Color(0xFF5F8D76)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-  
+
   static const LinearGradient darkGradient = LinearGradient(
-    colors: [Color(0xFF0A0E17), Color(0xFF141B2D)],
+    colors: [Color(0xFF0E1511), Color(0xFF16211B)],
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
   );
-  
+
   static const LinearGradient accentGradient = LinearGradient(
-    colors: [Color(0xFFFF6B6B), Color(0xFFFF8E53)],
+    colors: [Color(0xFF4F8B71), Color(0xFF6EA58D)],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
-  
+
   static const LinearGradient glassGradient = LinearGradient(
     colors: [Color(0x1AFFFFFF), Color(0x05FFFFFF)],
     begin: Alignment.topLeft,
@@ -103,7 +108,7 @@ class GlassDecoration {
       ],
     );
   }
-  
+
   static BoxDecoration input() {
     return BoxDecoration(
       color: AppColors.glassBgDark,
@@ -132,9 +137,10 @@ class AppTheme {
         outline: AppColors.glassStroke,
       ),
       scaffoldBackgroundColor: AppColors.background,
-      
+
       // Typography - clear and readable
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
+      textTheme:
+          GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
         displayLarge: GoogleFonts.inter(
           fontSize: 32,
           fontWeight: FontWeight.bold,
@@ -177,7 +183,7 @@ class AppTheme {
           color: AppColors.textPrimary,
         ),
       ),
-      
+
       // AppBar - transparent glass style
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
@@ -192,7 +198,7 @@ class AppTheme {
         ),
         iconTheme: const IconThemeData(color: AppColors.textPrimary),
       ),
-      
+
       // Navigation bar
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: AppColors.surface.withValues(alpha: 0.9),
@@ -220,7 +226,7 @@ class AppTheme {
           return const IconThemeData(color: AppColors.textTertiary, size: 24);
         }),
       ),
-      
+
       // Input fields - glass style
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -241,7 +247,8 @@ class AppTheme {
           borderRadius: BorderRadius.circular(16),
           borderSide: const BorderSide(color: AppColors.error, width: 1),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
         hintStyle: GoogleFonts.inter(
           color: AppColors.textTertiary,
           fontSize: 15,
@@ -253,7 +260,7 @@ class AppTheme {
         prefixIconColor: AppColors.textSecondary,
         suffixIconColor: AppColors.textSecondary,
       ),
-      
+
       // Filled buttons - gradient style
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -270,7 +277,7 @@ class AppTheme {
           ),
         ),
       ),
-      
+
       // Outlined buttons
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
@@ -286,7 +293,7 @@ class AppTheme {
           ),
         ),
       ),
-      
+
       // Text buttons
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
@@ -297,7 +304,7 @@ class AppTheme {
           ),
         ),
       ),
-      
+
       // Cards - glass style
       cardTheme: CardThemeData(
         elevation: 0,
@@ -307,13 +314,13 @@ class AppTheme {
           side: BorderSide(color: AppColors.glassStroke),
         ),
       ),
-      
+
       // Divider
       dividerTheme: DividerThemeData(
         color: AppColors.glassStroke,
         thickness: 1,
       ),
-      
+
       // Chips
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.glassBg,
@@ -328,7 +335,7 @@ class AppTheme {
         ),
         side: BorderSide.none,
       ),
-      
+
       // Tab bar
       tabBarTheme: TabBarThemeData(
         labelColor: AppColors.primary,
@@ -337,7 +344,7 @@ class AppTheme {
         labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w600),
         unselectedLabelStyle: GoogleFonts.inter(fontWeight: FontWeight.w500),
       ),
-      
+
       // Bottom sheet
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: AppColors.surface,
@@ -345,7 +352,7 @@ class AppTheme {
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
       ),
-      
+
       // Snackbar
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.surfaceVariant,
@@ -353,7 +360,7 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         behavior: SnackBarBehavior.floating,
       ),
-      
+
       // Checkbox
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith((states) {
@@ -368,7 +375,7 @@ class AppTheme {
       ),
     );
   }
-  
+
   // Keep lightTheme as fallback but recommend dark
   static ThemeData get lightTheme => darkTheme;
 }

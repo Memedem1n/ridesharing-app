@@ -197,7 +197,15 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
   }
 
   Future<void> _book(Trip trip) async {
-    final isFull = trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
+    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    if (!isAuthenticated) {
+      final next = Uri.encodeComponent('/booking/${trip.id}');
+      context.push('/login?next=$next');
+      return;
+    }
+
+    final isFull =
+        trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
     if (isFull) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -297,7 +305,20 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
 
   Widget _buildMessageButton(BuildContext context, Trip trip) {
     final currentUser = ref.read(currentUserProvider);
-    final isDriver = currentUser?.id == trip.driverId;
+    if (currentUser == null) {
+      final next = Uri.encodeComponent('/trip/${trip.id}');
+      return OutlinedButton.icon(
+        onPressed: () => context.push('/login?next=$next'),
+        icon: const Icon(Icons.login_rounded, size: 18),
+        label: const Text('Giriş Yap'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          side: const BorderSide(color: AppColors.primary),
+        ),
+      );
+    }
+
+    final isDriver = currentUser.id == trip.driverId;
 
     if (isDriver) {
       return OutlinedButton.icon(
@@ -391,7 +412,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
           data: (trip) {
             if (trip == null) {
               return const Center(
-                  child: Text('Yolculuk bulunamadi',
+                  child: Text('Yolculuk bulunamadı',
                       style: TextStyle(color: AppColors.textSecondary)));
             }
 
@@ -652,7 +673,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                             style: TextStyle(
                                 color: AppColors.textTertiary, fontSize: 12))
                       else if (trip.passengers.isEmpty)
-                        const Text('Henuz onayli yolcu yok.',
+                        const Text('Henüz onaylı yolcu yok.',
                             style: TextStyle(
                                 color: AppColors.textSecondary, fontSize: 12))
                       else
@@ -665,9 +686,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 14),
-                SizedBox(
-                    width: 120,
-                    child: _buildMessageButton(context, trip)),
+                SizedBox(width: 120, child: _buildMessageButton(context, trip)),
                 const SizedBox(height: 16),
               ],
             ),
@@ -739,7 +758,9 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
   }
 
   Widget _buildBookingBar(Trip trip, double totalPrice) {
-    final isFull = trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
+    final isFull =
+        trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -755,7 +776,8 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
             if (isFull)
               Container(
                 margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.grey.shade700,
                   borderRadius: BorderRadius.circular(8),
@@ -773,7 +795,8 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
               children: [
                 GlassContainer(
                   borderRadius: 14,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   child: Row(
                     children: [
                       IconButton(
@@ -797,9 +820,10 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                       IconButton(
                         icon: const Icon(Icons.add,
                             color: AppColors.primary, size: 18),
-                        onPressed: !isFull && _selectedSeats < trip.availableSeats
-                            ? () => setState(() => _selectedSeats += 1)
-                            : null,
+                        onPressed:
+                            !isFull && _selectedSeats < trip.availableSeats
+                                ? () => setState(() => _selectedSeats += 1)
+                                : null,
                         constraints:
                             const BoxConstraints(minWidth: 30, minHeight: 30),
                         padding: EdgeInsets.zero,
@@ -830,7 +854,9 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                 GradientButton(
                   text: isFull
                       ? 'Dolu'
-                      : (_isBooking ? 'Isleniyor...' : 'Rezerve Et'),
+                      : (!isAuthenticated
+                          ? 'Giriş yap ve rezerve et'
+                          : (_isBooking ? 'Isleniyor...' : 'Rezerve Et')),
                   icon: Icons.check_circle,
                   isLoading: _isBooking && !isFull,
                   onPressed: _isBooking || isFull ? null : () => _book(trip),
@@ -1034,4 +1060,3 @@ class _PassengerRow extends StatelessWidget {
     );
   }
 }
-

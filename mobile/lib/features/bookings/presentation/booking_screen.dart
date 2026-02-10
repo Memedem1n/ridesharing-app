@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/booking_provider.dart';
 import '../../../core/providers/trip_provider.dart';
 import '../../../core/theme/app_theme.dart';
@@ -20,7 +21,18 @@ class BookingScreen extends ConsumerStatefulWidget {
 class _BookingScreenState extends ConsumerState<BookingScreen> {
   int _seats = 1;
 
+  void _redirectToLogin(String tripId) {
+    final next = Uri.encodeComponent('/booking/$tripId');
+    context.push('/login?next=$next');
+  }
+
   Future<void> _confirmBooking(Trip trip) async {
+    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    if (!isAuthenticated) {
+      _redirectToLogin(trip.id);
+      return;
+    }
+
     final isFull = trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
     if (isFull) {
       if (mounted) {
@@ -110,6 +122,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   Widget build(BuildContext context) {
     final tripAsync = ref.watch(tripDetailProvider(widget.tripId));
     final actionsState = ref.watch(bookingActionsProvider);
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Rezervasyon')),
@@ -330,7 +343,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                             (trip.availableSeats <= 0 ||
                                 trip.status.toLowerCase() == 'full')
                         ? 'Dolu'
-                        : 'Rezervasyon Yap',
+                        : (isAuthenticated
+                            ? 'Rezervasyon Yap'
+                            : 'Giris yap ve rezerve et'),
                   ),
           ),
           loading: () => const SizedBox.shrink(),

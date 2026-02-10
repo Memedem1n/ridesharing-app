@@ -24,6 +24,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   bool _isPasswordVisible = false;
   bool _acceptedTerms = false;
 
+  String? _resolveNextRoute() {
+    final next = GoRouterState.of(context).uri.queryParameters['next'];
+    if (next == null || next.trim().isEmpty) return null;
+    if (!next.startsWith('/')) return null;
+    return next;
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -56,7 +63,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     );
 
     if (success && mounted) {
-      context.go('/');
+      context.go(_resolveNextRoute() ?? '/');
     }
   }
 
@@ -66,6 +73,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final strings = ref.watch(appStringsProvider);
     final screenWidth = MediaQuery.of(context).size.width;
     final horizontalPadding = screenWidth < 390 ? 16.0 : 24.0;
+    final nextRoute = _resolveNextRoute();
+    final loginPath = nextRoute == null
+        ? '/login'
+        : '/login?next=${Uri.encodeComponent(nextRoute)}';
 
     return Scaffold(
       body: Container(
@@ -271,7 +282,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             style: const TextStyle(color: AppColors.textSecondary),
                           ),
                           TextButton(
-                            onPressed: () => context.pop(),
+                            onPressed: () => context.go(loginPath),
                             child: Text(strings.login),
                           ),
                         ],

@@ -1,4 +1,4 @@
-package com.example.ridesharing_app
+package com.yoliva.app
 
 import io.flutter.embedding.android.FlutterActivity
 

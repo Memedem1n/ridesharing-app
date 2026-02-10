@@ -209,7 +209,7 @@ class Trip {
       driverId: json['driverId']?.toString() ??
           json['driver']?['id']?.toString() ??
           '',
-      driverName: json['driver']?['fullName']?.toString() ?? 'Surucu',
+      driverName: json['driver']?['fullName']?.toString() ?? 'Sürücü',
       driverPhoto:
           resolveMediaUrl(json['driver']?['profilePhotoUrl']?.toString()),
       driverRating: (json['driver']?['ratingAvg'] ?? 0).toDouble(),

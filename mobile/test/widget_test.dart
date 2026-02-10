@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:ridesharing_app/main.dart';
+import 'package:yoliva/main.dart';
 
 void main() {
   testWidgets('App boots inside ProviderScope', (WidgetTester tester) async {

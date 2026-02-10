@@ -20,6 +20,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
 
+  String? _resolveNextRoute() {
+    final next = GoRouterState.of(context).uri.queryParameters['next'];
+    if (next == null || next.trim().isEmpty) return null;
+    if (!next.startsWith('/')) return null;
+    return next;
+  }
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -36,7 +43,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
 
     if (success && mounted) {
-      context.go('/');
+      context.go(_resolveNextRoute() ?? '/');
     }
   }
 
@@ -46,6 +53,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final strings = ref.watch(appStringsProvider);
     final screenWidth = MediaQuery.of(context).size.width;
     final horizontalPadding = screenWidth < 390 ? 16.0 : 24.0;
+    final nextRoute = _resolveNextRoute();
+    final registerPath = nextRoute == null
+        ? '/register'
+        : '/register?next=${Uri.encodeComponent(nextRoute)}';
 
     return Scaffold(
       body: Container(
@@ -234,7 +245,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             style: const TextStyle(color: AppColors.textSecondary),
                           ),
                           TextButton(
-                            onPressed: () => context.push('/register'),
+                            onPressed: () => context.push(registerPath),
                             child: Text(strings.register),
                           ),
                         ],

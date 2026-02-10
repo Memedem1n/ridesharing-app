@@ -73,7 +73,7 @@ class RouteInfo {
 
   Polyline get polyline => Polyline(
     points: points,
-    color: Colors.blueAccent, // Will be overridden by theme
+    color: const Color(0xFF2F6B57),
     strokeWidth: 4.0,
   );
 }
