@@ -1,524 +1,669 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional, IsBoolean, IsEnum, IsDateString, IsUUID, Min, Max, IsArray, ValidateNested } from 'class-validator';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import {
+  IsString,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsBoolean,
+  IsEnum,
+  IsDateString,
+  IsUUID,
+  Min,
+  Max,
+  IsArray,
+  ValidateNested,
+} from "class-validator";
+import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
+import { Type } from "class-transformer";
 
 export enum TripType {
-    PEOPLE = 'people',
-    PETS = 'pets',
-    CARGO = 'cargo',
-    FOOD = 'food',
+  PEOPLE = "people",
+  PETS = "pets",
+  CARGO = "cargo",
+  FOOD = "food",
 }
 
 export enum TripStatus {
-    DRAFT = 'draft',
-    PUBLISHED = 'published',
-    FULL = 'full',
-    IN_PROGRESS = 'in_progress',
-    COMPLETED = 'completed',
-    CANCELLED = 'cancelled',
+  DRAFT = "draft",
+  PUBLISHED = "published",
+  FULL = "full",
+  IN_PROGRESS = "in_progress",
+  COMPLETED = "completed",
+  CANCELLED = "cancelled",
 }
 
 export enum PetLocation {
-    FRONT = 'front',
-    BACK = 'back',
-    TRUNK = 'trunk',
+  FRONT = "front",
+  BACK = "back",
+  TRUNK = "trunk",
 }
 
 export enum PickupType {
-    BUS_TERMINAL = 'bus_terminal',
-    REST_STOP = 'rest_stop',
-    CITY_CENTER = 'city_center',
-    ADDRESS = 'address',
+  BUS_TERMINAL = "bus_terminal",
+  REST_STOP = "rest_stop",
+  CITY_CENTER = "city_center",
+  ADDRESS = "address",
 }
 
 export class RoutePointDto {
-    @ApiProperty()
-    @IsNumber()
-    lat: number;
+  @ApiProperty()
+  @IsNumber()
+  lat: number;
 
-    @ApiProperty()
-    @IsNumber()
-    lng: number;
+  @ApiProperty()
+  @IsNumber()
+  lng: number;
+}
+
+export class RouteBoundingBoxDto {
+  @ApiProperty()
+  @IsNumber()
+  minLat: number;
+
+  @ApiProperty()
+  @IsNumber()
+  minLng: number;
+
+  @ApiProperty()
+  @IsNumber()
+  maxLat: number;
+
+  @ApiProperty()
+  @IsNumber()
+  maxLng: number;
 }
 
 export class ViaCityDto {
-    @ApiProperty({ example: 'Eskisehir' })
-    @IsString()
-    city: string;
+  @ApiProperty({ example: "Eskisehir" })
+  @IsString()
+  city: string;
 
-    @ApiPropertyOptional({ example: 'Tepebasi' })
-    @IsOptional()
-    @IsString()
-    district?: string;
+  @ApiPropertyOptional({ example: "Tepebasi" })
+  @IsOptional()
+  @IsString()
+  district?: string;
 
-    @ApiPropertyOptional({ type: [String] })
-    @IsOptional()
-    @IsArray()
-    @IsString({ each: true })
-    pickupSuggestions?: string[];
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  pickupSuggestions?: string[];
 }
 
 export class RouteSnapshotDto {
-    @ApiProperty({ example: 'osrm' })
-    @IsString()
-    provider: string;
+  @ApiProperty({ example: "osrm" })
+  @IsString()
+  provider: string;
 
-    @ApiProperty({ example: 452.4 })
-    @IsNumber()
-    distanceKm: number;
+  @ApiProperty({ example: 452.4 })
+  @IsNumber()
+  distanceKm: number;
 
-    @ApiProperty({ example: 296.3 })
-    @IsNumber()
-    durationMin: number;
+  @ApiProperty({ example: 296.3 })
+  @IsNumber()
+  durationMin: number;
 
-    @ApiPropertyOptional({ type: [RoutePointDto] })
-    @IsOptional()
-    @IsArray()
-    @ValidateNested({ each: true })
-    @Type(() => RoutePointDto)
-    points?: RoutePointDto[];
+  @ApiPropertyOptional({ type: [RoutePointDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => RoutePointDto)
+  points?: RoutePointDto[];
+
+  @ApiPropertyOptional({ type: RouteBoundingBoxDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RouteBoundingBoxDto)
+  bbox?: RouteBoundingBoxDto;
 }
 
 export class PickupPolicyDto {
-    @ApiProperty({ example: 'Eskisehir' })
-    @IsString()
-    city: string;
+  @ApiProperty({ example: "Eskisehir" })
+  @IsString()
+  city: string;
 
-    @ApiPropertyOptional({ example: 'Tepebasi' })
-    @IsOptional()
-    @IsString()
-    district?: string;
+  @ApiPropertyOptional({ example: "Tepebasi" })
+  @IsOptional()
+  @IsString()
+  district?: string;
 
-    @ApiProperty({ example: true })
-    @IsBoolean()
-    pickupAllowed: boolean;
+  @ApiProperty({ example: true })
+  @IsBoolean()
+  pickupAllowed: boolean;
 
-    @ApiProperty({ enum: PickupType })
-    @IsEnum(PickupType)
-    pickupType: PickupType;
+  @ApiProperty({ enum: PickupType })
+  @IsEnum(PickupType)
+  pickupType: PickupType;
 
-    @ApiPropertyOptional({ example: 'Eskisehir Otogar kuzey girisi' })
-    @IsOptional()
-    @IsString()
-    note?: string;
+  @ApiPropertyOptional({ example: "Eskisehir Otogar kuzey girisi" })
+  @IsOptional()
+  @IsString()
+  note?: string;
 }
 
 export class RoutePreviewDto {
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    departureLat?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  departureLat?: number;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    departureLng?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  departureLng?: number;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    arrivalLat?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  arrivalLat?: number;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    arrivalLng?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  arrivalLng?: number;
 
-    @ApiPropertyOptional({ example: 'Istanbul' })
-    @IsOptional()
-    @IsString()
-    departureCity?: string;
+  @ApiPropertyOptional({ example: "Istanbul" })
+  @IsOptional()
+  @IsString()
+  departureCity?: string;
 
-    @ApiPropertyOptional({ example: 'Ankara' })
-    @IsOptional()
-    @IsString()
-    arrivalCity?: string;
+  @ApiPropertyOptional({ example: "Ankara" })
+  @IsOptional()
+  @IsString()
+  arrivalCity?: string;
 }
 
 export class RouteAlternativeDto {
-    @ApiProperty()
-    id: string;
+  @ApiProperty()
+  id: string;
 
-    @ApiProperty({ type: RouteSnapshotDto })
-    route: RouteSnapshotDto;
+  @ApiProperty({ type: RouteSnapshotDto })
+  route: RouteSnapshotDto;
 
-    @ApiProperty({ type: [ViaCityDto] })
-    viaCities: ViaCityDto[];
+  @ApiProperty({ type: [ViaCityDto] })
+  viaCities: ViaCityDto[];
 }
 
 export class RoutePreviewResponseDto {
-    @ApiProperty({ type: [RouteAlternativeDto] })
-    alternatives: RouteAlternativeDto[];
+  @ApiProperty({ example: "osrm" })
+  provider: string;
+
+  @ApiProperty({ type: [RouteAlternativeDto] })
+  alternatives: RouteAlternativeDto[];
+}
+
+export class RouteEstimateDto {
+  @ApiPropertyOptional({ example: "Istanbul" })
+  @IsOptional()
+  @IsString()
+  departureCity?: string;
+
+  @ApiPropertyOptional({ example: "Ankara" })
+  @IsOptional()
+  @IsString()
+  arrivalCity?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  departureLat?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  departureLng?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  arrivalLat?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  arrivalLng?: number;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(8)
+  seats?: number;
+
+  @ApiPropertyOptional({ enum: TripType, default: TripType.PEOPLE })
+  @IsOptional()
+  @IsEnum(TripType)
+  tripType?: TripType;
+
+  @ApiPropertyOptional({ example: false, default: false })
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  peakTraffic?: boolean;
+}
+
+export class RouteEstimateBreakdownDto {
+  @ApiProperty()
+  @IsNumber()
+  baseFee: number;
+
+  @ApiProperty()
+  @IsNumber()
+  distanceFee: number;
+
+  @ApiProperty()
+  @IsNumber()
+  durationFee: number;
+
+  @ApiProperty()
+  @IsNumber()
+  platformFee: number;
+
+  @ApiProperty()
+  @IsNumber()
+  tripTypeMultiplier: number;
+
+  @ApiProperty()
+  @IsNumber()
+  trafficMultiplier: number;
+}
+
+export class RouteEstimateResponseDto {
+  @ApiProperty({ example: "osrm" })
+  provider: string;
+
+  @ApiProperty({ example: 451.2 })
+  distanceKm: number;
+
+  @ApiProperty({ example: 290.4 })
+  durationMin: number;
+
+  @ApiProperty({ example: 1240.5 })
+  estimatedCost: number;
+
+  @ApiProperty({ example: "TRY" })
+  currency: string;
+
+  @ApiProperty({ type: RouteEstimateBreakdownDto })
+  breakdown: RouteEstimateBreakdownDto;
 }
 
 export class CreateTripDto {
-    @ApiProperty()
-    @IsNotEmpty()
-    @IsUUID()
-    vehicleId: string;
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsUUID()
+  vehicleId: string;
 
-    @ApiProperty({ enum: TripType, default: TripType.PEOPLE })
-    @IsEnum(TripType)
-    type: TripType = TripType.PEOPLE;
+  @ApiProperty({ enum: TripType, default: TripType.PEOPLE })
+  @IsEnum(TripType)
+  type: TripType = TripType.PEOPLE;
 
-    @ApiProperty({ example: 'İstanbul' })
-    @IsNotEmpty()
-    @IsString()
-    departureCity: string;
+  @ApiProperty({ example: "İstanbul" })
+  @IsNotEmpty()
+  @IsString()
+  departureCity: string;
 
-    @ApiProperty({ example: 'Ankara' })
-    @IsNotEmpty()
-    @IsString()
-    arrivalCity: string;
+  @ApiProperty({ example: "Ankara" })
+  @IsNotEmpty()
+  @IsString()
+  arrivalCity: string;
 
-    @ApiPropertyOptional({ example: 'Kadıköy, Moda' })
-    @IsOptional()
-    @IsString()
-    departureAddress?: string;
+  @ApiPropertyOptional({ example: "Kadıköy, Moda" })
+  @IsOptional()
+  @IsString()
+  departureAddress?: string;
 
-    @ApiPropertyOptional({ example: 'Kızılay' })
-    @IsOptional()
-    @IsString()
-    arrivalAddress?: string;
+  @ApiPropertyOptional({ example: "Kızılay" })
+  @IsOptional()
+  @IsString()
+  arrivalAddress?: string;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    departureLat?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  departureLat?: number;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    departureLng?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  departureLng?: number;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    arrivalLat?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  arrivalLat?: number;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    arrivalLng?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  arrivalLng?: number;
 
-    @ApiProperty({ example: '2026-02-05T09:00:00Z' })
-    @IsNotEmpty()
-    @IsDateString()
-    departureTime: string;
+  @ApiProperty({ example: "2026-02-05T09:00:00Z" })
+  @IsNotEmpty()
+  @IsDateString()
+  departureTime: string;
 
-    @ApiProperty({ example: 3 })
-    @IsNotEmpty()
-    @IsNumber()
-    @Min(1)
-    @Max(8)
-    availableSeats: number;
+  @ApiProperty({ example: 3 })
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(1)
+  @Max(8)
+  availableSeats: number;
 
-    @ApiProperty({ example: 150 })
-    @IsNotEmpty()
-    @IsNumber()
-    @Min(0)
-    pricePerSeat: number;
+  @ApiProperty({ example: 150 })
+  @IsNotEmpty()
+  @IsNumber()
+  @Min(0)
+  pricePerSeat: number;
 
-    @ApiPropertyOptional({ default: false })
-    @IsOptional()
-    @IsBoolean()
-    allowsPets?: boolean;
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  allowsPets?: boolean;
 
-    @ApiPropertyOptional({ enum: PetLocation })
-    @IsOptional()
-    @IsEnum(PetLocation)
-    petLocation?: PetLocation;
+  @ApiPropertyOptional({ enum: PetLocation })
+  @IsOptional()
+  @IsEnum(PetLocation)
+  petLocation?: PetLocation;
 
-    @ApiPropertyOptional({ default: false })
-    @IsOptional()
-    @IsBoolean()
-    allowsCargo?: boolean;
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  allowsCargo?: boolean;
 
-    @ApiPropertyOptional({ example: 50 })
-    @IsOptional()
-    @IsNumber()
-    maxCargoWeight?: number;
+  @ApiPropertyOptional({ example: 50 })
+  @IsOptional()
+  @IsNumber()
+  maxCargoWeight?: number;
 
-    @ApiPropertyOptional({ default: false })
-    @IsOptional()
-    @IsBoolean()
-    womenOnly?: boolean;
+  @ApiPropertyOptional({ default: false })
+  @IsOptional()
+  @IsBoolean()
+  womenOnly?: boolean;
 
-    @ApiPropertyOptional({ default: true })
-    @IsOptional()
-    @IsBoolean()
-    instantBooking?: boolean;
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  instantBooking?: boolean;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsString()
-    description?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    preferences?: Record<string, any>;
+  @ApiPropertyOptional()
+  @IsOptional()
+  preferences?: Record<string, any>;
 
-    @ApiPropertyOptional({ type: RouteSnapshotDto })
-    @IsOptional()
-    @ValidateNested()
-    @Type(() => RouteSnapshotDto)
-    routeSnapshot?: RouteSnapshotDto;
+  @ApiPropertyOptional({ type: RouteSnapshotDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RouteSnapshotDto)
+  routeSnapshot?: RouteSnapshotDto;
 
-    @ApiPropertyOptional({ type: [ViaCityDto] })
-    @IsOptional()
-    @IsArray()
-    @ValidateNested({ each: true })
-    @Type(() => ViaCityDto)
-    viaCities?: ViaCityDto[];
+  @ApiPropertyOptional({ type: [ViaCityDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ViaCityDto)
+  viaCities?: ViaCityDto[];
 
-    @ApiPropertyOptional({ type: [PickupPolicyDto] })
-    @IsOptional()
-    @IsArray()
-    @ValidateNested({ each: true })
-    @Type(() => PickupPolicyDto)
-    pickupPolicies?: PickupPolicyDto[];
+  @ApiPropertyOptional({ type: [PickupPolicyDto] })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PickupPolicyDto)
+  pickupPolicies?: PickupPolicyDto[];
 }
 
 export class UpdateTripDto {
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    availableSeats?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  availableSeats?: number;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    pricePerSeat?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  pricePerSeat?: number;
 
-    @ApiPropertyOptional({ enum: TripStatus })
-    @IsOptional()
-    @IsEnum(TripStatus)
-    status?: TripStatus;
+  @ApiPropertyOptional({ enum: TripStatus })
+  @IsOptional()
+  @IsEnum(TripStatus)
+  status?: TripStatus;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsString()
-    departureAddress?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  departureAddress?: string;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsString()
-    arrivalAddress?: string;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  arrivalAddress?: string;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    departureLat?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  departureLat?: number;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    departureLng?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  departureLng?: number;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    arrivalLat?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  arrivalLat?: number;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @IsNumber()
-    arrivalLng?: number;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  arrivalLng?: number;
 }
 
 export class SearchTripsDto {
-    @ApiPropertyOptional({ example: 'İstanbul' })
-    @IsOptional()
-    @IsString()
-    from?: string;
+  @ApiPropertyOptional({ example: "İstanbul" })
+  @IsOptional()
+  @IsString()
+  from?: string;
 
-    @ApiPropertyOptional({ example: 'Ankara' })
-    @IsOptional()
-    @IsString()
-    to?: string;
+  @ApiPropertyOptional({ example: "Ankara" })
+  @IsOptional()
+  @IsString()
+  to?: string;
 
-    @ApiPropertyOptional({ example: '2026-02-05' })
-    @IsOptional()
-    @IsString()
-    date?: string;
+  @ApiPropertyOptional({ example: "2026-02-05" })
+  @IsOptional()
+  @IsString()
+  date?: string;
 
-    @ApiPropertyOptional({ example: 1 })
-    @IsOptional()
-    @Type(() => Number)
-    @IsNumber()
-    seats?: number;
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  seats?: number;
 
-    @ApiPropertyOptional({ enum: TripType })
-    @IsOptional()
-    @IsEnum(TripType)
-    type?: TripType;
+  @ApiPropertyOptional({ enum: TripType })
+  @IsOptional()
+  @IsEnum(TripType)
+  type?: TripType;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @Type(() => Boolean)
-    @IsBoolean()
-    allowsPets?: boolean;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  allowsPets?: boolean;
 
-    @ApiPropertyOptional()
-    @IsOptional()
-    @Type(() => Boolean)
-    @IsBoolean()
-    womenOnly?: boolean;
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  womenOnly?: boolean;
 
-    @ApiPropertyOptional({ default: 1 })
-    @IsOptional()
-    @Type(() => Number)
-    @IsNumber()
-    page?: number = 1;
+  @ApiPropertyOptional({ default: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  page?: number = 1;
 
-    @ApiPropertyOptional({ default: 20 })
-    @IsOptional()
-    @Type(() => Number)
-    @IsNumber()
-    limit?: number = 20;
+  @ApiPropertyOptional({ default: 20 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  limit?: number = 20;
 }
 
 export class TripResponseDto {
-    @ApiProperty()
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  driverId: string;
+
+  @ApiProperty()
+  driver: {
     id: string;
+    fullName: string;
+    profilePhotoUrl?: string;
+    ratingAvg: number;
+    totalTrips: number;
+  };
 
-    @ApiProperty()
-    driverId: string;
+  @ApiProperty()
+  vehicle: {
+    id: string;
+    brand: string;
+    model: string;
+    color?: string;
+    licensePlate: string;
+  };
 
-    @ApiProperty()
-    driver: {
-        id: string;
-        fullName: string;
-        profilePhotoUrl?: string;
-        ratingAvg: number;
-        totalTrips: number;
-    };
+  @ApiProperty({ enum: TripStatus })
+  status: TripStatus;
 
-    @ApiProperty()
-    vehicle: {
-        id: string;
-        brand: string;
-        model: string;
-        color?: string;
-        licensePlate: string;
-    };
+  @ApiProperty({ enum: TripType })
+  type: TripType;
 
-    @ApiProperty({ enum: TripStatus })
-    status: TripStatus;
+  @ApiProperty()
+  departureCity: string;
 
-    @ApiProperty({ enum: TripType })
-    type: TripType;
+  @ApiProperty()
+  arrivalCity: string;
 
-    @ApiProperty()
-    departureCity: string;
+  @ApiPropertyOptional()
+  departureAddress?: string;
 
-    @ApiProperty()
-    arrivalCity: string;
+  @ApiPropertyOptional()
+  arrivalAddress?: string;
 
-    @ApiPropertyOptional()
-    departureAddress?: string;
+  @ApiPropertyOptional()
+  departureLat?: number;
 
-    @ApiPropertyOptional()
-    arrivalAddress?: string;
+  @ApiPropertyOptional()
+  departureLng?: number;
 
-    @ApiPropertyOptional()
-    departureLat?: number;
+  @ApiPropertyOptional()
+  arrivalLat?: number;
 
-    @ApiPropertyOptional()
-    departureLng?: number;
+  @ApiPropertyOptional()
+  arrivalLng?: number;
 
-    @ApiPropertyOptional()
-    arrivalLat?: number;
+  @ApiProperty()
+  departureTime: Date;
 
-    @ApiPropertyOptional()
-    arrivalLng?: number;
+  @ApiPropertyOptional()
+  estimatedArrivalTime?: Date;
 
-    @ApiProperty()
-    departureTime: Date;
+  @ApiProperty()
+  availableSeats: number;
 
-    @ApiPropertyOptional()
-    estimatedArrivalTime?: Date;
+  @ApiProperty()
+  pricePerSeat: number;
 
-    @ApiProperty()
-    availableSeats: number;
+  @ApiProperty()
+  allowsPets: boolean;
 
-    @ApiProperty()
-    pricePerSeat: number;
+  @ApiProperty()
+  allowsCargo: boolean;
 
-    @ApiProperty()
-    allowsPets: boolean;
+  @ApiProperty()
+  womenOnly: boolean;
 
-    @ApiProperty()
-    allowsCargo: boolean;
+  @ApiProperty()
+  instantBooking: boolean;
 
-    @ApiProperty()
-    womenOnly: boolean;
+  @ApiPropertyOptional()
+  description?: string;
 
-    @ApiProperty()
-    instantBooking: boolean;
+  @ApiPropertyOptional()
+  distanceKm?: number;
 
-    @ApiPropertyOptional()
-    description?: string;
+  @ApiPropertyOptional()
+  busReferencePrice?: number;
 
-    @ApiPropertyOptional()
-    distanceKm?: number;
+  @ApiPropertyOptional({ type: RouteSnapshotDto })
+  route?: RouteSnapshotDto;
 
-    @ApiPropertyOptional()
-    busReferencePrice?: number;
+  @ApiPropertyOptional({ type: [ViaCityDto] })
+  viaCities?: ViaCityDto[];
 
-    @ApiPropertyOptional({ type: RouteSnapshotDto })
-    route?: RouteSnapshotDto;
+  @ApiPropertyOptional({ type: [PickupPolicyDto] })
+  pickupPolicies?: PickupPolicyDto[];
 
-    @ApiPropertyOptional({ type: [ViaCityDto] })
-    viaCities?: ViaCityDto[];
+  @ApiPropertyOptional({
+    type: Object,
+    example: { confirmedSeats: 2, passengerCount: 1 },
+  })
+  occupancy?: {
+    confirmedSeats: number;
+    passengerCount: number;
+  };
 
-    @ApiPropertyOptional({ type: [PickupPolicyDto] })
-    pickupPolicies?: PickupPolicyDto[];
+  @ApiPropertyOptional({
+    type: [Object],
+    example: [
+      {
+        id: "user-id",
+        fullName: "Ali Veli",
+        profilePhotoUrl: null,
+        ratingAvg: 4.7,
+        seats: 1,
+      },
+    ],
+  })
+  passengers?: Array<{
+    id: string;
+    fullName: string;
+    profilePhotoUrl?: string;
+    ratingAvg: number;
+    seats: number;
+  }>;
 
-    @ApiPropertyOptional({
-        type: Object,
-        example: { confirmedSeats: 2, passengerCount: 1 },
-    })
-    occupancy?: {
-        confirmedSeats: number;
-        passengerCount: number;
-    };
+  @ApiPropertyOptional()
+  canViewPassengerList?: boolean;
 
-    @ApiPropertyOptional({
-        type: [Object],
-        example: [{ id: 'user-id', fullName: 'Ali Veli', profilePhotoUrl: null, ratingAvg: 4.7, seats: 1 }],
-    })
-    passengers?: Array<{
-        id: string;
-        fullName: string;
-        profilePhotoUrl?: string;
-        ratingAvg: number;
-        seats: number;
-    }>;
+  @ApiPropertyOptional()
+  canViewLiveLocation?: boolean;
 
-    @ApiPropertyOptional()
-    canViewPassengerList?: boolean;
-
-    @ApiPropertyOptional()
-    canViewLiveLocation?: boolean;
-
-    @ApiProperty()
-    createdAt: Date;
+  @ApiProperty()
+  createdAt: Date;
 }
 
 export class TripListResponseDto {
-    @ApiProperty({ type: [TripResponseDto] })
-    trips: TripResponseDto[];
+  @ApiProperty({ type: [TripResponseDto] })
+  trips: TripResponseDto[];
 
-    @ApiProperty()
-    total: number;
+  @ApiProperty()
+  total: number;
 
-    @ApiProperty()
-    page: number;
+  @ApiProperty()
+  page: number;
 
-    @ApiProperty()
-    limit: number;
+  @ApiProperty()
+  limit: number;
 
-    @ApiProperty()
-    totalPages: number;
+  @ApiProperty()
+  totalPages: number;
 }

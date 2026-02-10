@@ -9,6 +9,13 @@ import { LoggingInterceptor } from './interfaces/http/interceptors/logging.inter
 async function bootstrap() {
     const logger = new Logger('Bootstrap');
     const app = await NestFactory.create(AppModule);
+    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',')
+        .map((origin) => origin.trim())
+        .filter((origin) => origin.length > 0) || [
+            'http://localhost:3000',
+            'http://localhost:5173',
+            'http://127.0.0.1:5173',
+        ];
 
     // Security
     app.use(helmet({
@@ -17,7 +24,7 @@ async function bootstrap() {
 
     // CORS
     app.enableCors({
-        origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
+        origin: allowedOrigins,
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],

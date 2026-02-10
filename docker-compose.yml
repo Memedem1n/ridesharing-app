@@ -31,6 +31,18 @@ services:
       timeout: 5s
       retries: 5
 
+  # Self-host OSRM (TR-only). Requires prepared files in backend/.data/osrm
+  # Expected files: turkey-latest.osrm* (extract/partition/customize output)
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:latest
+    container_name: ridesharing-osrm
+    command: osrm-routed --algorithm mld /data/turkey-latest.osrm
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend/.data/osrm:/data
+    restart: unless-stopped
+
   # Development only - Adminer for DB management
   adminer:
     image: adminer
