@@ -1,7 +1,7 @@
 # 🚗 Paylaşımlı Yolculuk Platformu (Ridesharing SuperApp)
 
 > **Proje Özeti ve Teknik Dokümantasyon**
-> *Son Güncelleme: 08 Şubat 2026*
+> *Son Güncelleme: 09 Şubat 2026*
 
 Bu doküman, projenin başlangıcından itibaren alınan teknik kararları, uygulanan mimariyi, geliştirilen özellikleri ve proje yol haritasını en ince detayına kadar açıklamaktadır.
 
@@ -226,6 +226,17 @@ Admin operasyon panelini (low-code) `/v1/admin` API üzerine bağlayıp Android 
 - Yolculuk detay ekraninda adres yoksa fallback gosterilir.
 - PNR dogrulama endpointi aktif: `POST /bookings/check-in/pnr`.
 - Backend TR koordinat guard aktif (trip create/update).
+- Guest-first kullanima gecildi: web + mobilde giris yapmadan arama ve ilan detay goruntuleme acik.
+- Rezervasyon aksiyonlari login/register gerektirir; login sonrasi `next` ile ilgili ekrana geri donus desteklenir.
+- Web desktop ana sayfa/arama-sonuclari duzeni BlaBla benzeri bir iskelete tasindi (marka varliklari birebir kopyalanmadi).
+- Self-host OSRM (TR-only) hazirligi eklendi: `docker-compose.yml` icinde `osrm` servisi ve veri hazirlamak icin `scripts/osrm/setup-tr.ps1`.
+- Yeni rota tahmin endpointi eklendi: `POST /v1/routes/estimate` (mesafe, sure ve tahmini maliyet).
+
+## Notlar (2026-02-10)
+- Route provider katmani eklendi (resolver + osrm provider): backend routing artik provider bazli.
+- Yeni public endpoint aktif: `POST /v1/routes/estimate` (mesafe, sure, tahmini maliyet, breakdown).
+- Mobil create-trip ekrani route estimate API ile entegre edildi (TL maliyet + kisi basi onerisi).
+- Web deploy icin SPA rewrite ve cache purge adimi runbook'a eklendi (blank page riskine karsi).
 
 ---
 *Developed by Antigravity AI Team*

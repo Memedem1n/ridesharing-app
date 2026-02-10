@@ -21,6 +21,45 @@
 ## Notes
 - Integrations are mocked by default. Set `USE_MOCK_INTEGRATIONS=false` to enable real providers.
 
+## Web Hosting (Flutter SPA)
+Use these checks to prevent blank/white page issues after deploy.
+
+### Build
+1. `cd mobile`
+2. `flutter build web --release --pwa-strategy=none`
+
+### Host rules (required)
+1. Serve `mobile/build/web`.
+2. Configure SPA rewrite: all unknown paths must return `index.html`.
+3. Keep `index.html` cache short (or no-cache) and static hashed assets long-cache.
+4. Purge CDN/application cache after each new release.
+
+### Smoke checks
+1. Open `/` and a deep link route directly (for example `/search`) and verify both load.
+2. Hard refresh (`Ctrl+F5`) and verify app still boots.
+3. Confirm browser console has no fatal JS/runtime errors.
+
+## Routing and OSRM (TR-only self-host)
+
+### One-time data prep
+1. Run `scripts/osrm/setup-tr.ps1` from repo root.
+2. Verify generated files under `backend/.data/osrm` (`turkey-latest.osrm*`).
+
+### Start services
+1. Local: `docker compose up -d osrm postgres redis`
+2. Production stack: use `docker-compose.prod.yml` with:
+   - `ROUTE_PROVIDER=osrm`
+   - `OSRM_BASE_URL=http://osrm:5000`
+
+### API smoke checks
+1. `GET /v1/health` should return `ok`.
+2. `POST /v1/routes/estimate` with `departureCity` + `arrivalCity` should return:
+   - `provider`
+   - `distanceKm`
+   - `durationMin`
+   - `estimatedCost`
+3. `POST /v1/trips/route-preview` should return route alternatives (requires JWT).
+
 ## Admin Verification Operations
 Manual verification decisions are handled via the backend admin API (`/v1/admin`) and can be connected to a low-code operations panel.
 

@@ -12,7 +12,7 @@ This document summarizes the current architecture for the ridesharing app.
 - `docker-compose*.yml`: Local and production orchestration.
 
 ## High-Level Request Flow
-1. Mobile authenticates via `/v1/auth/*` and stores JWT + refresh token.
+1. Mobile/Web supports guest browsing for search/detail pages; authentication via `/v1/auth/*` is required for booking and protected routes.
 2. REST requests hit feature modules (`users`, `trips`, `bookings`, `messages`, `verification`, `admin`).
 3. Prisma persists to PostgreSQL.
 4. Redis is used for OTP and cache paths where configured; in-memory fallbacks exist.

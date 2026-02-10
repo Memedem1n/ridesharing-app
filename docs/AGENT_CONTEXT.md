@@ -1,6 +1,6 @@
 ﻿# Agent Context (ridesharing-app)
 
-Last updated: 2026-02-08
+Last updated: 2026-02-10
 
 Purpose
 This file is the short on-ramp for new agents. Read this instead of scanning the whole repo.
@@ -19,9 +19,15 @@ Tech Stack
 - Backend: NestJS 10, TypeScript, Prisma, PostgreSQL, Redis (optional)
 - Mobile: Flutter 3, Riverpod, GoRouter, Dio
 - Realtime: Socket.io (/chat, /location)
-- Maps: OpenStreetMap + OSRM
+- Maps: OpenStreetMap + backend routing APIs (`/v1/trips/route-preview`, `/v1/routes/estimate`)
+- Routing engine: OSRM (self-host, TR-only dataset in `backend/.data/osrm`)
 - Location autocomplete: Nominatim (Turkey-only suggestions)
 - Ops: Docker Compose, Nginx
+
+Product identity
+- Brand/app name: `Yoliva`
+- Official logo family: `Soft Curve` (`mobile/assets/branding/yoliva`)
+- Product platforms: Web + Android + iOS (desktop app is out of scope)
 
 Admin: /v1/admin (x-admin-key)
 
@@ -36,6 +42,7 @@ Key Paths
 - Mobile router: `mobile/lib/core/router/app_router.dart`
 - Mobile API client: `mobile/lib/core/api/api_client.dart`
 - Mobile providers: `mobile/lib/core/providers/*`
+- Routing provider abstraction: `backend/src/infrastructure/maps/*`
 
 API Basics
 - Global API prefix: `/v1`
@@ -43,6 +50,7 @@ API Basics
 - Health: `/v1/health`
 - Auth OTP: `POST /auth/send-otp`, `POST /auth/verify-otp` (returns tokens)
 - Device token: `POST /users/me/device-token` (stored under user preferences)
+- Guest browsing rule: mobile/web can browse home/search/trip-detail without login; reservation/protected routes require auth and redirect via `next` query.
 
 Agent Workflow
 - Log every change set in `docs/AGENT_LOG.md` using `scripts/agent-log.ps1`.

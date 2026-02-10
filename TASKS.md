@@ -1,11 +1,12 @@
 ﻿# Task Status (Ridesharing SuperApp)
 
 Source: repo code/docs audit
-Last verification pass: 2026-02-09 (profile/help-about + backend e2e stabilization)
+Last verification pass: 2026-02-09 (Yoliva branding + web/mobile build validation)
 
 ## Open Items (Priority, 2026-02-09)
 - [ ] Trip creation parity v2: route alternatives + via-city pickup policy UX hardening (final polish/testing pending)
 - [ ] Trip detail parity v2: passenger roster and compact readability polish on all breakpoints
+- [ ] Web desktop parity v2: polish spacing/typography and CTA hierarchy to match target BlaBla-style UX more closely
 - [ ] Android emulator E2E coverage: Android SDK emulator/AVD setup is missing in current environment
 - [ ] iOS release setup: real bundle identifier + App Store Connect key + signing profiles (blocked until paid Apple/App Store Connect setup is available)
 - [ ] E-Devlet integration: auto document checks (legal/process dependency)
@@ -43,6 +44,9 @@ Last verification pass: 2026-02-09 (profile/help-about + backend e2e stabilizati
 - [x] Help/About/Support baseline screens: temporary realistic content with explicit demo note and date
 - [x] Login/Register responsive hardening: centered constrained layout for compact devices (iPhone class widths)
 - [x] Backend e2e stabilization: supertest import fix, sequential run, endpoint status code alignment, search filter/caching fixes
+- [x] Guest-first browse flow: users can open app/search/trip details without login; reservation actions require login/register
+- [x] Desktop web baseline redesign: home/search-results structure moved toward BlaBla-style layout with public browsing emphasis
+- [x] Yoliva branding integration: Soft Curve icon set, cross-platform app identity update, and green-only palette cleanup
 
 ## Required Fixes / Tech Debt
 - [ ] `README.md` historical roadmap sections can drift; treat this file as source of truth.

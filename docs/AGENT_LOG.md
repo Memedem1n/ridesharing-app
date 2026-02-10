@@ -400,3 +400,39 @@ Summary: Implemented profile photo file upload flow, driver preference UI, full-
 Commands: flutter analyze;flutter test;npm run type-check;npm test -- --runInBand;scripts/run-e2e.ps1
 Files: backend/src/interfaces/http/users/users.controller.ts,backend/src/application/dto/users/users.dto.ts,backend/test/e2e/users.e2e-spec.ts,mobile/lib/features/profile/presentation/profile_details_screen.dart,mobile/lib/features/profile/presentation/profile_screen.dart,mobile/lib/features/trips/presentation/trip_detail_screen.dart,mobile/lib/features/search/presentation/search_results_screen.dart,mobile/lib/features/bookings/presentation/booking_screen.dart,mobile/lib/features/auth/presentation/login_screen.dart,mobile/lib/features/auth/presentation/register_screen.dart,TASKS.md,docs/AGENT_HANDOFF.md
 Notes: Created demo driver/passenger users in DB for two-account reservation tests.
+
+## 2026-02-09 19:01
+Level: agent
+Agent: codex
+Task: Guest-first browse flow + desktop web parity baseline
+Summary: Implemented guest-first routing with reservation auth gates, added next-based login redirect flow, and shipped desktop-oriented home/search-results layouts inspired by BlaBla structure; validated via analyze/test/build web.
+Commands: flutter analyze; flutter test; flutter build web
+Files: mobile/lib/core/router/app_router.dart,mobile/lib/features/auth/presentation/login_screen.dart,mobile/lib/features/auth/presentation/register_screen.dart,mobile/lib/features/bookings/presentation/booking_screen.dart,mobile/lib/features/home/presentation/home_screen.dart,mobile/lib/features/search/presentation/search_results_screen.dart,mobile/lib/features/trips/presentation/trip_detail_screen.dart,TASKS.md,README.md,docs/AGENT_CONTEXT.md,docs/AGENT_HANDOFF.md,docs/architecture.md
+Notes: Guest users can browse/search/detail without auth. Reservation and protected routes require login/register with next redirect.
+
+## 2026-02-09 19:32
+Level: agent
+Agent: codex
+Task: Desktop web palette update to muted green
+Summary: Replaced blue-heavy desktop web colors with non-bright green tones on home and search-results screens; restarted web server and validated analyze/tests.
+Commands: flutter analyze; flutter test; restart flutter web-server
+Files: mobile/lib/features/home/presentation/home_screen.dart,mobile/lib/features/search/presentation/search_results_screen.dart,docs/AGENT_LOG.md
+Notes: Only desktop web-focused color constants were changed; flow/logic untouched.
+
+## 2026-02-09 23:10
+Level: agent
+Agent: codex
+Task: Yoliva Soft Curve full integration and cross-platform cleanup
+Summary: Finalized Yoliva branding with Soft Curve assets only, regenerated launcher icons for web/android/ios, updated app identifiers and visible names, removed off-brand color remnants, and completed full mobile/web validation builds.
+Commands: flutter pub get; dart run flutter_launcher_icons; flutter analyze; flutter test; flutter build web --release --pwa-strategy=none; flutter build apk --debug; flutter build appbundle --release
+Files: mobile/assets/branding/yoliva/*,mobile/pubspec.yaml,mobile/web/index.html,mobile/web/manifest.json,mobile/android/app/build.gradle.kts,mobile/android/app/src/main/AndroidManifest.xml,mobile/android/app/src/main/kotlin/com/yoliva/app/MainActivity.kt,mobile/ios/Runner/Info.plist,mobile/ios/Runner.xcodeproj/project.pbxproj,mobile/lib/core/theme/app_theme.dart,mobile/lib/core/localization/app_strings.dart,mobile/lib/features/home/presentation/home_screen.dart,mobile/lib/features/search/presentation/search_results_screen.dart,mobile/lib/features/bookings/presentation/boarding_qr_screen.dart,mobile/lib/core/widgets/animated_buttons.dart,mobile/README.md,TASKS.md,docs/AGENT_CONTEXT.md,docs/AGENT_HANDOFF.md
+Notes: `flutter clean` reported a non-fatal Windows file-lock warning on `.dart_tool`; subsequent `pub get` and all validation commands succeeded.
+
+## 2026-02-10 03:35
+Level: agent
+Agent: codex
+Task: EOD save + OSRM/web host stabilization
+Summary: Finalized 2026-02-10 handoff/docs, validated backend+mobile+web checks, and prepared pushable end-of-day state for tomorrow continuation.
+Commands: npm run build;npm test -- application/services/trips/trips.service.spec.ts;flutter analyze;flutter test;flutter build web --release --pwa-strategy=none;api smoke
+Files: docs/AGENT_CONTEXT.md,docs/AGENT_HANDOFF.md,docs/runbooks.md,README.md,backend/src/infrastructure/maps/*,backend/src/interfaces/http/trips/routes.controller.ts,mobile/lib/features/trips/presentation/create_trip_screen.dart
+Notes: Next session start items recorded in AGENT_HANDOFF.md

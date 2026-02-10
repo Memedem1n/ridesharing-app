@@ -1,6 +1,6 @@
 ﻿# Agent Handoff (ridesharing-app)
 
-Last updated: 2026-02-09
+Last updated: 2026-02-10
 
 ## Scope
 This handoff captures the current technical state of the ridesharing app at:
@@ -172,6 +172,74 @@ C:\Users\barut\workspace\ridesharing-app
     - backend e2e ✅ (`10/10`)
     - mobile analyze/test ✅
   - Note: no frontend host/process was started during final pass per user request.
+  - Guest-first browse flow + desktop parity baseline (2026-02-09):
+    - Router refactor: app no longer login-first; unauthenticated users can open `/`, `/search`, `/search-results`, and `/trip/:id`.
+    - Auth gate behavior: protected routes redirect to `/login?next=...`; login/register now honor `next` and return users to intended screen.
+    - Reservation gate: booking actions in trip-detail and booking screens force login for guests; CTA copy updated to reflect this.
+    - Guest UX improvements: guest-specific home content shown; personal booking sections hidden unless authenticated.
+    - Web desktop baseline redesign:
+      - home page now renders a BlaBla-style desktop layout (top bar + hero search + popular routes + guest info)
+      - search results desktop layout now includes structured list cards and reservation CTA with login gate
+      - desktop shell hides bottom nav for cleaner website-style experience
+    - Validation run:
+      - `flutter analyze` ✅
+      - `flutter test` ✅
+      - `flutter build web` ✅ (with existing wasm dry-run warnings from web plugins)
+  - Branding and identity alignment pass (2026-02-09, latest):
+    - Finalized brand to `Yoliva` and kept only `Soft Curve` logo assets in `mobile/assets/branding/yoliva`.
+    - Regenerated launcher icons for web/android/ios from `icon-routepin-asphalt-soft-curve-app-1024.png` via `flutter_launcher_icons`.
+    - Updated app identity across platforms:
+      - Android: `com.yoliva.app`, launcher label `Yoliva`
+      - iOS: bundle id `com.yoliva.app`, display/name `Yoliva`
+      - Web: `manifest.json` + `index.html` title/meta set to `Yoliva`
+    - Removed off-brand color leftovers and standardized palette to green/neutral + semantic colors.
+    - Fixed encoding/clean-code issues in localization and mobile docs; rewrote `mobile/README.md` in clean UTF-8.
+    - Validation rerun:
+      - `flutter analyze` ✅
+      - `flutter test` ✅
+      - `flutter build web --release --pwa-strategy=none` ✅
+      - `flutter build apk --debug` ✅
+      - `flutter build appbundle --release` ✅
+
+## Conversation summary (2026-02-10)
+- Continued from guest-first + branding baseline and completed routing architecture hardening with OSRM-first self-host path.
+- Backend routing layer was abstracted behind provider contracts:
+  - Added `backend/src/infrastructure/maps/routing-provider.ts`
+  - Added `backend/src/infrastructure/maps/osrm-routing.provider.ts`
+  - Added `backend/src/infrastructure/maps/routing-provider-resolver.service.ts`
+  - Added `backend/src/infrastructure/maps/maps.module.ts`
+- Added new public route estimate API:
+  - `POST /v1/routes/estimate`
+  - Controller: `backend/src/interfaces/http/trips/routes.controller.ts`
+  - Service logic: `TripsService.estimateRouteCost(...)`
+- Expanded trip DTOs for route/estimate payloads (bbox + estimate breakdown):
+  - `backend/src/application/dto/trips/trips.dto.ts`
+- Wired trip module to maps module/controller:
+  - `backend/src/interfaces/http/trips/trips.module.ts`
+- Added TR self-host OSRM ops path:
+  - `scripts/osrm/setup-tr.ps1` (download + extract/partition/customize)
+  - `docker-compose.yml` and `docker-compose.prod.yml` now include `osrm` service wiring.
+  - `backend/.env.example` includes `ROUTE_PROVIDER`, `OSRM_BASE_URL`, and fare variables.
+- Mobile create-trip flow now uses backend estimate endpoint and shows estimate card:
+  - `mobile/lib/features/trips/presentation/create_trip_screen.dart`
+- Branding/copy quality updates kept:
+  - top-left brand lockup uses logo + `Yoliva` only
+  - Turkish copy fixes (`Aynı yöne, daha az masraf`, `Hoş geldiniz`) and slogan consistency.
+- Validation rerun in this session:
+  - Backend: `npm run build` ✅
+  - Backend: `npm test -- application/services/trips/trips.service.spec.ts` ✅
+  - Mobile: `flutter analyze` ✅
+  - Mobile: `flutter test` ✅
+  - Mobile: `flutter build web --release` ✅
+  - API smoke: `GET /v1/health` ✅, `POST /v1/routes/estimate` ✅
+- Operational note:
+  - White/blank web page after deploy is usually host rewrite/cache configuration. Keep SPA fallback (`/* -> /index.html`) and purge cache after release.
+
+## Next session start here
+1. Verify production host rewrite/cache policy with one deep-link smoke test (`/search` direct open).
+2. Bring OSRM TR dataset online in target host using `scripts/osrm/setup-tr.ps1`.
+3. Confirm `/v1/routes/estimate` and `/v1/trips/route-preview` response quality against real city pairs.
+4. Review search/autocomplete UX and finalize fallback messaging for low-result regions.
 
 ## Selected skill set (use for future work)
 Repo skills:
