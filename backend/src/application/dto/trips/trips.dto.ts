@@ -82,6 +82,16 @@ export class ViaCityDto {
   @IsString()
   district?: string;
 
+  @ApiPropertyOptional({ example: 39.7767 })
+  @IsOptional()
+  @IsNumber()
+  lat?: number;
+
+  @ApiPropertyOptional({ example: 30.5206 })
+  @IsOptional()
+  @IsNumber()
+  lng?: number;
+
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @IsArray()

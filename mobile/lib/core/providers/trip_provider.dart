@@ -49,11 +49,15 @@ class TripRouteSnapshot {
 class TripViaCity {
   final String city;
   final String? district;
+  final double? lat;
+  final double? lng;
   final List<String> pickupSuggestions;
 
   const TripViaCity({
     required this.city,
     this.district,
+    this.lat,
+    this.lng,
     this.pickupSuggestions = const [],
   });
 
@@ -67,6 +71,8 @@ class TripViaCity {
     return TripViaCity(
       city: json['city']?.toString() ?? '',
       district: json['district']?.toString(),
+      lat: json['lat'] != null ? (json['lat'] as num).toDouble() : null,
+      lng: json['lng'] != null ? (json['lng'] as num).toDouble() : null,
       pickupSuggestions: suggestions,
     );
   }

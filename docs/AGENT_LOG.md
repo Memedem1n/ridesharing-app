@@ -436,3 +436,39 @@ Summary: Finalized 2026-02-10 handoff/docs, validated backend+mobile+web checks,
 Commands: npm run build;npm test -- application/services/trips/trips.service.spec.ts;flutter analyze;flutter test;flutter build web --release --pwa-strategy=none;api smoke
 Files: docs/AGENT_CONTEXT.md,docs/AGENT_HANDOFF.md,docs/runbooks.md,README.md,backend/src/infrastructure/maps/*,backend/src/interfaces/http/trips/routes.controller.ts,mobile/lib/features/trips/presentation/create_trip_screen.dart
 Notes: Next session start items recorded in AGENT_HANDOFF.md
+
+## 2026-02-10 18:26
+Level: agent
+Agent: codex
+Task: Routing QA execution + fallback UX finalize
+Summary: Completed local OSRM+routing/deep-link QA, hardened setup-tr script failure handling, added autocomplete no-result fallback, and updated handoff/tasks/runbooks.
+Commands: scripts/osrm/setup-tr.ps1;docker compose up -d osrm postgres redis;flutter build web --release --pwa-strategy=none;playwright deep-link smoke;route API smoke
+Files: scripts/osrm/setup-tr.ps1,mobile/lib/core/widgets/location_autocomplete_field.dart,TASKS.md,docs/AGENT_HANDOFF.md,docs/runbooks.md,output/playwright/deep-link-smoke.json
+Notes: Routing smoke covered 5 city pairs; / and /search deep-link + hard-refresh passed locally without runtime JS errors.
+
+## 2026-02-10 19:51
+Level: agent
+Agent: codex
+Task: Parity v2 + Android emulator CI
+Summary: Completed trip creation/detail/web parity v2 polish and enabled Android emulator smoke coverage in CI.
+Commands: dart format;flutter analyze;flutter test
+Files: mobile/lib/features/trips/presentation/create_trip_screen.dart,mobile/lib/features/trips/presentation/trip_detail_screen.dart,mobile/lib/features/home/presentation/home_screen.dart,mobile/lib/features/search/presentation/search_results_screen.dart,.github/workflows/ci.yml,scripts/android/emulator-smoke.sh,TASKS.md,docs/runbooks.md,docs/AGENT_HANDOFF.md
+Notes: CI now includes mobile-android-emulator-smoke on master/main/develop.
+
+## 2026-02-11 03:04
+Level: agent
+Agent: codex
+Task: Local web static host
+Summary: Served Flutter web build (mobile/build/web) via backend on :3000, added SPA fallback for deep-links (/login,/search), and verified AssetManifest loads (fixes web blank/spinner caused by 404 assets).
+Commands: npm run dev (background); Invoke-WebRequest /, /login, /assets/AssetManifest.bin.json
+Files: backend/src/app.module.ts,backend/src/main.ts,output/playwright/home.png,output/playwright/login.png
+Notes: Backend now returns index.html at / and /login; AssetManifest.bin.json returns 200. Remaining work: UI/UX tweaks + illustrations + auth/menu issues.
+
+## 2026-02-11 17:18
+Level: agent
+Agent: codex
+Task: Stabilization closeout (API contract + vehicle ownership tests + validation)
+Summary: Synced OpenAPI with current backend/mobile behavior (vehicle ownership fields, /vehicles/{id}, /routes/estimate, /locations/search, richer route/via-city schemas), added VehiclesService ownership/registration unit tests, fixed trip-detail currency mojibake text, and refreshed handoff/task notes with latest validation status.
+Commands: npm run type-check;npm test -- application/services/vehicles/vehicles.service.spec.ts --runInBand;npm test -- --runInBand;flutter analyze;flutter test
+Files: docs/api/OPENAPI_SPEC.yaml,backend/src/application/services/vehicles/vehicles.service.spec.ts,mobile/lib/features/trips/presentation/trip_detail_screen.dart,TASKS.md,docs/AGENT_HANDOFF.md,docs/AGENT_LOG.md
+Notes: Validation pass complete (backend 7/7 suites, 52/52 tests; mobile analyze/test passed). Manual web auth/menu + demo-user login smoke still pending; direct API smoke requires local Postgres up (`P1001 localhost:5432` when DB is down). `docker compose up -d postgres` was attempted but Docker Desktop engine was unavailable in this session.

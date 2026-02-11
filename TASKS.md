@@ -1,13 +1,14 @@
 ﻿# Task Status (Ridesharing SuperApp)
 
 Source: repo code/docs audit
-Last verification pass: 2026-02-09 (Yoliva branding + web/mobile build validation)
+Last verification pass: 2026-02-11 (Vehicle ownership hardening + API contract sync + backend/mobile validation)
 
 ## Open Items (Priority, 2026-02-09)
-- [ ] Trip creation parity v2: route alternatives + via-city pickup policy UX hardening (final polish/testing pending)
-- [ ] Trip detail parity v2: passenger roster and compact readability polish on all breakpoints
-- [ ] Web desktop parity v2: polish spacing/typography and CTA hierarchy to match target BlaBla-style UX more closely
-- [ ] Android emulator E2E coverage: Android SDK emulator/AVD setup is missing in current environment
+- [ ] Web auth/menu stabilization + demo-user login smoke on web (manual QA pass pending; local API smoke needs PostgreSQL running on `localhost:5432`)
+- [x] Trip creation parity v2: route alternatives + via-city pickup policy UX hardening (completed 2026-02-10)
+- [x] Trip detail parity v2: passenger roster and compact readability polish on all breakpoints (completed 2026-02-10)
+- [x] Web desktop parity v2: spacing/typography and CTA hierarchy polish for desktop baseline (completed 2026-02-10)
+- [x] Android emulator E2E coverage: emulator launch smoke added and enabled in CI (completed 2026-02-10)
 - [ ] iOS release setup: real bundle identifier + App Store Connect key + signing profiles (blocked until paid Apple/App Store Connect setup is available)
 - [ ] E-Devlet integration: auto document checks (legal/process dependency)
 - [ ] Admin web panel UI (optional): admin moderation API exists, but a dedicated web panel is not in repo
@@ -47,11 +48,23 @@ Last verification pass: 2026-02-09 (Yoliva branding + web/mobile build validatio
 - [x] Guest-first browse flow: users can open app/search/trip details without login; reservation actions require login/register
 - [x] Desktop web baseline redesign: home/search-results structure moved toward BlaBla-style layout with public browsing emphasis
 - [x] Yoliva branding integration: Soft Curve icon set, cross-platform app identity update, and green-only palette cleanup
+- [x] Routing QA baseline (local): TR OSRM dataset prepared, `/v1/routes/estimate` + `/v1/trips/route-preview` validated on 5 city pairs, and web deep-link smoke (`/` + `/search`) passed without JS runtime errors.
+- [x] Vehicle ownership + registration hardening: `registrationNumber` + ownership model (`self|relative`) + relative-owner surname validation + registration image requirement.
+- [x] Route/map UX polish: selected-route fit/markers + via-city marker visibility + estimate provider/source text cleanup.
+- [x] API contract sync: `OPENAPI_SPEC` updated for `/vehicles/{id}`, `/routes/estimate`, `/locations/search`, and expanded route preview/vehicle schemas.
 
 ## Required Fixes / Tech Debt
 - [ ] `README.md` historical roadmap sections can drift; treat this file as source of truth.
 
-## Verification Audit (2026-02-09)
+## Verification Audit (2026-02-11)
+- [x] Backend type-check passed (`npm run type-check`).
+- [x] Backend unit suites passed (`npm test -- --runInBand`: `7/7` suites, `52/52` tests).
+- [x] New vehicle service ownership/registration tests added and passing (`backend/src/application/services/vehicles/vehicles.service.spec.ts`).
+- [x] Mobile analyze/test passed (`flutter analyze`, `flutter test`).
+- [x] TR OSRM dataset generated locally under `backend/.data/osrm` (`turkey-latest.osrm*` artifacts).
+- [x] Route estimate quality smoke passed on 5 city pairs via `POST /v1/routes/estimate`.
+- [x] Route preview quality smoke passed on 5 city pairs via `POST /v1/trips/route-preview` (JWT).
+- [x] Flutter SPA deep-link smoke passed (`/` and `/search` direct open + hard refresh) with no page/console runtime errors in Playwright check.
 - [x] Admin verification and bus-price controls exist under `/v1/admin` with `x-admin-key`.
 - [x] Live trip location exists on socket namespace `/location` (`join_trip`, `driver_location_update`) and mobile consumer flow exists.
 - [x] Push/SMS notification infrastructure exists (FCM + Netgsm), with mock/real mode by `USE_MOCK_INTEGRATIONS`.
@@ -80,7 +93,7 @@ Last verification pass: 2026-02-09 (Yoliva branding + web/mobile build validatio
 - [x] Driver “My Trips” screen added and wired to `/trips/my`.
 - [ ] Real payment integration (Iyzico) still pending.
 - [ ] Live provider payout transfer integration (currently mock release path in service).
-- [ ] Android emulator E2E coverage blocked (no AVD configured).
+- [x] Android emulator E2E coverage baseline added (CI emulator launch smoke active).
 - [ ] iOS build setup: update bundle identifier from `com.example.ridesharing_app` to your real App ID.
 - [ ] iOS build setup: configure Codemagic App Store Connect API key + signing profiles.
 - [ ] iOS build setup: make repo public (or add Codemagic access token for private).

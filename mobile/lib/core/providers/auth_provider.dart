@@ -38,7 +38,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       final storage = _ref.read(secureStorageProvider);
       final token = await storage.read(key: 'access_token');
-      
+
       if (token != null) {
         final user = await _repository.getProfile();
         state = state.copyWith(status: AuthStatus.authenticated, user: user);
@@ -57,25 +57,41 @@ class AuthNotifier extends StateNotifier<AuthState> {
         LoginRequest(emailOrPhone: emailOrPhone, password: password),
       );
       await _saveTokens(tokens);
-      state = state.copyWith(status: AuthStatus.authenticated, user: tokens.user);
+      state =
+          state.copyWith(status: AuthStatus.authenticated, user: tokens.user);
       return true;
     } on ApiException catch (e) {
       state = state.copyWith(status: AuthStatus.error, error: e.message);
       return false;
+    } catch (_) {
+      state = state.copyWith(
+        status: AuthStatus.error,
+        error: 'Giris sirasinda beklenmeyen bir hata olustu',
+      );
+      return false;
     }
   }
 
-  Future<bool> register(String name, String email, String phone, String password) async {
+  Future<bool> register(
+      String name, String email, String phone, String password) async {
     state = state.copyWith(status: AuthStatus.loading, error: null);
     try {
       final tokens = await _repository.register(
-        RegisterRequest(name: name, email: email, phone: phone, password: password),
+        RegisterRequest(
+            name: name, email: email, phone: phone, password: password),
       );
       await _saveTokens(tokens);
-      state = state.copyWith(status: AuthStatus.authenticated, user: tokens.user);
+      state =
+          state.copyWith(status: AuthStatus.authenticated, user: tokens.user);
       return true;
     } on ApiException catch (e) {
       state = state.copyWith(status: AuthStatus.error, error: e.message);
+      return false;
+    } catch (_) {
+      state = state.copyWith(
+        status: AuthStatus.error,
+        error: 'Kayit sirasinda beklenmeyen bir hata olustu',
+      );
       return false;
     }
   }
@@ -109,6 +125,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } on ApiException catch (e) {
       state = state.copyWith(status: AuthStatus.error, error: e.message);
       return false;
+    } catch (_) {
+      state = state.copyWith(
+        status: AuthStatus.error,
+        error: 'Profil guncellenirken beklenmeyen bir hata olustu',
+      );
+      return false;
     }
   }
 
@@ -119,6 +141,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
       return true;
     } on ApiException catch (e) {
       state = state.copyWith(status: AuthStatus.error, error: e.message);
+      return false;
+    } catch (_) {
+      state = state.copyWith(
+        status: AuthStatus.error,
+        error: 'Profil fotografi yuklenirken beklenmeyen bir hata olustu',
+      );
       return false;
     }
   }

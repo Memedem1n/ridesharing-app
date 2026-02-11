@@ -1019,9 +1019,15 @@ export class TripsService {
         const key = `${city.toLowerCase()}|${district.toLowerCase()}`;
         if (dedupe.has(key)) return null;
         dedupe.add(key);
+        const lat =
+          entry?.lat !== undefined ? Number(entry.lat) : undefined;
+        const lng =
+          entry?.lng !== undefined ? Number(entry.lng) : undefined;
         return {
           city,
           district: district || undefined,
+          lat: Number.isFinite(lat) ? lat : undefined,
+          lng: Number.isFinite(lng) ? lng : undefined,
           pickupSuggestions: pickupSuggestions.length
             ? pickupSuggestions
             : ["Otogar", "Dinlenme Tesisi", "Sehir Merkezi"],
@@ -1070,14 +1076,18 @@ export class TripsService {
       sampled.map((point) => this.reverseGeocodeCity(point.lat, point.lng)),
     );
 
-    for (const resolved of resolvedCities) {
+    for (let i = 0; i < resolvedCities.length; i += 1) {
+      const resolved = resolvedCities[i];
       if (!resolved) continue;
       const key = `${resolved.city.toLowerCase()}|${(resolved.district || "").toLowerCase()}`;
       if (dedupe.has(key)) continue;
       dedupe.add(key);
+      const samplePoint = sampled[i];
       viaCities.push({
         city: resolved.city,
         district: resolved.district,
+        lat: samplePoint?.lat,
+        lng: samplePoint?.lng,
         pickupSuggestions: ["Otogar", "Dinlenme Tesisi", "Sehir Merkezi"],
       });
     }

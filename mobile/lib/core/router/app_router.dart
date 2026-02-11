@@ -249,6 +249,8 @@ class MainShell extends ConsumerWidget {
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
     final isWideWeb = kIsWeb;
     final location = GoRouterState.of(context).matchedLocation;
+    final isCompactNav = MediaQuery.sizeOf(context).width < 380;
+    final bookingsLabel = isCompactNav ? 'Rezerv.' : strings.navBookings;
     final navDestinations = isAuthenticated
         ? <NavigationDestination>[
             NavigationDestination(
@@ -262,7 +264,7 @@ class MainShell extends ConsumerWidget {
             NavigationDestination(
                 icon: Icon(Icons.confirmation_number_outlined),
                 selectedIcon: Icon(Icons.confirmation_number),
-                label: strings.navBookings),
+                label: bookingsLabel),
             NavigationDestination(
                 icon: Icon(Icons.chat_bubble_outline),
                 selectedIcon: Icon(Icons.chat_bubble),
@@ -302,6 +304,8 @@ class MainShell extends ConsumerWidget {
                     _onNavTap(context, index, isAuthenticated),
                 backgroundColor: Colors.transparent,
                 elevation: 0,
+                labelBehavior:
+                    NavigationDestinationLabelBehavior.onlyShowSelected,
                 destinations: navDestinations,
               ),
             ),

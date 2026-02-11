@@ -10,8 +10,9 @@ import '../../../core/providers/booking_provider.dart';
 import '../../../core/providers/trip_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/animated_buttons.dart';
-import '../../../core/widgets/brand_lockup.dart';
 import '../../../core/widgets/map_view.dart';
+import '../../../core/widgets/web/site_footer.dart';
+import '../../../core/widgets/web/site_header.dart';
 import '../../../features/bookings/domain/booking_models.dart' hide Trip;
 import '../../../core/widgets/location_autocomplete_field.dart';
 
@@ -277,7 +278,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 child: Row(
                                   children: [
                                     _SearchTypeChip(
-                                      label: 'İnsan',
+                                      label: 'Insan',
                                       icon: Icons.group,
                                       selected: _selectedType == 'people',
                                       onSelected: () => setState(
@@ -298,7 +299,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                           () => _selectedType = 'cargo'),
                                     ),
                                     _SearchTypeChip(
-                                      label: 'Gıda',
+                                      label: 'Gida',
                                       icon: Icons.restaurant,
                                       selected: _selectedType == 'food',
                                       onSelected: () => setState(
@@ -456,7 +457,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text(
-                                'Yolculuklar şu an yüklenemiyor.',
+                                'Yolculuklar su an yuklenemiyor.',
                                 style: TextStyle(color: AppColors.error),
                               ),
                               const SizedBox(height: 8),
@@ -504,7 +505,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Hesap oluşturmadan keşfet',
+                              'Hesap olusturmadan kesfet',
                               style: TextStyle(
                                 color: AppColors.textPrimary,
                                 fontWeight: FontWeight.w700,
@@ -513,7 +514,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                             SizedBox(height: 8),
                             Text(
-                              'Misafir olarak yolculukları arayabilir ve detaylarını görebilirsin. Rezervasyon için giriş yapman istenir.',
+                              'Misafir olarak yolculuklari arayabilir ve detaylarini gorebilirsin. Rezervasyon icin giris yapman istenir.',
                               style: TextStyle(
                                   color: AppColors.textSecondary, fontSize: 13),
                             ),
@@ -637,9 +638,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final dateLabel = DateFormat('dd MMM yyyy', 'tr').format(_selectedDate);
     final viewportWidth = MediaQuery.of(context).size.width;
     final stackHero = viewportWidth < 1060;
-    final pageHorizontalPadding = viewportWidth < 900 ? 16.0 : 24.0;
-    final pageVerticalPadding = viewportWidth < 900 ? 16.0 : 20.0;
-    final sectionGap = viewportWidth < 900 ? 18.0 : 22.0;
+    final pageHorizontalPadding = viewportWidth < 900 ? 18.0 : 28.0;
+    final pageVerticalPadding = viewportWidth < 900 ? 18.0 : 24.0;
+    final sectionGap = viewportWidth < 900 ? 22.0 : 26.0;
     return Scaffold(
       backgroundColor: const Color(0xFFF3F6F4),
       body: SafeArea(
@@ -650,7 +651,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1240),
+              constraints: const BoxConstraints(maxWidth: 1280),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -660,19 +661,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(30),
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF2F6B57), Color(0xFF3F7F68)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(24),
-                      border: Border.all(color: const Color(0xFF3D7F67)),
+                      color: const Color(0xFF1F4B3D),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: const Color(0xFF325E50)),
                       boxShadow: [
                         BoxShadow(
                           color:
-                              const Color(0xFF1D3A2F).withValues(alpha: 0.24),
-                          blurRadius: 28,
-                          offset: const Offset(0, 14),
+                              const Color(0xFF1D3A2F).withValues(alpha: 0.18),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
                         ),
                       ],
                     ),
@@ -683,31 +680,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               Text(
                                 'Nereye gitmek istiyorsun?',
                                 style: _webHeadingStyle(
-                                  size: 44,
+                                  size: 38,
                                   color: Colors.white,
-                                  height: 1.15,
+                                  height: 1.12,
                                 ),
                               ),
                               const SizedBox(height: 12),
                               Text(
-                                'Giriş yapmadan uygun yolculukları arayabilir, rota detaylarını inceleyebilir ve rezervasyon aşamasında hesabını açarak işlemini güvenle tamamlayabilirsin.',
+                                'Giris yapmadan uygun yolculuklari arayabilir, rota detaylarini inceleyebilir ve rezervasyon asamasinda hesabini acarak islemini guvenle tamamlayabilirsin.',
                                 style: _webBodyStyle(
                                   size: 16,
-                                  color: Colors.white.withValues(alpha: 0.87),
+                                  color: Colors.white.withValues(alpha: 0.9),
                                   weight: FontWeight.w500,
                                   height: 1.45,
                                 ),
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Güvenli. Ekonomik. Yoliva.',
+                                'Guvenli. Ekonomik. Yoliva.',
                                 style: _webBodyStyle(
                                   size: 13,
                                   color: const Color(0xFFD2E4DB),
                                   weight: FontWeight.w700,
                                 ),
                               ),
-                              const SizedBox(height: 22),
+                              const SizedBox(height: 16),
+                              _buildWebIllustrationCard(
+                                assetPath:
+                                    'assets/illustrations/web/hero_rideshare.png',
+                                height: 240,
+                                background: const Color(0xFFEDF4F0),
+                              ),
+                              const SizedBox(height: 16),
                               _buildWebSearchPanel(
                                 context,
                                 dateLabel,
@@ -730,14 +734,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       Text(
                                         'Nereye gitmek istiyorsun?',
                                         style: _webHeadingStyle(
-                                          size: 52,
+                                          size: 50,
                                           color: Colors.white,
                                           height: 1.08,
                                         ),
                                       ),
                                       const SizedBox(height: 14),
                                       Text(
-                                        'Giriş yapmadan uygun rotaları arayabilir, sürücü ve yolculuk detaylarını inceleyebilir, rezervasyon adımında hesabını oluşturarak süreci güvenli şekilde tamamlayabilirsin.',
+                                        'Giris yapmadan uygun rotalari arayabilir, surucu ve yolculuk detaylarini inceleyebilir, rezervasyon adiminda hesabini olusturarak sureci guvenli sekilde tamamlayabilirsin.',
                                         style: _webBodyStyle(
                                           size: 17,
                                           color: Colors.white
@@ -746,31 +750,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                           height: 1.45,
                                         ),
                                       ),
-                                      const SizedBox(height: 10),
+                                      const SizedBox(height: 14),
                                       Text(
-                                        'Güvenli. Ekonomik. Yoliva.',
+                                        'Guvenli. Ekonomik. Yoliva.',
                                         style: _webBodyStyle(
                                           size: 14,
                                           color: const Color(0xFFD2E4DB),
                                           weight: FontWeight.w700,
                                         ),
                                       ),
+                                      const SizedBox(height: 18),
+                                      ConstrainedBox(
+                                        constraints:
+                                            const BoxConstraints(maxWidth: 520),
+                                        child: _buildWebSearchPanel(
+                                          context,
+                                          dateLabel,
+                                          isAuthenticated: isAuthenticated,
+                                        ),
+                                      ),
                                     ],
                                   ),
                                 ),
                               ),
+                              const SizedBox(width: 24),
                               Expanded(
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: ConstrainedBox(
-                                    constraints:
-                                        const BoxConstraints(maxWidth: 470),
-                                    child: _buildWebSearchPanel(
-                                      context,
-                                      dateLabel,
-                                      isAuthenticated: isAuthenticated,
-                                    ),
-                                  ),
+                                child: _buildWebIllustrationCard(
+                                  assetPath:
+                                      'assets/illustrations/web/hero_rideshare.png',
+                                  height: 430,
+                                  background: const Color(0xFFEDF4F0),
                                 ),
                               ),
                             ],
@@ -866,7 +875,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                             ),
                                             const Spacer(),
                                             Text(
-                                              'Başlayan fiyat: TL ${route.minPrice.toStringAsFixed(0)}',
+                                              'Baslayan fiyat: TL ${route.minPrice.toStringAsFixed(0)}',
                                               style: _webBodyStyle(
                                                 size: 14,
                                                 color: const Color(0xFF2F6B57),
@@ -895,7 +904,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   Border.all(color: const Color(0xFFD4DED8)),
                             ),
                             child: const Text(
-                              'Misafir modunda rota ve ilan detaylarını rahatça inceleyebilirsin. Rezervasyon, mesajlaşma ve yolculuk takibi adımlarında güvenlik sebebiyle giriş veya kayıt istenir.',
+                              'Misafir modunda rota ve ilan detaylarini rahatca inceleyebilirsin. Rezervasyon, mesajlasma ve yolculuk takibi adimlarinda guvenlik sebebiyle giris veya kayit istenir.',
                               style: TextStyle(
                                 color: Color(0xFF425E52),
                                 fontSize: 14,
@@ -1020,87 +1029,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildWebTopBar(BuildContext context,
       {required bool isAuthenticated}) {
     final createTripNext = Uri.encodeComponent('/create-trip');
-    return Row(
-      children: [
-        InkWell(
-          onTap: () => context.go('/'),
-          child: const BrandLockup(
-            iconSize: 28,
-            textSize: 23,
-            gap: 8,
-          ),
-        ),
-        const Spacer(),
-        TextButton(
-          onPressed: () => context.go('/'),
-          child: Text(
-            'Yolculuk Ara',
-            style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
-          ),
-        ),
-        const SizedBox(width: 8),
-        TextButton(
-          onPressed: () {
-            if (isAuthenticated) {
-              context.push('/create-trip');
-            } else {
-              context.push('/login?next=$createTripNext');
-            }
-          },
-          child: Text(
-            'Yolculuk Oluştur',
-            style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
-          ),
-        ),
-        const SizedBox(width: 8),
-        if (isAuthenticated) ...[
-          TextButton(
-            onPressed: () => context.go('/reservations'),
-            child: Text(
-              'Rezervasyonlar',
-              style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
-            ),
-          ),
-          const SizedBox(width: 8),
-          FilledButton(
-            onPressed: () => context.go('/profile'),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF2F6B57),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(0, 44),
-            ),
-            child: Text(
-              'Profil',
-              style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ] else ...[
-          OutlinedButton(
-            onPressed: () => context.push('/login'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 44),
-              side: const BorderSide(color: Color(0xFF2F6B57)),
-            ),
-            child: Text(
-              'Giriş Yap',
-              style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
-            ),
-          ),
-          const SizedBox(width: 8),
-          FilledButton(
-            onPressed: () => context.push('/register'),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF2F6B57),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(0, 44),
-            ),
-            child: Text(
-              'Kayıt Ol',
-              style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
-            ),
-          ),
-        ],
-      ],
+    return WebSiteHeader(
+      isAuthenticated: isAuthenticated,
+      primaryNavLabel: 'Yolculuk Ara',
+      onBrandTap: () => context.go('/'),
+      onPrimaryNavTap: () => context.go('/'),
+      onCreateTripTap: () {
+        if (isAuthenticated) {
+          context.push('/create-trip');
+        } else {
+          context.push('/login?next=$createTripNext');
+        }
+      },
+      onReservationsTap: () => context.go('/reservations'),
+      onProfileTap: () => context.go('/profile'),
+      onLoginTap: () => context.push('/login'),
+      onRegisterTap: () => context.push('/register'),
     );
   }
 
@@ -1162,6 +1106,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: FilledButton.styleFrom(
                   backgroundColor: const Color(0xFF2F6B57),
                   foregroundColor: Colors.white,
+                  minimumSize: const Size(0, 48),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
                 icon: const Icon(Icons.search),
                 label: Text(
@@ -1183,10 +1130,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: Color(0xFF2F6B57)),
                   foregroundColor: const Color(0xFF2F6B57),
+                  minimumSize: const Size(0, 48),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
                 icon: const Icon(Icons.add_road),
                 label: Text(
-                  'Yolculuk Oluştur',
+                  'Yolculuk Olustur',
                   style: GoogleFonts.manrope(
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
@@ -1212,6 +1162,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ],
               );
             },
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Rezervasyon adiminda giris yapmaniz istenir.',
+            style: GoogleFonts.inter(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFF6A7F74),
+            ),
           ),
         ],
       ),
@@ -1254,6 +1213,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  Widget _buildWebIllustrationCard({
+    required String assetPath,
+    double height = 160,
+    Color background = const Color(0xFFFFFFFF),
+  }) {
+    return Container(
+      width: double.infinity,
+      height: height,
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFD4DED8)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Image.asset(
+        assetPath,
+        fit: BoxFit.cover,
+      ),
+    );
+  }
+
   Widget _buildWebSectionShell({
     required Widget child,
     EdgeInsetsGeometry padding = const EdgeInsets.all(20),
@@ -1262,14 +1242,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: const Color(0xFFF7FBF8),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFD5E1DA)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFDCE6E1)),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1D3A2F).withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: const Color(0xFF1D3A2F).withValues(alpha: 0.07),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
@@ -1328,7 +1308,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _buildWebSectionHeader(
           title: 'Neden bu platform?',
           subtitle:
-              'Yoliva sadece arama ekranı sunmaz; yolculuk planlama, güvenli eşleştirme ve iletişim süreçlerini tek akışta yönetmeni sağlar.',
+              'Yoliva sadece arama ekrani sunmaz; yolculuk planlama, guvenli eslestirme ve iletisim sureclerini tek akista yonetmeni saglar.',
         ),
         const SizedBox(height: 14),
         LayoutBuilder(
@@ -1356,7 +1336,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   icon: Icons.savings_outlined,
                   title: 'Masrafı Azalt',
                   description:
-                      'Rota maliyetini tek basina ustlenmek yerine paylasimli modelle dengeleyerek yakit ve yol masraflarini azaltmana yardimci olur.',
+                      'Rota maliyetini tek başına üstlenmek yerine paylaşımlı modelle dengeleyerek yakıt ve yol masraflarını azaltmana yardımcı olur.',
                 ),
                 _WebInfoCard(
                   icon: Icons.verified_user_outlined,
@@ -1410,6 +1390,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       'Sürücüler boş koltuklarını açarak yol maliyetini paylaşabilir, yolcular ise güvenli bir akışta uygun yolculuğu bulup rezervasyon talebi oluşturabilir.',
                       style: _webBodyStyle(),
                     ),
+                    const SizedBox(height: 12),
+                    _buildWebIllustrationCard(
+                      assetPath: 'assets/illustrations/web/share_cost.png',
+                      height: 210,
+                      background: const Color(0xFFEAF4EE),
+                    ),
                     const SizedBox(height: 14),
                     Wrap(
                       spacing: 10,
@@ -1437,6 +1423,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             style: _webBodyStyle(),
                           ),
                         ],
+                      ),
+                    ),
+                    const SizedBox(width: 18),
+                    SizedBox(
+                      width: 220,
+                      child: _buildWebIllustrationCard(
+                        assetPath: 'assets/illustrations/web/share_cost.png',
+                        height: 240,
+                        background: const Color(0xFFEAF4EE),
                       ),
                     ),
                     const SizedBox(width: 18),
@@ -1477,7 +1472,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           isAuthenticated ? Icons.add_road : Icons.person_add_alt_1,
         ),
         label: Text(
-          isAuthenticated ? 'Yolculuk Paylaş' : 'Üye Ol ve Başla',
+          isAuthenticated ? 'Yolculuk Paylas' : 'Uye Ol ve Basla',
           style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
         ),
       ),
@@ -1490,7 +1485,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             foregroundColor: const Color(0xFF2F6B57),
           ),
           child: Text(
-            'Giriş Yap',
+            'Giris Yap',
             style: GoogleFonts.manrope(fontWeight: FontWeight.w700),
           ),
         ),
@@ -1507,6 +1502,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               'Yolculuk sürecinde oluşabilecek riskleri azaltmak için profil doğrulama, rezervasyon kontrolü ve destek akışları birlikte çalışır.',
         ),
         const SizedBox(height: 14),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 900;
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildWebIllustrationCard(
+                    assetPath: 'assets/illustrations/web/safety_trust.png',
+                    height: 210,
+                    background: const Color(0xFFEAF4EE),
+                  ),
+                  const SizedBox(height: 14),
+                ],
+              );
+            }
+            return Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Profil doğrulama, check-in ve destek akışlarını tek yerde yönetiyoruz.',
+                        style: _webBodyStyle(
+                          size: 15,
+                          weight: FontWeight.w600,
+                          color: const Color(0xFF355A4C),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    SizedBox(
+                      width: 220,
+                      child: _buildWebIllustrationCard(
+                        assetPath: 'assets/illustrations/web/safety_trust.png',
+                        height: 220,
+                        background: const Color(0xFFEAF4EE),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+              ],
+            );
+          },
+        ),
         LayoutBuilder(
           builder: (context, constraints) {
             final gridCount = _resolveWebGridCount(
@@ -1526,37 +1567,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   icon: Icons.badge_outlined,
                   riskTitle: 'Sahte profil riski',
                   riskDetail:
-                      'Eksik bilgiye sahip veya doğrulanmamış hesaplarla eşleşme ihtimali yolculuk güvenini azaltabilir.',
-                  measureTitle: 'Önlem',
+                      'Eksik bilgiye sahip veya dogrulanmamis hesaplarla eslesme ihtimali yolculuk guvenini azaltabilir.',
+                  measureTitle: 'Onlem',
                   measureDetail:
-                      'Kimlik, ehliyet ve temel profil belge kontrolleriyle hesapların güven adımları tamamlanır.',
+                      'Kimlik, ehliyet ve temel profil belge kontrolleriyle hesaplarin guven adimlari tamamlanir.',
                 ),
                 _WebSafetyCard(
                   icon: Icons.qr_code_2_outlined,
-                  riskTitle: 'Yanlış eşleşme riski',
+                  riskTitle: 'Yanlis eslesme riski',
                   riskDetail:
                       'Rezervasyon sahibi disinda birinin araca binmeye calismasi veya yolcunun yanlis eslesmesi sorun yaratabilir.',
-                  measureTitle: 'Önlem',
+                  measureTitle: 'Onlem',
                   measureDetail:
-                      'QR ve PNR tabanlı check-in adımlarıyla yolcu ve rezervasyon kaydı doğrulanır.',
+                      'QR ve PNR tabanli check-in adimlariyla yolcu ve rezervasyon kaydi dogrulanir.',
                 ),
                 _WebSafetyCard(
                   icon: Icons.place_outlined,
-                  riskTitle: 'Belirsiz buluşma riski',
+                  riskTitle: 'Belirsiz bulusma riski',
                   riskDetail:
                       'Bulusma noktasinin net olmamasi gecikmeye, iptale veya yanlis konumda beklemeye neden olabilir.',
-                  measureTitle: 'Önlem',
+                  measureTitle: 'Onlem',
                   measureDetail:
-                      'Rota, saat, buluşma notları ve uygulama içi mesajlaşma ile yolculuk öncesi net koordinasyon sağlanır.',
+                      'Rota, saat, bulusma notlari ve uygulama ici mesajlasma ile yolculuk oncesi net koordinasyon saglanir.',
                 ),
                 _WebSafetyCard(
                   icon: Icons.report_problem_outlined,
                   riskTitle: 'Acil durum riski',
                   riskDetail:
-                      'Yolculuk sırasında beklenmedik bir durumda hızlı destek ve doğru yönlendirme ihtiyacı doğabilir.',
-                  measureTitle: 'Önlem',
+                      'Yolculuk sirasinda beklenmedik bir durumda hizli destek ve dogru yonlendirme ihtiyaci dogabilir.',
+                  measureTitle: 'Onlem',
                   measureDetail:
-                      'Yardım merkezi, bildirim akışları ve hesap güvenliği adımlarıyla hızlı aksiyon alınması desteklenir.',
+                      'Yardim merkezi, bildirim akislari ve hesap guvenligi adimlariyla hizli aksiyon alinmasi desteklenir.',
                 ),
               ],
             );
@@ -1577,7 +1618,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         'Rezervasyon işlemi kişiye özeldir ve doğrudan hesapla ilişkilendirilir. Bu sayede mesajlaşma, check-in, iptal/iade ve yolculuk takibi gibi adımlar güvenli şekilde yönetilir.'
       ),
       (
-        'Rezervasyon kesinlesmesi nasil oluyor?',
+        'Rezervasyon kesinleşmesi nasıl oluyor?',
         'Yolcu talep oluşturduktan sonra sürücü uygunluk durumuna göre onay verir. Onay sonrasında rezervasyon kesinleşir ve her iki tarafın ekranında yolculuk planı detaylı olarak görünür.'
       ),
       (
@@ -1658,158 +1699,76 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildWebFooter(BuildContext context) {
     final isAuthenticated = ref.read(isAuthenticatedProvider);
     final reservationsNext = Uri.encodeComponent('/reservations');
-    final brandBlock = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const BrandLockup(
-          iconSize: 26,
-          textSize: 21,
-          gap: 8,
-          iconBackgroundColor: Color(0xFFEAF3EE),
-          textColor: Color(0xFFEAF3EE),
+
+    return WebSiteFooter(
+      sections: [
+        WebFooterSectionData(
+          title: 'Urun',
+          links: [
+            WebFooterLinkData(
+              label: 'Yolculuk Ara',
+              onTap: () => context.go('/search'),
+            ),
+            WebFooterLinkData(
+              label: 'Rezervasyonlar',
+              onTap: () {
+                if (isAuthenticated) {
+                  context.go('/reservations');
+                } else {
+                  context.push('/login?next=$reservationsNext');
+                }
+              },
+            ),
+            WebFooterLinkData(
+              label: 'Yolculuk Olustur',
+              onTap: () {
+                if (isAuthenticated) {
+                  context.push('/create-trip');
+                } else {
+                  context.push('/register');
+                }
+              },
+            ),
+          ],
         ),
-        const SizedBox(height: 10),
-        Text(
-          'Yoliva, aynı yöne giden insanları güvenli bir şekilde buluşturarak yolculuk maliyetini azaltmayı ve şehirler arası planlamayı kolaylaştırmayı hedefler.',
-          style: _webBodyStyle(
-            size: 13,
-            color: const Color(0xFFC2D6CA),
-            weight: FontWeight.w500,
-          ),
+        WebFooterSectionData(
+          title: 'Destek',
+          links: [
+            WebFooterLinkData(
+              label: 'Yardim Merkezi',
+              onTap: () => context.push('/help'),
+            ),
+            WebFooterLinkData(
+              label: 'Guvenlik',
+              onTap: () => context.push('/security'),
+            ),
+            WebFooterLinkData(
+              label: 'SSS',
+              onTap: () => context.push('/help'),
+            ),
+          ],
+        ),
+        WebFooterSectionData(
+          title: 'Kurumsal',
+          links: [
+            WebFooterLinkData(
+              label: 'Hakkimizda',
+              onTap: () => context.push('/about'),
+            ),
+            WebFooterLinkData(
+              label: 'İletişim',
+              onTap: () => context.push('/help'),
+            ),
+          ],
         ),
       ],
-    );
-
-    final footerColumns = [
-      _WebFooterColumn(
-        title: 'Ürün',
-        links: [
-          _WebFooterLinkData(
-            label: 'Yolculuk Ara',
-            onTap: () => context.go('/search'),
-          ),
-          _WebFooterLinkData(
-            label: 'Rezervasyonlar',
-            onTap: () {
-              if (isAuthenticated) {
-                context.go('/reservations');
-              } else {
-                context.push('/login?next=$reservationsNext');
-              }
-            },
-          ),
-          _WebFooterLinkData(
-            label: 'Yolculuk Paylaş',
-            onTap: () {
-              if (isAuthenticated) {
-                context.push('/create-trip');
-              } else {
-                context.push('/register');
-              }
-            },
-          ),
-        ],
-      ),
-      _WebFooterColumn(
-        title: 'Destek ve Güvenlik',
-        links: [
-          _WebFooterLinkData(
-            label: 'Yardım Merkezi',
-            onTap: () => context.push('/help'),
-          ),
-          _WebFooterLinkData(
-            label: 'Güvenlik',
-            onTap: () => context.push('/security'),
-          ),
-          _WebFooterLinkData(
-            label: 'SSS',
-            onTap: () => context.push('/help'),
-          ),
-        ],
-      ),
-      _WebFooterColumn(
-        title: 'Kurumsal',
-        links: [
-          _WebFooterLinkData(
-            label: 'Hakkımızda',
-            onTap: () => context.push('/about'),
-          ),
-          _WebFooterLinkData(
-            label: 'Ayarlar',
-            onTap: () => context.push('/settings'),
-          ),
-          _WebFooterLinkData(
-            label: 'İletişim',
-            onTap: () => context.push('/help'),
-          ),
-        ],
-      ),
-    ];
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final wideFooter = constraints.maxWidth >= 980;
-        final twoColumnWidth = (constraints.maxWidth - 12) / 2;
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
-          decoration: BoxDecoration(
-            color: const Color(0xFF163026),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFF27473B)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (wideFooter)
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(flex: 2, child: brandBlock),
-                    const SizedBox(width: 24),
-                    for (final column in footerColumns) ...[
-                      Expanded(child: column),
-                      if (column != footerColumns.last)
-                        const SizedBox(width: 12),
-                    ],
-                  ],
-                )
-              else
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    brandBlock,
-                    const SizedBox(height: 20),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 14,
-                      children: [
-                        for (final column in footerColumns)
-                          SizedBox(
-                            width: twoColumnWidth < 240
-                                ? constraints.maxWidth
-                                : twoColumnWidth,
-                            child: column,
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              const SizedBox(height: 16),
-              const Divider(color: Color(0xFF355A4C), height: 1),
-              const SizedBox(height: 14),
-              Text(
-                '© 2026 Yoliva. Tüm hakları saklıdır. Platform özellikleri ülke ve bölgeye göre değişebilir.',
-                style: _webBodyStyle(
-                  size: 12,
-                  color: const Color(0xFFA8C2B4),
-                  weight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      description:
+          'Yoliva, aynı yöne giden insanları güvenli şekilde buluşturup yolculuk maliyetlerini dengelemeyi hedefler.',
+      copyright:
+          '(c) 2026 Yoliva. Tüm hakları saklıdır. Özellikler bölgeye göre değişebilir.',
+      onPrivacyTap: () => context.push('/help'),
+      onTermsTap: () => context.push('/help'),
+      onCookieTap: () => context.push('/help'),
     );
   }
 }
@@ -1963,56 +1922,6 @@ class _WebSafetyCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _WebFooterLinkData {
-  final String label;
-  final VoidCallback onTap;
-  const _WebFooterLinkData({
-    required this.label,
-    required this.onTap,
-  });
-}
-
-class _WebFooterColumn extends StatelessWidget {
-  final String title;
-  final List<_WebFooterLinkData> links;
-  const _WebFooterColumn({
-    required this.title,
-    required this.links,
-  });
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: GoogleFonts.manrope(
-            color: Colors.white,
-            fontWeight: FontWeight.w800,
-            fontSize: 16,
-          ),
-        ),
-        const SizedBox(height: 8),
-        for (final link in links)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: InkWell(
-              onTap: link.onTap,
-              child: Text(
-                link.label,
-                style: GoogleFonts.inter(
-                  color: const Color(0xFFC2D6CA),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 }

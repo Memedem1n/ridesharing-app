@@ -117,7 +117,7 @@ class AppStrings {
       'nav_messages': 'الرسائل',
       'nav_profile': 'الملف الشخصي',
       'action_create_trip': 'مشاركة رحلة',
-      'login_title': 'مرحبا بعودتك',
+      'login_title': 'مرحباً بعودتك',
       'login_subtitle': 'تابع رحلتك',
       'email_or_phone': 'البريد الإلكتروني أو الهاتف',
       'password': 'كلمة المرور',
@@ -211,3 +211,4 @@ class AppStrings {
   String get cancel => _t('cancel');
   String get confirm => _t('confirm');
 }
+

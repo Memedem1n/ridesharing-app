@@ -9,8 +9,9 @@ import 'package:latlong2/latlong.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/trip_provider.dart';
-import '../../../core/widgets/brand_lockup.dart';
 import '../../../core/widgets/map_view.dart';
+import '../../../core/widgets/web/site_footer.dart';
+import '../../../core/widgets/web/site_header.dart';
 
 class SearchResultsScreen extends ConsumerStatefulWidget {
   final String? from;
@@ -106,6 +107,15 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                 fontSize: 16,
               ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              '${trips.length} rota listeleniyor',
+              style: const TextStyle(
+                color: Color(0xFF4E665C),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
             const SizedBox(height: 8),
             Expanded(
               child: ClipRRect(
@@ -117,7 +127,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                         child: const Padding(
                           padding: EdgeInsets.all(16),
                           child: Text(
-                            'Bu aramada konum bilgisi olan rota bulunamadı.',
+                            'Bu aramada konum bilgisi olan rota bulunamadi.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               color: Color(0xFF4E665C),
@@ -155,7 +165,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-                '${widget.from ?? "Tüm şehirler"} -> ${widget.to ?? "Tüm şehirler"}',
+                '${widget.from ?? "Tum sehirler"} -> ${widget.to ?? "Tum sehirler"}',
                 style: const TextStyle(fontSize: 16)),
             if (widget.date != null)
               Text(widget.date!,
@@ -177,7 +187,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
-                    'Sonuçlar şu an yüklenemiyor.',
+                    'Sonuclar su an yuklenemiyor.',
                     style: TextStyle(color: AppColors.error),
                   ),
                   const SizedBox(height: 8),
@@ -197,11 +207,11 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                       Icon(Icons.search_off,
                           size: 64, color: AppColors.textTertiary),
                       const SizedBox(height: 16),
-                      const Text('Yolculuk bulunamadı',
+                      const Text('Yolculuk bulunamadi',
                           style: TextStyle(
                               color: AppColors.textSecondary, fontSize: 18)),
                       const SizedBox(height: 8),
-                      const Text('Farklı tarih veya güzergah deneyin',
+                      const Text('Farkli tarih veya guzergah deneyin',
                           style: TextStyle(color: AppColors.textTertiary)),
                     ],
                   ),
@@ -233,7 +243,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 1200),
+            constraints: const BoxConstraints(maxWidth: 1260),
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -248,10 +258,18 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: const Color(0xFFD4DED8)),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              const Color(0xFF1D3A2F).withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Text(
-                      '${widget.from ?? "Tüm şehirler"} -> ${widget.to ?? "Tüm şehirler"}'
-                      '${widget.date != null ? " • ${widget.date}" : ""}',
+                      '${widget.from ?? "Tum sehirler"} -> ${widget.to ?? "Tum sehirler"}'
+                      '${widget.date != null ? " | ${widget.date}" : ""}',
                       style: const TextStyle(
                         color: Color(0xFF1F3A30),
                         fontWeight: FontWeight.w700,
@@ -272,7 +290,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Text(
-                              'Sonuçlar şu an yüklenemiyor.',
+                              'Sonuclar su an yuklenemiyor.',
                               style: TextStyle(color: AppColors.error),
                             ),
                             const SizedBox(height: 8),
@@ -288,7 +306,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                         if (trips.isEmpty) {
                           return const Center(
                             child: Text(
-                              'Uygun yolculuk bulunamadı. Farklı tarih veya güzergah deneyin.',
+                              'Uygun yolculuk bulunamadi. Farkli tarih veya guzergah deneyin.',
                               style: TextStyle(color: Color(0xFF4E665C)),
                             ),
                           );
@@ -296,18 +314,26 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                         final listView = ListView.separated(
                           itemCount: trips.length,
                           separatorBuilder: (_, __) =>
-                              const SizedBox(height: 12),
+                              const SizedBox(height: 14),
                           itemBuilder: (context, index) {
                             final trip = trips[index];
                             final isFull = trip.availableSeats <= 0 ||
                                 trip.status.toLowerCase() == 'full';
                             return Container(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(18),
                               decoration: BoxDecoration(
                                 color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(16),
                                 border:
                                     Border.all(color: const Color(0xFFD4DED8)),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF1D3A2F)
+                                        .withValues(alpha: 0.05),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -330,7 +356,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                                           ),
                                           const SizedBox(height: 6),
                                           Text(
-                                            '${DateFormat('dd MMM yyyy HH:mm', 'tr').format(trip.departureTime)} • ${trip.driverName}',
+                                            '${DateFormat('dd MMM yyyy HH:mm', 'tr').format(trip.departureTime)} | ${trip.driverName}',
                                             style: const TextStyle(
                                                 color: Color(0xFF4E665C)),
                                           ),
@@ -373,7 +399,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                                               if (trip.allowsCargo)
                                                 const _WebTag(label: 'Kargo'),
                                               if (trip.womenOnly)
-                                                const _WebTag(label: 'Kadın'),
+                                                const _WebTag(label: 'Kadin'),
                                             ],
                                           ),
                                         ],
@@ -382,7 +408,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                                   ),
                                   const SizedBox(width: 16),
                                   SizedBox(
-                                    width: 190,
+                                    width: 210,
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.end,
@@ -396,7 +422,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                                           ),
                                         ),
                                         const Text(
-                                          'kişi başı',
+                                          'kisi basi',
                                           style: TextStyle(
                                               color: Color(0xFF6A7F74),
                                               fontSize: 12),
@@ -421,13 +447,17 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                                             backgroundColor:
                                                 const Color(0xFF2F6B57),
                                             foregroundColor: Colors.white,
-                                            minimumSize: const Size(0, 44),
+                                            minimumSize: const Size(0, 46),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
                                           ),
                                           child: Text(
                                             isFull
                                                 ? 'Dolu'
                                                 : (!isAuthenticated
-                                                    ? 'Giriş yap ve rezerve et'
+                                                    ? 'Giris yap ve rezerve et'
                                                     : 'Rezerve Et'),
                                             textAlign: TextAlign.center,
                                           ),
@@ -448,8 +478,8 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                             if (compact) {
                               return Column(
                                 children: [
-                                  SizedBox(height: 280, child: mapPanel),
-                                  const SizedBox(height: 12),
+                                  SizedBox(height: 300, child: mapPanel),
+                                  const SizedBox(height: 14),
                                   Expanded(child: listView),
                                 ],
                               );
@@ -457,9 +487,9 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                             return Row(
                               children: [
                                 Expanded(child: listView),
-                                const SizedBox(width: 12),
+                                const SizedBox(width: 16),
                                 SizedBox(
-                                  width: 360,
+                                  width: 380,
                                   child: mapPanel,
                                 ),
                               ],
@@ -469,6 +499,8 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                       },
                     ),
                   ),
+                  const SizedBox(height: 18),
+                  _buildWebFooter(context, isAuthenticated),
                 ],
               ),
             ),
@@ -480,53 +512,98 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
 
   Widget _buildWebTopBar(BuildContext context, bool isAuthenticated) {
     final createTripNext = Uri.encodeComponent('/create-trip');
-    return Row(
-      children: [
-        InkWell(
-          onTap: () => context.go('/'),
-          child: const BrandLockup(
-            iconSize: 28,
-            textSize: 23,
-            gap: 8,
-          ),
-        ),
-        const Spacer(),
-        TextButton(
-          onPressed: () => context.go('/'),
-          child: const Text('Aramayı düzenle'),
-        ),
-        const SizedBox(width: 8),
-        TextButton(
-          onPressed: () {
-            if (isAuthenticated) {
-              context.push('/create-trip');
-            } else {
-              context.push('/login?next=$createTripNext');
-            }
-          },
-          child: const Text('Yolculuk Oluştur'),
-        ),
-        const SizedBox(width: 8),
-        if (isAuthenticated)
-          FilledButton(
-            onPressed: () => context.go('/reservations'),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF2F6B57),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(0, 44),
+    return WebSiteHeader(
+      isAuthenticated: isAuthenticated,
+      primaryNavLabel: 'Aramayi duzenle',
+      onBrandTap: () => context.go('/'),
+      onPrimaryNavTap: () => context.go('/'),
+      onCreateTripTap: () {
+        if (isAuthenticated) {
+          context.push('/create-trip');
+        } else {
+          context.push('/login?next=$createTripNext');
+        }
+      },
+      onReservationsTap: () => context.go('/reservations'),
+      onProfileTap: () => context.go('/profile'),
+      onLoginTap: () => context.push('/login'),
+      onRegisterTap: () => context.push('/register'),
+    );
+  }
+
+  Widget _buildWebFooter(BuildContext context, bool isAuthenticated) {
+    final reservationsNext = Uri.encodeComponent('/reservations');
+    final createTripNext = Uri.encodeComponent('/create-trip');
+
+    return WebSiteFooter(
+      sections: [
+        WebFooterSectionData(
+          title: 'Urun',
+          links: [
+            WebFooterLinkData(
+              label: 'Aramayi Duzenle',
+              onTap: () => context.go('/'),
             ),
-            child: const Text('Rezervasyonlarım'),
-          )
-        else
-          OutlinedButton(
-            onPressed: () => context.push('/login'),
-            style: OutlinedButton.styleFrom(
-              minimumSize: const Size(0, 44),
-              side: const BorderSide(color: Color(0xFF2F6B57)),
+            WebFooterLinkData(
+              label: 'Rezervasyonlar',
+              onTap: () {
+                if (isAuthenticated) {
+                  context.go('/reservations');
+                } else {
+                  context.push('/login?next=$reservationsNext');
+                }
+              },
             ),
-            child: const Text('Giriş Yap'),
-          ),
+            WebFooterLinkData(
+              label: 'Yolculuk Olustur',
+              onTap: () {
+                if (isAuthenticated) {
+                  context.push('/create-trip');
+                } else {
+                  context.push('/login?next=$createTripNext');
+                }
+              },
+            ),
+          ],
+        ),
+        WebFooterSectionData(
+          title: 'Destek',
+          links: [
+            WebFooterLinkData(
+              label: 'Yardim Merkezi',
+              onTap: () => context.push('/help'),
+            ),
+            WebFooterLinkData(
+              label: 'Guvenlik',
+              onTap: () => context.push('/security'),
+            ),
+            WebFooterLinkData(
+              label: 'SSS',
+              onTap: () => context.push('/help'),
+            ),
+          ],
+        ),
+        WebFooterSectionData(
+          title: 'Kurumsal',
+          links: [
+            WebFooterLinkData(
+              label: 'Hakkimizda',
+              onTap: () => context.push('/about'),
+            ),
+            WebFooterLinkData(
+              label: 'Iletisim',
+              onTap: () => context.push('/help'),
+            ),
+          ],
+        ),
       ],
+      description:
+          'Yoliva, ayni yone giden insanlari guvenli sekilde bulusturup yolculuk maliyetlerini dengelemeyi hedefler.',
+      copyright:
+          '(c) 2026 Yoliva. Tum haklari saklidir. Ozellikler bolgeye gore degisebilir.',
+      onPrivacyTap: () => context.push('/help'),
+      onTermsTap: () => context.push('/help'),
+      onCookieTap: () => context.push('/help'),
     );
   }
 }

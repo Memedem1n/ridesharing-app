@@ -30,18 +30,18 @@ class _RouteAlt {
 
 class _PickupPolicyValue {
   bool pickupAllowed = true;
-  String pickupType = 'city_center';
-  String note = '';
 
   _PickupPolicyValue();
 
-  Map<String, dynamic> toJson(Map<String, dynamic> city) {
+  Map<String, dynamic> toJson(
+    Map<String, dynamic> city,
+    String globalPickupType,
+  ) {
     return {
       'city': city['city'],
       if (city['district'] != null) 'district': city['district'],
       'pickupAllowed': pickupAllowed,
-      'pickupType': pickupType,
-      if (note.trim().isNotEmpty) 'note': note.trim(),
+      'pickupType': globalPickupType,
     };
   }
 }
@@ -88,10 +88,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   List<_RouteAlt> _routeAlternatives = const [];
   int _selectedRouteIndex = 0;
   final Map<String, _PickupPolicyValue> _pickupPolicies = {};
+  String _globalPickupType = 'city_center';
   double? _estimatedDistanceKm;
   double? _estimatedDurationMin;
   double? _estimatedTotalCost;
-  String? _estimateProvider;
 
   @override
   void dispose() {
@@ -131,7 +131,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content:
-              Text('Rota cikarmak icin kalkis ve varis alanlarini doldurun.'),
+              Text('Rota çıkarmak için kalkış ve varış alanlarını doldurun.'),
         ),
       );
       return;
@@ -167,13 +167,14 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           (response.data['alternatives'] as List?) ?? const [];
       final alternatives = alternativesRaw.whereType<Map>().map((item) {
         final map = Map<String, dynamic>.from(item);
+        final viaCitiesRaw = ((map['viaCities'] as List?) ?? const [])
+            .whereType<Map>()
+            .map((city) => Map<String, dynamic>.from(city))
+            .toList();
         return _RouteAlt(
           id: map['id']?.toString() ?? '',
           route: Map<String, dynamic>.from(map['route'] as Map? ?? const {}),
-          viaCities: ((map['viaCities'] as List?) ?? const [])
-              .whereType<Map>()
-              .map((city) => Map<String, dynamic>.from(city))
-              .toList(),
+          viaCities: _normalizeViaCities(viaCitiesRaw),
         );
       }).toList();
 
@@ -192,9 +193,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       setState(() {
         _routeAlternatives = alternatives;
         _selectedRouteIndex = 0;
+        _syncPickupPoliciesFromSelectedRoute();
+        _syncEstimateFromSelectedRoute();
       });
-      _resetPickupPoliciesFromSelectedRoute();
-      _syncEstimateFromSelectedRoute();
       await _estimateRouteCost();
     } on DioException catch (e) {
       final apiError = ApiException.fromDioError(e);
@@ -225,6 +226,39 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     }
 
     return results.first;
+  }
+
+  String _normalizeCityKey(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll('\u0307', '') // remove Turkish dotted-i combining mark
+        .replaceAll('ı', 'i');
+  }
+
+  List<Map<String, dynamic>> _normalizeViaCities(
+    List<Map<String, dynamic>> raw,
+  ) {
+    if (raw.isEmpty) return const [];
+    final departureKey = _normalizeCityKey(_departureCityController.text);
+    final arrivalKey = _normalizeCityKey(_arrivalCityController.text);
+
+    final seen = <String>{};
+    final result = <Map<String, dynamic>>[];
+    for (final entry in raw) {
+      final name = entry['city']?.toString() ?? '';
+      final key = _normalizeCityKey(name);
+      if (key.isEmpty) continue;
+      if (key == departureKey || key == arrivalKey) continue;
+      if (!seen.add(key)) continue;
+
+      final normalized = Map<String, dynamic>.from(entry);
+      // UX: keep ara-durak list at city level (no district noise).
+      normalized.remove('district');
+      result.add(normalized);
+    }
+
+    return result;
   }
 
   Future<bool> _ensureCoordinatesFromInputs() async {
@@ -313,7 +347,6 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         _estimatedDurationMin =
             (data['durationMin'] ?? _estimatedDurationMin ?? 0).toDouble();
         _estimatedTotalCost = (data['estimatedCost'] ?? 0).toDouble();
-        _estimateProvider = data['provider']?.toString();
       });
     } on DioException {
       // Soft-fail: keep route creation flow usable even if estimate API is unavailable.
@@ -324,16 +357,31 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     }
   }
 
-  void _resetPickupPoliciesFromSelectedRoute() {
-    _pickupPolicies.clear();
+  void _syncPickupPoliciesFromSelectedRoute() {
     final selected = _selectedRoute;
-    if (selected == null) return;
+    if (selected == null) {
+      _pickupPolicies.clear();
+      return;
+    }
 
+    final nextPolicies = <String, _PickupPolicyValue>{};
     for (final city in selected.viaCities) {
       final key = _cityKey(city);
-      _pickupPolicies[key] = _PickupPolicyValue();
+      nextPolicies[key] = _pickupPolicies[key] ?? _PickupPolicyValue();
     }
-    setState(() {});
+    _pickupPolicies
+      ..clear()
+      ..addAll(nextPolicies);
+  }
+
+  Future<void> _selectRoute(int index) async {
+    if (index < 0 || index >= _routeAlternatives.length) return;
+    setState(() {
+      _selectedRouteIndex = index;
+      _syncPickupPoliciesFromSelectedRoute();
+      _syncEstimateFromSelectedRoute();
+    });
+    await _estimateRouteCost();
   }
 
   _RouteAlt? get _selectedRoute {
@@ -346,9 +394,14 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   }
 
   String _cityKey(Map<String, dynamic> city) {
-    final cityName = city['city']?.toString().toLowerCase() ?? '';
-    final district = city['district']?.toString().toLowerCase() ?? '';
-    return '$cityName|$district';
+    final cityName = city['city']?.toString() ?? '';
+    return _normalizeCityKey(cityName);
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
   }
 
   List<LatLng> _routePoints(_RouteAlt alternative) {
@@ -365,19 +418,102 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         .toList();
   }
 
-  LatLng _routeMapCenter() {
+  ({double minLat, double minLng, double maxLat, double maxLng})?
+      _routeBoundsFromBbox(_RouteAlt alternative) {
+    final raw = alternative.route['bbox'];
+    if (raw is! Map) return null;
+    final bbox = Map<String, dynamic>.from(raw);
+    final minLat = _toDouble(bbox['minLat']);
+    final minLng = _toDouble(bbox['minLng']);
+    final maxLat = _toDouble(bbox['maxLat']);
+    final maxLng = _toDouble(bbox['maxLng']);
+    if (minLat == null || minLng == null || maxLat == null || maxLng == null) {
+      return null;
+    }
+    return (
+      minLat: minLat,
+      minLng: minLng,
+      maxLat: maxLat,
+      maxLng: maxLng,
+    );
+  }
+
+  ({double minLat, double minLng, double maxLat, double maxLng})?
+      _routeBoundsFromPoints(List<LatLng> points) {
+    if (points.isEmpty) return null;
+    double minLat = points.first.latitude;
+    double maxLat = points.first.latitude;
+    double minLng = points.first.longitude;
+    double maxLng = points.first.longitude;
+
+    for (final point in points.skip(1)) {
+      if (point.latitude < minLat) minLat = point.latitude;
+      if (point.latitude > maxLat) maxLat = point.latitude;
+      if (point.longitude < minLng) minLng = point.longitude;
+      if (point.longitude > maxLng) maxLng = point.longitude;
+    }
+    return (
+      minLat: minLat,
+      minLng: minLng,
+      maxLat: maxLat,
+      maxLng: maxLng,
+    );
+  }
+
+  ({double minLat, double minLng, double maxLat, double maxLng})?
+      _selectedRouteBounds() {
     final selected = _selectedRoute;
-    if (selected != null) {
-      final points = _routePoints(selected);
-      if (points.isNotEmpty) {
-        return points[(points.length / 2).floor()];
-      }
+    if (selected == null) return null;
+    final bboxBounds = _routeBoundsFromBbox(selected);
+    if (bboxBounds != null) return bboxBounds;
+    return _routeBoundsFromPoints(_routePoints(selected));
+  }
+
+  LatLng _routeMapCenter() {
+    final bounds = _selectedRouteBounds();
+    if (bounds != null) {
+      return LatLng(
+        (bounds.minLat + bounds.maxLat) / 2,
+        (bounds.minLng + bounds.maxLng) / 2,
+      );
     }
 
     if (_departureLat != null && _departureLng != null) {
       return LatLng(_departureLat!, _departureLng!);
     }
     return const LatLng(41.0082, 28.9784);
+  }
+
+  double _routeMapZoom() {
+    final bounds = _selectedRouteBounds();
+    if (bounds == null) return 7.2;
+
+    final latSpan = (bounds.maxLat - bounds.minLat).abs();
+    final lngSpan = (bounds.maxLng - bounds.minLng).abs();
+    final span = (latSpan > lngSpan ? latSpan : lngSpan) * 1.22;
+
+    if (span >= 18) return 4.8;
+    if (span >= 12) return 5.4;
+    if (span >= 7) return 6.2;
+    if (span >= 4) return 7.0;
+    if (span >= 2.2) return 8.0;
+    if (span >= 1.2) return 8.8;
+    if (span >= 0.6) return 9.6;
+    if (span >= 0.3) return 10.6;
+    if (span >= 0.15) return 11.4;
+    return 12.2;
+  }
+
+  CameraFit? _selectedRouteCameraFit() {
+    final bounds = _selectedRouteBounds();
+    if (bounds == null) return null;
+    return CameraFit.bounds(
+      bounds: LatLngBounds(
+        LatLng(bounds.minLat, bounds.minLng),
+        LatLng(bounds.maxLat, bounds.maxLng),
+      ),
+      padding: const EdgeInsets.all(16),
+    );
   }
 
   List<Polyline> _routePreviewPolylines() {
@@ -393,6 +529,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               ? AppColors.primary
               : AppColors.textTertiary.withValues(alpha: 0.45),
           strokeWidth: isSelected ? 5 : 3,
+          borderStrokeWidth: isSelected ? 2 : 0,
+          borderColor: isSelected
+              ? AppColors.background.withValues(alpha: 0.55)
+              : null,
         ),
       );
     }
@@ -404,21 +544,43 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     if (selected == null) return const [];
     final points = _routePoints(selected);
     if (points.length < 2) return const [];
-    return [
+    final markers = <Marker>[
       Marker(
         point: points.first,
         width: 32,
         height: 32,
-        child:
-            const Icon(Icons.trip_origin, color: AppColors.primary, size: 20),
+        child: const Icon(Icons.play_circle_fill,
+            color: AppColors.primary, size: 22),
       ),
       Marker(
         point: points.last,
         width: 34,
         height: 34,
-        child: const Icon(Icons.location_on, color: AppColors.accent, size: 24),
+        child: const Icon(Icons.flag_circle, color: AppColors.accent, size: 24),
       ),
     ];
+
+    for (final city in selected.viaCities) {
+      final lat = _toDouble(city['lat']);
+      final lng = _toDouble(city['lng']);
+      final name = city['city']?.toString() ?? '';
+      if (lat == null || lng == null || name.trim().isEmpty) continue;
+      markers.add(
+        Marker(
+          point: LatLng(lat, lng),
+          width: 12,
+          height: 12,
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.warning,
+              border: Border.all(color: Colors.white, width: 1.5),
+            ),
+          ),
+        ),
+      );
+    }
+    return markers;
   }
 
   bool _canContinueStep(int step) {
@@ -517,7 +679,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Adim 1/5 - Nereden nereye?',
+          const Text('Adım 1/5 - Nereden nereye?',
               style: TextStyle(
                   color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
@@ -615,16 +777,21 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Adim 2/5 - Rota secimi',
+          const Text('Adım 2/5 - Rota seçimi',
               style: TextStyle(
                   color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          const Text(
+            'Rotaları çıkarıp size en uygun alternatifi seçin.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          ),
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             child: GradientButton(
               text: _isRoutePreviewLoading
                   ? 'Rotalar getiriliyor...'
-                  : 'Rotalari Cikar',
+                  : 'Rotaları Çıkar',
               icon: Icons.alt_route,
               isLoading: _isRoutePreviewLoading,
               onPressed: _isRoutePreviewLoading ? null : _previewRoutes,
@@ -638,6 +805,21 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             )
           else ...[
             Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.glassBgDark,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.glassStroke),
+              ),
+              child: Text(
+                '${_routeAlternatives.length} rota bulundu. Seçim değiştiğinde ara durak tercihleri korunur.',
+                style: const TextStyle(
+                    color: AppColors.textSecondary, fontSize: 12),
+              ),
+            ),
+            Container(
               height: 220,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
@@ -645,16 +827,18 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                 border: Border.all(color: AppColors.glassStroke),
               ),
               child: FlutterMap(
+                key: ValueKey(
+                    'route_map_${_selectedRouteIndex}_${_routeAlternatives.length}'),
                 options: MapOptions(
                   initialCenter: _routeMapCenter(),
-                  initialZoom: 6.5,
+                  initialZoom: _routeMapZoom(),
+                  initialCameraFit: _selectedRouteCameraFit(),
                   backgroundColor: AppColors.background,
                 ),
                 children: [
                   TileLayer(
                     urlTemplate:
-                        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                    subdomains: const ['a', 'b', 'c', 'd'],
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.yoliva.app',
                   ),
                   PolylineLayer(polylines: routePolylines),
@@ -671,12 +855,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                   ChoiceChip(
                     label: Text('Rota ${i + 1}'),
                     selected: i == _selectedRouteIndex,
-                    onSelected: (_) async {
-                      setState(() => _selectedRouteIndex = i);
-                      _resetPickupPoliciesFromSelectedRoute();
-                      _syncEstimateFromSelectedRoute();
-                      await _estimateRouteCost();
-                    },
+                    onSelected: (_) => _selectRoute(i),
                   ),
               ],
             ),
@@ -685,14 +864,10 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: _RouteAlternativeCard(
+                  index: i,
                   alternative: _routeAlternatives[i],
                   isSelected: i == _selectedRouteIndex,
-                  onTap: () async {
-                    setState(() => _selectedRouteIndex = i);
-                    _resetPickupPoliciesFromSelectedRoute();
-                    _syncEstimateFromSelectedRoute();
-                    await _estimateRouteCost();
-                  },
+                  onTap: () => _selectRoute(i),
                 ),
               ),
           ],
@@ -706,7 +881,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     if (selected == null) {
       return const GlassContainer(
         padding: EdgeInsets.all(16),
-        child: Text('Once bir rota secmelisiniz.',
+        child: Text('Önce bir rota seçmelisiniz.',
             style: TextStyle(color: AppColors.textSecondary)),
       );
     }
@@ -716,17 +891,48 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Adim 3/5 - Ara sehir yolcu alma',
+          const Text('Adım 3/5 - Ara durak politikası',
               style: TextStyle(
                   color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           const Text(
-              'Her gecilen sehir/ilce icin yolcu alip almayacaginizi secin.',
+              'Tüm ara duraklar için tek bir alım noktası seçin, ardından şehir bazında aç/kapat yapın.',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
           const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            initialValue: _globalPickupType,
+            decoration: const InputDecoration(
+              labelText: 'Yolcu alma noktası',
+            ),
+            items: const [
+              DropdownMenuItem(
+                value: 'city_center',
+                child: Text('Şehir merkezi'),
+              ),
+              DropdownMenuItem(
+                value: 'bus_terminal',
+                child: Text('Otogar'),
+              ),
+              DropdownMenuItem(
+                value: 'rest_stop',
+                child: Text('Dinlenme tesisi'),
+              ),
+              DropdownMenuItem(
+                value: 'address',
+                child: Text('Adres'),
+              ),
+            ],
+            onChanged: (next) {
+              if (next == null) return;
+              setState(() => _globalPickupType = next);
+            },
+          ),
+          const SizedBox(height: 12),
           if (selected.viaCities.isEmpty)
-            const Text('Bu rota için ara şehir bulunamadı.',
-                style: TextStyle(color: AppColors.textSecondary))
+            const Text(
+              'Bu rota için ara şehir bulunamadı. Bir sonraki adıma geçebilirsiniz.',
+              style: TextStyle(color: AppColors.textSecondary),
+            )
           else
             for (final city in selected.viaCities)
               Padding(
@@ -741,6 +947,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   Widget _buildPickupPolicyCard(Map<String, dynamic> city) {
     final key = _cityKey(city);
     final value = _pickupPolicies.putIfAbsent(key, () => _PickupPolicyValue());
+    final cityName = city['city']?.toString().trim() ?? '-';
+    final title = cityName;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -756,14 +964,35 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             children: [
               Expanded(
                 child: Text(
-                  city['district'] != null
-                      ? '${city['city']} / ${city['district']}'
-                      : city['city']?.toString() ?? '-',
+                  title,
                   style: const TextStyle(
                       color: AppColors.textPrimary,
                       fontWeight: FontWeight.w600),
                 ),
               ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: value.pickupAllowed
+                      ? AppColors.secondaryLight
+                      : AppColors.neutralBorder,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  value.pickupAllowed
+                      ? 'Yolcu alımı açık'
+                      : 'Yolcu alımı kapalı',
+                  style: TextStyle(
+                    color: value.pickupAllowed
+                        ? const Color(0xFF166534)
+                        : const Color(0xFF4B5563),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Switch.adaptive(
                 value: value.pickupAllowed,
                 onChanged: (next) => setState(() => value.pickupAllowed = next),
@@ -771,47 +1000,49 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          DropdownButtonFormField<String>(
-            key: ValueKey(
-                'pickup_${key}_${value.pickupType}_${value.pickupAllowed}'),
-            initialValue: value.pickupType,
-            items: const [
-              DropdownMenuItem(value: 'bus_terminal', child: Text('Otogar')),
-              DropdownMenuItem(
-                  value: 'rest_stop', child: Text('Dinlenme Tesisi')),
-              DropdownMenuItem(
-                  value: 'city_center', child: Text('Sehir Merkezi')),
-              DropdownMenuItem(value: 'address', child: Text('Adres')),
-            ],
-            onChanged: value.pickupAllowed
-                ? (next) {
-                    if (next != null) {
-                      setState(() => value.pickupType = next);
-                    }
-                  }
-                : null,
-            decoration: const InputDecoration(labelText: 'Alim tipi'),
+          const SizedBox(height: 6),
+          Text(
+            'Ortak alım noktası: ${_pickupTypeLabel(_globalPickupType)}',
+            style:
+                const TextStyle(color: AppColors.textSecondary, fontSize: 12),
           ),
-          const SizedBox(height: 8),
-          TextFormField(
-            initialValue: value.note,
-            enabled: value.pickupAllowed,
-            decoration: const InputDecoration(labelText: 'Not (opsiyonel)'),
-            onChanged: (next) => value.note = next,
-          ),
+          if (!value.pickupAllowed)
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text(
+                'Bu şehirde yolcu alınmayacak.',
+                style: TextStyle(color: AppColors.textTertiary, fontSize: 11),
+              ),
+            ),
         ],
       ),
     );
   }
 
+  String _pickupTypeLabel(String type) {
+    switch (type) {
+      case 'bus_terminal':
+        return 'Otogar';
+      case 'rest_stop':
+        return 'Dinlenme tesisi';
+      case 'address':
+        return 'Adres';
+      default:
+        return 'Şehir merkezi';
+    }
+  }
+
   Widget _buildStepVehicleAndPricing(AsyncValue<List<Vehicle>> vehiclesAsync) {
+    final suggestedPerSeat = _availableSeats > 0 && _estimatedTotalCost != null
+        ? (_estimatedTotalCost! / _availableSeats)
+        : null;
+
     return GlassContainer(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Adim 4/5 - Arac ve fiyat',
+          const Text('Adım 4/5 - Araç ve fiyat',
               style: TextStyle(
                   color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
@@ -822,8 +1053,17 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           TextFormField(
             controller: _priceController,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-                labelText: 'Kişi başı fiyat', suffixText: '\u20BA'),
+            decoration: InputDecoration(
+              labelText: 'Kişi başı fiyat',
+              helperText: suggestedPerSeat == null
+                  ? 'Örn: 250'
+                  : 'Öneri: ₺${suggestedPerSeat.toStringAsFixed(0)} kişi başı',
+              helperStyle: const TextStyle(
+                color: AppColors.textTertiary,
+                fontSize: 12,
+              ),
+              suffixText: '₺',
+            ),
             validator: (value) =>
                 value == null || value.trim().isEmpty ? 'Fiyat gerekli' : null,
           ),
@@ -887,7 +1127,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Adim 5/5 - Son ayarlar',
+          const Text('Adım 5/5 - Son ayarlar',
               style: TextStyle(
                   color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
@@ -904,7 +1144,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               (v) => setState(() => _allowsCargo = v)),
           _buildSwitch('Sadece kadinlar', Icons.female, _womenOnly,
               (v) => setState(() => _womenOnly = v)),
-          _buildSwitch('Aninda rezervasyon', Icons.flash_on, _instantBooking,
+          _buildSwitch('Anında rezervasyon', Icons.flash_on, _instantBooking,
               (v) => setState(() => _instantBooking = v)),
           const SizedBox(height: 10),
           TextFormField(
@@ -916,12 +1156,12 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           const SizedBox(height: 12),
           if (selected != null)
             Text(
-              'Secili rota: ${selected.distanceKm.toStringAsFixed(1)} km, ${selected.durationMin.toStringAsFixed(0)} dk',
+              'Seçili rota: ${selected.distanceKm.toStringAsFixed(1)} km, ${selected.durationMin.toStringAsFixed(0)} dk',
               style:
                   const TextStyle(color: AppColors.textSecondary, fontSize: 12),
             ),
           const SizedBox(height: 8),
-          const Text('Yolculuk olustur butonu ile kaydi tamamlayabilirsiniz.',
+          const Text('Yolculuk oluştur butonu ile kaydı tamamlayabilirsiniz.',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
         ],
       ),
@@ -1010,7 +1250,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           ),
           const SizedBox(height: 2),
           Text(
-            'Öneri (kişi başı): TL ${perSeatSuggestion.toStringAsFixed(0)} • Kaynak: ${(_estimateProvider ?? 'osrm').toUpperCase()}',
+            'Önerilen kişi başı: TL ${perSeatSuggestion.toStringAsFixed(0)}',
             style:
                 const TextStyle(color: AppColors.textSecondary, fontSize: 12),
           ),
@@ -1041,9 +1281,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
 
   Widget _buildVehicleSection(AsyncValue<List<Vehicle>> vehiclesAsync) {
     return vehiclesAsync.when(
-      loading: () => const Text('Araclar yukleniyor...',
+      loading: () => const Text('Araçlar yükleniyor...',
           style: TextStyle(color: AppColors.textSecondary)),
-      error: (e, _) => Text('Araclar yuklenemedi: $e',
+      error: (e, _) => Text('Araçlar yüklenemedi: $e',
           style: const TextStyle(color: AppColors.error)),
       data: (vehicles) {
         if (vehicles.isEmpty) {
@@ -1054,7 +1294,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                   style: TextStyle(color: AppColors.textSecondary)),
               const SizedBox(height: 8),
               GradientButton(
-                  text: 'Arac Ekle',
+                  text: 'Araç Ekle',
                   icon: Icons.directions_car_outlined,
                   onPressed: () => context.push('/vehicle-create')),
             ],
@@ -1067,6 +1307,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         return Column(
           children: vehicles.map((vehicle) {
             final selected = vehicle.id == selectedId;
+            final ownerBadge =
+                vehicle.ownershipType == 'relative' ? ' • Akraba aracı' : '';
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: InkWell(
@@ -1089,7 +1331,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          '${vehicle.brand} ${vehicle.model} - ${vehicle.licensePlate}',
+                          '${vehicle.brand} ${vehicle.model} - ${vehicle.licensePlate}$ownerBadge',
                           style: const TextStyle(color: AppColors.textPrimary),
                         ),
                       ),
@@ -1151,7 +1393,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     if (selectedRoute == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Yolculuk olusturmadan once rota secmelisiniz.')),
+            content: Text('Yolculuk oluşturmadan önce rota seçmelisiniz.')),
       );
       return;
     }
@@ -1172,7 +1414,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       final pickupPolicies = selectedRoute.viaCities.map((city) {
         final key = _cityKey(city);
         final value = _pickupPolicies[key] ?? _PickupPolicyValue();
-        return value.toJson(city);
+        return value.toJson(city, _globalPickupType);
       }).toList();
 
       await dio.post(
@@ -1208,7 +1450,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Yolculuk basariyla olusturuldu.'),
+            content: Text('Yolculuk başarıyla oluşturuldu.'),
             backgroundColor: AppColors.success),
       );
       context.pop();
@@ -1255,11 +1497,13 @@ class _StepHeader extends StatelessWidget {
 }
 
 class _RouteAlternativeCard extends StatelessWidget {
+  final int index;
   final _RouteAlt alternative;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _RouteAlternativeCard({
+    required this.index,
     required this.alternative,
     required this.isSelected,
     required this.onTap,
@@ -1267,6 +1511,14 @@ class _RouteAlternativeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final viaSummary = alternative.viaCities
+        .map((city) => city['city'])
+        .whereType<String>()
+        .where((city) => city.trim().isNotEmpty)
+        .toList();
+    final viaText =
+        viaSummary.isEmpty ? 'Direkt rota' : viaSummary.join(' -> ');
+
     return InkWell(
       onTap: onTap,
       child: Container(
@@ -1283,10 +1535,29 @@ class _RouteAlternativeCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text('Rota ${alternative.id}',
+                Text('Rota ${index + 1}',
                     style: const TextStyle(
                         color: AppColors.textPrimary,
                         fontWeight: FontWeight.w700)),
+                if (isSelected) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.secondaryLight,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      'Seçili',
+                      style: TextStyle(
+                        color: Color(0xFF166534),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
                 const Spacer(),
                 Text('${alternative.distanceKm.toStringAsFixed(1)} km',
                     style: const TextStyle(color: AppColors.textSecondary)),
@@ -1297,10 +1568,7 @@ class _RouteAlternativeCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              alternative.viaCities
-                  .map((city) => city['city'])
-                  .whereType<String>()
-                  .join(' -> '),
+              viaText,
               style:
                   const TextStyle(color: AppColors.textSecondary, fontSize: 12),
               maxLines: 2,

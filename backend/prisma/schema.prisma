@@ -63,6 +63,10 @@ model Vehicle {
   id                 String    @id @default(uuid())
   userId             String    @map("user_id")
   licensePlate       String    @unique @map("license_plate")
+  registrationNumber String?   @unique @map("registration_number")
+  ownershipType      String    @default("self") @map("ownership_type")
+  ownerFullName      String?   @map("owner_full_name")
+  ownerRelation      String?   @map("owner_relation")
   brand              String
   model              String
   year               Int

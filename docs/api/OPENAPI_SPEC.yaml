@@ -168,11 +168,20 @@ components:
         id:
           type: string
           format: uuid
-        userId:
-          type: string
-          format: uuid
         licensePlate:
           type: string
+        registrationNumber:
+          type: string
+        ownershipType:
+          type: string
+          enum: [self, relative]
+        ownerFullName:
+          type: string
+          nullable: true
+        ownerRelation:
+          type: string
+          enum: [father, mother, uncle, aunt, sibling, spouse, grandparent]
+          nullable: true
         brand:
           type: string
         model:
@@ -181,6 +190,7 @@ components:
           type: integer
         color:
           type: string
+          nullable: true
         seats:
           type: integer
         hasAc:
@@ -191,9 +201,150 @@ components:
           type: boolean
         verified:
           type: boolean
+        registrationImage:
+          type: string
+          nullable: true
         createdAt:
           type: string
           format: date-time
+
+    RoutePoint:
+      type: object
+      properties:
+        lat:
+          type: number
+        lng:
+          type: number
+
+    RouteBoundingBox:
+      type: object
+      properties:
+        minLat:
+          type: number
+        minLng:
+          type: number
+        maxLat:
+          type: number
+        maxLng:
+          type: number
+
+    RouteSnapshot:
+      type: object
+      properties:
+        provider:
+          type: string
+        distanceKm:
+          type: number
+        durationMin:
+          type: number
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/RoutePoint'
+        bbox:
+          $ref: '#/components/schemas/RouteBoundingBox'
+
+    ViaCity:
+      type: object
+      properties:
+        city:
+          type: string
+        district:
+          type: string
+          nullable: true
+        lat:
+          type: number
+          nullable: true
+        lng:
+          type: number
+          nullable: true
+        pickupSuggestions:
+          type: array
+          items:
+            type: string
+
+    PickupPolicy:
+      type: object
+      properties:
+        city:
+          type: string
+        district:
+          type: string
+          nullable: true
+        pickupAllowed:
+          type: boolean
+        pickupType:
+          type: string
+          enum: [bus_terminal, rest_stop, city_center, address]
+        note:
+          type: string
+          nullable: true
+
+    RouteAlternative:
+      type: object
+      properties:
+        id:
+          type: string
+        route:
+          $ref: '#/components/schemas/RouteSnapshot'
+        viaCities:
+          type: array
+          items:
+            $ref: '#/components/schemas/ViaCity'
+
+    RoutePreviewResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+        alternatives:
+          type: array
+          items:
+            $ref: '#/components/schemas/RouteAlternative'
+
+    RouteEstimateBreakdown:
+      type: object
+      properties:
+        baseFee:
+          type: number
+        distanceFee:
+          type: number
+        durationFee:
+          type: number
+        platformFee:
+          type: number
+        tripTypeMultiplier:
+          type: number
+        trafficMultiplier:
+          type: number
+
+    RouteEstimateResponse:
+      type: object
+      properties:
+        provider:
+          type: string
+        distanceKm:
+          type: number
+        durationMin:
+          type: number
+        estimatedCost:
+          type: number
+        currency:
+          type: string
+        breakdown:
+          $ref: '#/components/schemas/RouteEstimateBreakdown'
+
+    LocationSuggestion:
+      type: object
+      properties:
+        displayName:
+          type: string
+        city:
+          type: string
+        lat:
+          type: number
+        lon:
+          type: number
 
     Trip:
       type: object
@@ -219,14 +370,29 @@ components:
           type: string
         departureAddress:
           type: string
+          nullable: true
         arrivalAddress:
           type: string
+          nullable: true
+        departureLat:
+          type: number
+          nullable: true
+        departureLng:
+          type: number
+          nullable: true
+        arrivalLat:
+          type: number
+          nullable: true
+        arrivalLng:
+          type: number
+          nullable: true
         departureTime:
           type: string
           format: date-time
         estimatedArrivalTime:
           type: string
           format: date-time
+          nullable: true
         availableSeats:
           type: integer
         pricePerSeat:
@@ -243,13 +409,55 @@ components:
         maxCargoWeight:
           type: integer
           nullable: true
-        recurring:
-          type: boolean
         womenOnly:
           type: boolean
+        instantBooking:
+          type: boolean
+        description:
+          type: string
+          nullable: true
         distanceKm:
           type: number
           format: decimal
+          nullable: true
+        route:
+          $ref: '#/components/schemas/RouteSnapshot'
+        viaCities:
+          type: array
+          items:
+            $ref: '#/components/schemas/ViaCity'
+        pickupPolicies:
+          type: array
+          items:
+            $ref: '#/components/schemas/PickupPolicy'
+        occupancy:
+          type: object
+          properties:
+            confirmedSeats:
+              type: integer
+            passengerCount:
+              type: integer
+        passengers:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              fullName:
+                type: string
+              profilePhotoUrl:
+                type: string
+                nullable: true
+              ratingAvg:
+                type: number
+              seats:
+                type: integer
+        canViewPassengerList:
+          type: boolean
+        canViewLiveLocation:
+          type: boolean
         createdAt:
           type: string
           format: date-time
@@ -670,9 +878,21 @@ paths:
           application/json:
             schema:
               type: object
-              required: [licensePlate, brand, model, year, seats]
+              required: [licensePlate, registrationNumber, ownershipType, registrationImage, brand, model, year, seats]
               properties:
                 licensePlate:
+                  type: string
+                registrationNumber:
+                  type: string
+                ownershipType:
+                  type: string
+                  enum: [self, relative]
+                ownerFullName:
+                  type: string
+                ownerRelation:
+                  type: string
+                  enum: [father, mother, uncle, aunt, sibling, spouse, grandparent]
+                registrationImage:
                   type: string
                 brand:
                   type: string
@@ -697,6 +917,92 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Vehicle'
+
+  /vehicles/{id}:
+    get:
+      tags: [Vehicles]
+      summary: Get vehicle by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Vehicle details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+
+    put:
+      tags: [Vehicles]
+      summary: Update vehicle
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                color:
+                  type: string
+                seats:
+                  type: integer
+                hasAc:
+                  type: boolean
+                allowsPets:
+                  type: boolean
+                allowsSmoking:
+                  type: boolean
+                registrationImage:
+                  type: string
+                ownershipType:
+                  type: string
+                  enum: [self, relative]
+                ownerFullName:
+                  type: string
+                ownerRelation:
+                  type: string
+                  enum: [father, mother, uncle, aunt, sibling, spouse, grandparent]
+                registrationNumber:
+                  type: string
+      responses:
+        '200':
+          description: Vehicle updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vehicle'
+
+    delete:
+      tags: [Vehicles]
+      summary: Delete vehicle
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Vehicle deleted
 
   # Trip Endpoints
   /trips:
@@ -776,6 +1082,14 @@ paths:
                   type: string
                 arrivalAddress:
                   type: string
+                departureLat:
+                  type: number
+                departureLng:
+                  type: number
+                arrivalLat:
+                  type: number
+                arrivalLng:
+                  type: number
                 departureTime:
                   type: string
                   format: date-time
@@ -787,6 +1101,20 @@ paths:
                   type: boolean
                 womenOnly:
                   type: boolean
+                instantBooking:
+                  type: boolean
+                description:
+                  type: string
+                routeSnapshot:
+                  $ref: '#/components/schemas/RouteSnapshot'
+                viaCities:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ViaCity'
+                pickupPolicies:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/PickupPolicy'
       responses:
         '201':
           description: Trip created
@@ -826,21 +1154,67 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  alternatives:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id:
-                          type: string
-                        route:
-                          type: object
-                        viaCities:
-                          type: array
-                          items:
-                            type: object
+                $ref: '#/components/schemas/RoutePreviewResponse'
+
+  /routes/estimate:
+    post:
+      tags: [Trips]
+      summary: Estimate route distance, duration and suggested cost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                departureCity:
+                  type: string
+                arrivalCity:
+                  type: string
+                departureLat:
+                  type: number
+                departureLng:
+                  type: number
+                arrivalLat:
+                  type: number
+                arrivalLng:
+                  type: number
+                seats:
+                  type: integer
+                  minimum: 1
+                  maximum: 8
+                tripType:
+                  type: string
+                  enum: [people, pets, cargo, food]
+                peakTraffic:
+                  type: boolean
+      responses:
+        '201':
+          description: Route estimate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RouteEstimateResponse'
+
+  /locations/search:
+    get:
+      tags: [Trips]
+      summary: Location search suggestions (Nominatim proxy, TR filtered)
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Location suggestions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LocationSuggestion'
 
   /trips/{id}:
     get:

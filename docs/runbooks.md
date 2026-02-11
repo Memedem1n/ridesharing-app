@@ -39,11 +39,30 @@ Use these checks to prevent blank/white page issues after deploy.
 2. Hard refresh (`Ctrl+F5`) and verify app still boots.
 3. Confirm browser console has no fatal JS/runtime errors.
 
+## Android Emulator Smoke (Mobile)
+
+### CI path
+1. Workflow: `.github/workflows/ci.yml` job `mobile-android-emulator-smoke`.
+2. The job boots an Android 34 emulator, builds debug APK, installs it, and runs:
+   - `bash scripts/android/emulator-smoke.sh com.yoliva.app .MainActivity`
+3. Expected result: app reaches foreground and smoke exits with code `0`.
+
+### Local path
+1. Start an Android emulator (Android Studio AVD or command line).
+2. Run:
+   - `cd mobile`
+   - `flutter pub get`
+   - `flutter build apk --debug`
+   - `adb install -r build/app/outputs/flutter-apk/app-debug.apk`
+   - `bash ../scripts/android/emulator-smoke.sh com.yoliva.app .MainActivity`
+3. Check output: `Android emulator launch check passed.`
+
 ## Routing and OSRM (TR-only self-host)
 
 ### One-time data prep
-1. Run `scripts/osrm/setup-tr.ps1` from repo root.
-2. Verify generated files under `backend/.data/osrm` (`turkey-latest.osrm*`).
+1. Ensure Docker Desktop/engine is running (`docker info` should succeed).
+2. Run `scripts/osrm/setup-tr.ps1` from repo root.
+3. Verify generated files under `backend/.data/osrm` (`turkey-latest.osrm*`).
 
 ### Start services
 1. Local: `docker compose up -d osrm postgres redis`

@@ -12,6 +12,7 @@ import { VehiclesModule } from './interfaces/http/vehicles/vehicles.module';
 import { MessagesModule } from './interfaces/http/messages/messages.module';
 import { VerificationModule } from './interfaces/http/verification/verification.module';
 import { AdminModule } from './interfaces/http/admin/admin.module';
+import { LocationsModule } from './interfaces/http/locations/locations.module';
 import { HealthController } from './interfaces/http/health/health.controller';
 import { PrismaService } from './infrastructure/database/prisma.service';
 import { CacheModule } from './infrastructure/cache/cache.module';
@@ -41,6 +42,13 @@ import { LocationModule } from './interfaces/websocket/location.module';
             serveRoot: '/uploads',
         }),
 
+        // Flutter web build (optional local host). Requires:
+        // `cd mobile; flutter build web --release --pwa-strategy=none`
+        ServeStaticModule.forRoot({
+            rootPath: join(process.cwd(), '..', 'mobile', 'build', 'web'),
+            exclude: ['/v1*', '/api*', '/uploads*', '/socket.io*'],
+        }),
+
         // Shared infrastructure
         CacheModule,
         BusPriceModule,
@@ -52,6 +60,7 @@ import { LocationModule } from './interfaces/websocket/location.module';
         TripsModule,
         BookingsModule,
         MessagesModule,
+        LocationsModule,
         VerificationModule,
         AdminModule,
         LocationModule,

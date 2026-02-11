@@ -209,7 +209,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
     if (isFull) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Bu yolculukta bos koltuk kalmadi.'),
+          content: Text('Bu yolculukta boş koltuk kalmadı.'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -235,7 +235,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
       return;
     }
 
-    String message = 'Rezervasyon basarisiz. Lutfen tekrar deneyin.';
+    String message = 'Rezervasyon başarısız. Lütfen tekrar deneyin.';
     final actionState = ref.read(bookingActionsProvider);
     final actionError = actionState.asError?.error;
     if (actionError is ApiException && actionError.message.trim().isNotEmpty) {
@@ -294,7 +294,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Mesajlasma acilamadi: $e')),
+        SnackBar(content: Text('Mesajlaşma açılamadı: $e')),
       );
     } finally {
       if (mounted) {
@@ -325,7 +325,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
         onPressed: () {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text('Mesajlasma rezervasyonlar uzerinden acilir.')),
+                content: Text('Mesajlaşma rezervasyonlar üzerinden açılır.')),
           );
         },
         icon: const Icon(Icons.message, size: 18),
@@ -397,7 +397,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Yolculuk Detayi'),
+        title: const Text('Yolculuk Detayı'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -454,241 +454,285 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
     final departureAddress = (trip.departureAddress ?? '').trim();
     final arrivalAddress = (trip.arrivalAddress ?? '').trim();
     final totalPrice = trip.pricePerSeat * _selectedSeats;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final contentConstraints = screenWidth >= 1100
+        ? const BoxConstraints(maxWidth: 920)
+        : const BoxConstraints();
+    final passengerCount =
+        trip.occupancyPassengerCount ?? trip.passengers.length;
+    final occupiedSeats = trip.occupancyConfirmedSeats ??
+        trip.passengers.fold<int>(0, (sum, passenger) => sum + passenger.seats);
+    final viaCitiesUnique = (() {
+      final seen = <String>{};
+      final list = <TripViaCity>[];
+      for (final via in trip.viaCities) {
+        final name = via.city.trim();
+        if (name.isEmpty) continue;
+        final key = name.toLowerCase();
+        if (!seen.add(key)) continue;
+        list.add(via);
+      }
+      return list;
+    })();
 
     return Column(
       children: [
         Expanded(
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(16, 90, 16, 120),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                GlassContainer(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 28,
-                        backgroundColor:
-                            AppColors.primary.withValues(alpha: 0.2),
-                        backgroundImage: trip.driverPhoto != null
-                            ? NetworkImage(trip.driverPhoto!)
-                            : null,
-                        child: trip.driverPhoto == null
-                            ? Text(
-                                trip.driverName.isNotEmpty
-                                    ? trip.driverName[0].toUpperCase()
-                                    : '?',
-                                style: const TextStyle(
-                                    color: AppColors.primary,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.bold),
-                              )
-                            : null,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(trip.driverName,
-                                style: const TextStyle(
-                                    color: AppColors.textPrimary,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 16)),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                const Icon(Icons.star,
-                                    color: AppColors.warning, size: 14),
-                                const SizedBox(width: 4),
-                                Text(trip.driverRating.toStringAsFixed(1),
-                                    style: const TextStyle(
-                                        color: AppColors.textSecondary)),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(dateFormat.format(trip.departureTime),
-                                style: const TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                      Text('₺${trip.pricePerSeat.toStringAsFixed(0)}',
-                          style: const TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18)),
-                    ],
-                  ),
-                ).animate().fadeIn().slideY(begin: 0.08),
-                const SizedBox(height: 14),
-                GlassContainer(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const _SectionTitle(icon: Icons.route, label: 'Rota'),
-                      const SizedBox(height: 10),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: contentConstraints,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GlassContainer(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
                         children: [
-                          Column(
-                            children: [
-                              Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: AppColors.primary)),
-                              Container(
-                                  width: 2,
-                                  height: 44,
-                                  color: AppColors.glassStroke),
-                              const Icon(Icons.location_on,
-                                  color: AppColors.accent, size: 18),
-                            ],
+                          CircleAvatar(
+                            radius: 28,
+                            backgroundColor:
+                                AppColors.primary.withValues(alpha: 0.2),
+                            backgroundImage: trip.driverPhoto != null
+                                ? NetworkImage(trip.driverPhoto!)
+                                : null,
+                            child: trip.driverPhoto == null
+                                ? Text(
+                                    trip.driverName.isNotEmpty
+                                        ? trip.driverName[0].toUpperCase()
+                                        : '?',
+                                    style: const TextStyle(
+                                        color: AppColors.primary,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold),
+                                  )
+                                : null,
                           ),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(trip.departureCity,
+                                Text(trip.driverName,
                                     style: const TextStyle(
                                         color: AppColors.textPrimary,
-                                        fontWeight: FontWeight.w600)),
-                                Text(
-                                  departureAddress.isEmpty
-                                      ? 'Adres bilgisi yok'
-                                      : departureAddress,
-                                  style: const TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 12),
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 16)),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.star,
+                                        color: AppColors.warning, size: 14),
+                                    const SizedBox(width: 4),
+                                    Text(trip.driverRating.toStringAsFixed(1),
+                                        style: const TextStyle(
+                                            color: AppColors.textSecondary)),
+                                  ],
                                 ),
-                                const SizedBox(height: 18),
-                                Text(trip.arrivalCity,
+                                const SizedBox(height: 6),
+                                Text(dateFormat.format(trip.departureTime),
                                     style: const TextStyle(
-                                        color: AppColors.textPrimary,
-                                        fontWeight: FontWeight.w600)),
-                                Text(
-                                  arrivalAddress.isEmpty
-                                      ? 'Adres bilgisi yok'
-                                      : arrivalAddress,
-                                  style: const TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 12),
-                                ),
+                                        color: AppColors.textSecondary,
+                                        fontSize: 12)),
                               ],
+                            ),
+                          ),
+                          Text('TL ${trip.pricePerSeat.toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18)),
+                        ],
+                      ),
+                    ).animate().fadeIn().slideY(begin: 0.08),
+                    const SizedBox(height: 14),
+                    GlassContainer(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const _SectionTitle(icon: Icons.route, label: 'Rota'),
+                          const SizedBox(height: 10),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Column(
+                                children: [
+                                  Container(
+                                      width: 10,
+                                      height: 10,
+                                      decoration: const BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: AppColors.primary)),
+                                  Container(
+                                      width: 2,
+                                      height: 44,
+                                      color: AppColors.glassStroke),
+                                  const Icon(Icons.location_on,
+                                      color: AppColors.accent, size: 18),
+                                ],
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(trip.departureCity,
+                                        style: const TextStyle(
+                                            color: AppColors.textPrimary,
+                                            fontWeight: FontWeight.w600)),
+                                    Text(
+                                      departureAddress.isEmpty
+                                          ? 'Adres bilgisi yok'
+                                          : departureAddress,
+                                      style: const TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 12),
+                                    ),
+                                    const SizedBox(height: 18),
+                                    Text(trip.arrivalCity,
+                                        style: const TextStyle(
+                                            color: AppColors.textPrimary,
+                                            fontWeight: FontWeight.w600)),
+                                    Text(
+                                      arrivalAddress.isEmpty
+                                          ? 'Adres bilgisi yok'
+                                          : arrivalAddress,
+                                      style: const TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (route != null) ...[
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                _MiniInfoChip(
+                                    icon: Icons.straighten,
+                                    label:
+                                        '${route.distanceKm.toStringAsFixed(1)} km'),
+                                const SizedBox(width: 8),
+                                _MiniInfoChip(
+                                    icon: Icons.timer,
+                                    label:
+                                        '${route.durationMin.toStringAsFixed(0)} dk'),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 10),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: SizedBox(
+                              height: 180,
+                              child: MapView(
+                                initialPosition:
+                                    _initialMapPosition(route, trip),
+                                markers: markers,
+                                polylines: routePolylines,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                      if (route != null) ...[
-                        const SizedBox(height: 10),
-                        Row(
+                    ).animate().fadeIn(delay: 80.ms).slideY(begin: 0.08),
+                    const SizedBox(height: 14),
+                    if (viaCitiesUnique.isNotEmpty)
+                      GlassContainer(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _MiniInfoChip(
-                                icon: Icons.straighten,
-                                label:
-                                    '${route.distanceKm.toStringAsFixed(1)} km'),
-                            const SizedBox(width: 8),
-                            _MiniInfoChip(
-                                icon: Icons.timer,
-                                label:
-                                    '${route.durationMin.toStringAsFixed(0)} dk'),
+                            const _SectionTitle(
+                                icon: Icons.alt_route, label: 'Ara Duraklar'),
+                            const SizedBox(height: 8),
+                            for (final via in viaCitiesUnique)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 6),
+                                child: Text(
+                                  via.city,
+                                  style: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 12),
+                                ),
+                              ),
                           ],
                         ),
-                      ],
-                      const SizedBox(height: 10),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(14),
-                        child: SizedBox(
-                          height: 180,
-                          child: MapView(
-                            initialPosition: _initialMapPosition(route, trip),
-                            markers: markers,
-                            polylines: routePolylines,
-                          ),
+                      ),
+                    if (viaCitiesUnique.isNotEmpty) const SizedBox(height: 14),
+                    if (canViewLiveLocation)
+                      _buildLiveTrackingSection(isDriver, trip)
+                    else
+                      GlassContainer(
+                        padding: const EdgeInsets.all(16),
+                        child: const Text(
+                          'Canlı konum, rezervasyon onayı ve ödeme sonrasında açılır.',
+                          style: TextStyle(
+                              color: AppColors.textSecondary, fontSize: 12),
                         ),
                       ),
-                    ],
-                  ),
-                ).animate().fadeIn(delay: 80.ms).slideY(begin: 0.08),
-                const SizedBox(height: 14),
-                if (trip.viaCities.isNotEmpty)
-                  GlassContainer(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const _SectionTitle(
-                            icon: Icons.alt_route,
-                            label: 'Ara Sehir Politikasi'),
-                        const SizedBox(height: 8),
-                        for (final via in trip.viaCities)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Text(
-                              via.district == null || via.district!.isEmpty
-                                  ? via.city
-                                  : '${via.city} / ${via.district}',
-                              style: const TextStyle(
-                                  color: AppColors.textSecondary, fontSize: 12),
-                            ),
+                    const SizedBox(height: 14),
+                    GlassContainer(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const _SectionTitle(
+                              icon: Icons.groups, label: 'Yolcu Durumu'),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _MiniInfoChip(
+                                icon: Icons.person_outline,
+                                label: '$passengerCount yolcu',
+                              ),
+                              _MiniInfoChip(
+                                icon: Icons.event_seat,
+                                label: '$occupiedSeats koltuk dolu',
+                              ),
+                              _MiniInfoChip(
+                                icon: Icons.airline_seat_recline_normal,
+                                label: '${trip.availableSeats} boş koltuk',
+                              ),
+                              _PassengerVisibilityPill(
+                                canViewPassengerList: canViewPassengerList,
+                              ),
+                            ],
                           ),
-                      ],
+                          const SizedBox(height: 12),
+                          if (!canViewPassengerList)
+                            const Text(
+                                'Yolcu listesi sadece sürücü ve onaylı yolcular için görünür.',
+                                style: TextStyle(
+                                    color: AppColors.textTertiary,
+                                    fontSize: 12))
+                          else if (trip.passengers.isEmpty)
+                            const Text('Henüz onaylı yolcu yok.',
+                                style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 12))
+                          else
+                            for (final passenger in trip.passengers)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: _PassengerRow(passenger: passenger),
+                              ),
+                        ],
+                      ),
                     ),
-                  ),
-                if (trip.viaCities.isNotEmpty) const SizedBox(height: 14),
-                if (canViewLiveLocation)
-                  _buildLiveTrackingSection(isDriver, trip)
-                else
-                  GlassContainer(
-                    padding: const EdgeInsets.all(16),
-                    child: const Text(
-                      'Canli konum, rezervasyon onayi ve odeme sonrasinda acilir.',
-                      style: TextStyle(
-                          color: AppColors.textSecondary, fontSize: 12),
-                    ),
-                  ),
-                const SizedBox(height: 14),
-                GlassContainer(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const _SectionTitle(
-                          icon: Icons.groups, label: 'Yolcu Durumu'),
-                      const SizedBox(height: 8),
-                      Text(
-                          '${trip.occupancyPassengerCount ?? 0} yolcu - ${trip.occupancyConfirmedSeats ?? 0} koltuk dolu',
-                          style: const TextStyle(
-                              color: AppColors.textSecondary, fontSize: 12)),
-                      const SizedBox(height: 10),
-                      if (!canViewPassengerList)
-                        const Text(
-                            'Yolcu listesi sadece surucu ve onayli yolcular icin gorunur.',
-                            style: TextStyle(
-                                color: AppColors.textTertiary, fontSize: 12))
-                      else if (trip.passengers.isEmpty)
-                        const Text('Henüz onaylı yolcu yok.',
-                            style: TextStyle(
-                                color: AppColors.textSecondary, fontSize: 12))
-                      else
-                        for (final passenger in trip.passengers)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: _PassengerRow(passenger: passenger),
-                          ),
-                    ],
-                  ),
+                    const SizedBox(height: 14),
+                    SizedBox(
+                        width: 120, child: _buildMessageButton(context, trip)),
+                    const SizedBox(height: 16),
+                  ],
                 ),
-                const SizedBox(height: 14),
-                SizedBox(width: 120, child: _buildMessageButton(context, trip)),
-                const SizedBox(height: 16),
-              ],
+              ),
             ),
           ),
         ),
@@ -718,9 +762,9 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
           Row(
             children: [
               const _SectionTitle(
-                  icon: Icons.my_location, label: 'Canli Konum'),
+                  icon: Icons.my_location, label: 'Canlı Konum'),
               const Spacer(),
-              Text(_locationConnected ? 'Bagli' : 'Bagli degil',
+              Text(_locationConnected ? 'Bağlı' : 'Bağlı degil',
                   style: TextStyle(
                       color: _locationConnected
                           ? AppColors.success
@@ -745,9 +789,9 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
               value: _shareLocation,
               onChanged: _locationConnected ? _toggleShareLocation : null,
               contentPadding: EdgeInsets.zero,
-              title: const Text('Konum paylasimi',
+              title: const Text('Konum paylaşımı',
                   style: TextStyle(color: AppColors.textPrimary)),
-              subtitle: const Text('Onayli yolcular surucu konumunu gorur.',
+              subtitle: const Text('Onaylı yolcular sürücü konumunu görür.',
                   style:
                       TextStyle(color: AppColors.textSecondary, fontSize: 12)),
               activeThumbColor: AppColors.primary,
@@ -837,7 +881,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('₺${totalPrice.toStringAsFixed(0)}',
+                      Text('TL ${totalPrice.toStringAsFixed(0)}',
                           style: const TextStyle(
                               color: AppColors.primary,
                               fontSize: 22,
@@ -856,7 +900,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                       ? 'Dolu'
                       : (!isAuthenticated
                           ? 'Giriş yap ve rezerve et'
-                          : (_isBooking ? 'Isleniyor...' : 'Rezerve Et')),
+                          : (_isBooking ? 'İşleniyor...' : 'Rezerve Et')),
                   icon: Icons.check_circle,
                   isLoading: _isBooking && !isFull,
                   onPressed: _isBooking || isFull ? null : () => _book(trip),
@@ -894,6 +938,30 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
   }
 
   List<Marker> _buildRouteMarkers(TripRouteSnapshot? route, Trip trip) {
+    final seenVia = <String>{};
+    final viaMarkers = trip.viaCities
+        .where((via) => via.lat != null && via.lng != null)
+        .where((via) {
+          final key = via.city.trim().toLowerCase();
+          if (key.isEmpty) return false;
+          return seenVia.add(key);
+        })
+        .map(
+          (via) => Marker(
+            point: LatLng(via.lat!, via.lng!),
+            width: 12,
+            height: 12,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.warning,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+            ),
+          ),
+        )
+        .toList();
+
     if (route != null && route.points.isNotEmpty) {
       final first = route.points.first;
       final last = route.points.last;
@@ -902,16 +970,17 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
           point: LatLng(first.lat, first.lng),
           width: 34,
           height: 34,
-          child:
-              const Icon(Icons.trip_origin, color: AppColors.primary, size: 22),
+          child: const Icon(Icons.play_circle_fill,
+              color: AppColors.primary, size: 22),
         ),
         Marker(
           point: LatLng(last.lat, last.lng),
           width: 34,
           height: 34,
           child:
-              const Icon(Icons.location_on, color: AppColors.accent, size: 24),
+              const Icon(Icons.flag_circle, color: AppColors.accent, size: 24),
         ),
+        ...viaMarkers,
       ];
     }
 
@@ -924,20 +993,21 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
           point: LatLng(trip.departureLat!, trip.departureLng!),
           width: 34,
           height: 34,
-          child:
-              const Icon(Icons.trip_origin, color: AppColors.primary, size: 22),
+          child: const Icon(Icons.play_circle_fill,
+              color: AppColors.primary, size: 22),
         ),
         Marker(
           point: LatLng(trip.arrivalLat!, trip.arrivalLng!),
           width: 34,
           height: 34,
           child:
-              const Icon(Icons.location_on, color: AppColors.accent, size: 24),
+              const Icon(Icons.flag_circle, color: AppColors.accent, size: 24),
         ),
+        ...viaMarkers,
       ];
     }
 
-    return const [];
+    return viaMarkers;
   }
 
   LatLng _initialMapPosition(TripRouteSnapshot? route, Trip trip) {
@@ -1004,6 +1074,32 @@ class _MiniInfoChip extends StatelessWidget {
   }
 }
 
+class _PassengerVisibilityPill extends StatelessWidget {
+  final bool canViewPassengerList;
+
+  const _PassengerVisibilityPill({required this.canViewPassengerList});
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = canViewPassengerList;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: enabled ? AppColors.secondaryLight : AppColors.neutralBorder,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        enabled ? 'Liste açık' : 'Liste kısıtlı',
+        style: TextStyle(
+          color: enabled ? const Color(0xFF166534) : const Color(0xFF374151),
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 class _PassengerRow extends StatelessWidget {
   final TripPassenger passenger;
 
@@ -1011,6 +1107,55 @@ class _PassengerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final avatar = CircleAvatar(
+      radius: 16,
+      backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+      backgroundImage: passenger.profilePhotoUrl != null
+          ? NetworkImage(passenger.profilePhotoUrl!)
+          : null,
+      child: passenger.profilePhotoUrl == null
+          ? Text(
+              passenger.fullName.isNotEmpty
+                  ? passenger.fullName[0].toUpperCase()
+                  : '?',
+              style: const TextStyle(
+                  color: AppColors.primary, fontWeight: FontWeight.w700),
+            )
+          : null,
+    );
+    final ratingBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.glassBg,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.glassStroke),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.star, size: 14, color: AppColors.warning),
+          const SizedBox(width: 4),
+          Text(
+            passenger.ratingAvg.toStringAsFixed(1),
+            style:
+                const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+    final seatsBadge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.glassBg,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppColors.glassStroke),
+      ),
+      child: Text(
+        '${passenger.seats} koltuk',
+        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+      ),
+    );
+
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -1018,44 +1163,56 @@ class _PassengerRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.glassStroke),
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-            backgroundImage: passenger.profilePhotoUrl != null
-                ? NetworkImage(passenger.profilePhotoUrl!)
-                : null,
-            child: passenger.profilePhotoUrl == null
-                ? Text(
-                    passenger.fullName.isNotEmpty
-                        ? passenger.fullName[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                        color: AppColors.primary, fontWeight: FontWeight.w700),
-                  )
-                : null,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(passenger.fullName,
-                style: const TextStyle(
-                    color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
-          ),
-          Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 430;
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    avatar,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        passenger.fullName,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [ratingBadge, seatsBadge],
+                ),
+              ],
+            );
+          }
+          return Row(
             children: [
-              const Icon(Icons.star, size: 14, color: AppColors.warning),
-              const SizedBox(width: 4),
-              Text(passenger.ratingAvg.toStringAsFixed(1),
+              avatar,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  passenger.fullName,
                   style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 12)),
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              ratingBadge,
+              const SizedBox(width: 8),
+              seatsBadge,
             ],
-          ),
-          const SizedBox(width: 10),
-          Text('${passenger.seats} koltuk',
-              style: const TextStyle(
-                  color: AppColors.textSecondary, fontSize: 12)),
-        ],
+          );
+        },
       ),
     );
   }

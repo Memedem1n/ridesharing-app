@@ -1,6 +1,6 @@
 ﻿# Agent Handoff (ridesharing-app)
 
-Last updated: 2026-02-10
+Last updated: 2026-02-11
 
 ## Scope
 This handoff captures the current technical state of the ridesharing app at:
@@ -234,12 +234,82 @@ C:\Users\barut\workspace\ridesharing-app
   - API smoke: `GET /v1/health` ✅, `POST /v1/routes/estimate` ✅
 - Operational note:
   - White/blank web page after deploy is usually host rewrite/cache configuration. Keep SPA fallback (`/* -> /index.html`) and purge cache after release.
+- Conversation continuation (2026-02-10, routing QA pass):
+  - Brought local TR OSRM dataset online via `scripts/osrm/setup-tr.ps1` and confirmed generated artifacts under `backend/.data/osrm`.
+  - Hardened `scripts/osrm/setup-tr.ps1` to fail fast when any docker command fails (previously could print `Done` after docker daemon errors).
+  - Ran local routing smoke across 5 city pairs (`Istanbul-Ankara`, `Izmir-Antalya`, `Bursa-Eskisehir`, `Adana-Gaziantep`, `Trabzon-Samsun`):
+    - `POST /v1/routes/estimate` passed 5/5 with positive distance/duration/cost.
+    - `POST /v1/trips/route-preview` passed 5/5 with at least one alternative and valid route points.
+  - Ran Flutter SPA deep-link smoke with Playwright on local static host:
+    - `/` and `/search` direct open passed.
+    - Hard refresh on both routes passed.
+    - No page/console runtime errors were observed in the smoke output.
+    - Artifact: `output/playwright/deep-link-smoke.json`.
+  - Finalized low-result autocomplete fallback UX:
+    - Added explicit "no results" helper message in `mobile/lib/core/widgets/location_autocomplete_field.dart`.
+- Conversation continuation (2026-02-10, parity v2 + Android emulator CI):
+  - Completed create-trip parity v2 polish:
+    - route selection cards improved (`Secili` state + direct-route fallback label)
+    - route-step helper/copy cleanups and pickup-policy state preservation confirmed
+    - file: `mobile/lib/features/trips/presentation/create_trip_screen.dart`
+  - Completed trip-detail parity v2 polish:
+    - responsive passenger roster row for compact widths
+    - occupancy/status chips added in `Yolcu Durumu`
+    - content max-width constraint on large screens for readability
+    - file: `mobile/lib/features/trips/presentation/trip_detail_screen.dart`
+  - Completed web desktop parity v2 pass:
+    - home/search desktop top bars and CTA hierarchy tightened
+    - search results list/map spacing, card depth, and CTA visibility improved
+    - files:
+      - `mobile/lib/features/home/presentation/home_screen.dart`
+      - `mobile/lib/features/search/presentation/search_results_screen.dart`
+  - Added repeatable Android emulator smoke path:
+    - script: `scripts/android/emulator-smoke.sh`
+    - CI job: `mobile-android-emulator-smoke` (Android 34 emulator + app launch check)
+    - workflow updates: `.github/workflows/ci.yml`
+  - Validation rerun:
+    - `flutter analyze` ✅
+    - `flutter test` ✅
+
+## Conversation summary (2026-02-11)
+- Fixed Flutter web blank/spinner issue caused by running `flutter run -d web-server` (AssetManifest 404).
+  - Backend now serves the built Flutter web output from `mobile/build/web` via `@nestjs/serve-static`.
+  - Added SPA fallback middleware so deep links like `/login` and `/search` return `index.html` on hard refresh.
+  - Verified locally:
+    - `GET /` returns `index.html` (200)
+    - `GET /login` returns `index.html` (200)
+    - `GET /assets/AssetManifest.bin.json` returns 200
+  - Backend dev server was started in background with logs under `backend/.logs/api-dev.log`.
+- Conversation continuation (2026-02-11, stabilization + contract sync):
+  - Completed UX backlog items from previous checkpoint:
+    - web illustration assets replaced with dedicated `mobile/assets/illustrations/web/*` images.
+    - trip-detail messaging flow opens/creates chat without booking for authenticated passengers (`openTripConversation`).
+    - vehicle create now enforces `registrationNumber` + registration image and relative-owner rules end-to-end.
+    - route/map polish completed (fit bounds, start/end + via-city markers, provider/source text removed from estimate card).
+  - Added web-safe location autocomplete proxy path:
+    - backend `GET /v1/locations/search` (Nominatim proxy with TR filtering)
+    - mobile web location service now uses backend proxy route.
+  - Synced API contract documentation:
+    - `docs/api/OPENAPI_SPEC.yaml` updated for vehicle ownership fields, `/vehicles/{id}`, `/routes/estimate`, `/locations/search`, and richer route preview schemas.
+  - Added backend test coverage for vehicle ownership/registration guardrails:
+    - `backend/src/application/services/vehicles/vehicles.service.spec.ts` (7 tests).
+  - Fixed mojibake currency text in trip detail totals (`TL ...`).
+  - Validation rerun:
+    - backend `npm run type-check` ✅
+    - backend `npm test -- --runInBand` ✅ (`7/7` suites, `52/52` tests)
+    - mobile `flutter analyze` ✅
+    - mobile `flutter test` ✅
+  - Remaining manual QA:
+    - web auth/menu behavior consistency and demo-user login smoke should be rechecked interactively in browser.
+    - local API boot/login smoke is blocked while PostgreSQL is down (`P1001 localhost:5432`); bring DB up first (`docker compose up -d postgres`).
+    - local `docker compose up -d postgres` attempt failed in this session because Docker Desktop engine pipe was unavailable.
 
 ## Next session start here
-1. Verify production host rewrite/cache policy with one deep-link smoke test (`/search` direct open).
-2. Bring OSRM TR dataset online in target host using `scripts/osrm/setup-tr.ps1`.
-3. Confirm `/v1/routes/estimate` and `/v1/trips/route-preview` response quality against real city pairs.
-4. Review search/autocomplete UX and finalize fallback messaging for low-result regions.
+1. Web auth/menu stabilization + demo-user login smoke (manual browser QA + fixes).
+2. iOS release setup: real bundle identifier + App Store Connect key + signing profiles (paid Apple/App Store Connect dependency).
+3. Payment system (Iyzico): live payment/refund/tokenization + wallet reconciliation hardening.
+4. Admin web panel UI: moderation and verification workflows over existing `/v1/admin` APIs.
+5. E-Devlet integration: legal/process-aligned automatic document checks.
 
 ## Selected skill set (use for future work)
 Repo skills:

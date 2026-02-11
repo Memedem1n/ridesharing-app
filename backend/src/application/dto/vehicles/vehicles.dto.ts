@@ -1,11 +1,60 @@
-import { IsString, IsNotEmpty, IsNumber, IsBoolean, IsOptional, Min, Max } from 'class-validator';
+import {
+    IsString,
+    IsNotEmpty,
+    IsNumber,
+    IsBoolean,
+    IsOptional,
+    Min,
+    Max,
+    IsEnum,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+export enum VehicleOwnershipType {
+    SELF = 'self',
+    RELATIVE = 'relative',
+}
+
+export enum VehicleOwnerRelation {
+    FATHER = 'father',
+    MOTHER = 'mother',
+    UNCLE = 'uncle',
+    AUNT = 'aunt',
+    SIBLING = 'sibling',
+    SPOUSE = 'spouse',
+    GRANDPARENT = 'grandparent',
+}
 
 export class CreateVehicleDto {
     @ApiProperty({ example: '34ABC123' })
     @IsNotEmpty()
     @IsString()
     licensePlate: string;
+
+    @ApiProperty({ example: '34-AB-123456' })
+    @IsNotEmpty()
+    @IsString()
+    registrationNumber: string;
+
+    @ApiProperty({ enum: VehicleOwnershipType, default: VehicleOwnershipType.SELF })
+    @IsNotEmpty()
+    @IsEnum(VehicleOwnershipType)
+    ownershipType: VehicleOwnershipType;
+
+    @ApiPropertyOptional({ example: 'Ahmet Yilmaz' })
+    @IsOptional()
+    @IsString()
+    ownerFullName?: string;
+
+    @ApiPropertyOptional({ enum: VehicleOwnerRelation })
+    @IsOptional()
+    @IsEnum(VehicleOwnerRelation)
+    ownerRelation?: VehicleOwnerRelation;
+
+    @ApiProperty({ example: '/uploads/registrations/sample.png' })
+    @IsNotEmpty()
+    @IsString()
+    registrationImage: string;
 
     @ApiProperty({ example: 'Toyota' })
     @IsNotEmpty()
@@ -80,6 +129,26 @@ export class UpdateVehicleDto {
     @IsOptional()
     @IsString()
     registrationImage?: string;
+
+    @ApiPropertyOptional({ enum: VehicleOwnershipType })
+    @IsOptional()
+    @IsEnum(VehicleOwnershipType)
+    ownershipType?: VehicleOwnershipType;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    ownerFullName?: string;
+
+    @ApiPropertyOptional({ enum: VehicleOwnerRelation })
+    @IsOptional()
+    @IsEnum(VehicleOwnerRelation)
+    ownerRelation?: VehicleOwnerRelation;
+
+    @ApiPropertyOptional()
+    @IsOptional()
+    @IsString()
+    registrationNumber?: string;
 }
 
 export class VehicleResponseDto {
@@ -88,6 +157,18 @@ export class VehicleResponseDto {
 
     @ApiProperty()
     licensePlate: string;
+
+    @ApiPropertyOptional()
+    registrationNumber?: string;
+
+    @ApiProperty({ enum: VehicleOwnershipType })
+    ownershipType: VehicleOwnershipType;
+
+    @ApiPropertyOptional()
+    ownerFullName?: string;
+
+    @ApiPropertyOptional({ enum: VehicleOwnerRelation })
+    ownerRelation?: VehicleOwnerRelation;
 
     @ApiProperty()
     brand: string;

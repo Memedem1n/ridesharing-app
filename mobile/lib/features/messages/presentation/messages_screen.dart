@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../core/providers/message_provider.dart';
 import '../../../core/theme/app_theme.dart';
 
@@ -17,8 +18,13 @@ class MessagesScreen extends ConsumerWidget {
       body: Container(
         decoration: const BoxDecoration(gradient: AppColors.darkGradient),
         child: conversationsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-          error: (e, _) => Center(child: Text('Hata: $e', style: const TextStyle(color: AppColors.error))),
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          ),
+          error: (e, _) => Center(
+            child: Text('Hata: $e',
+                style: const TextStyle(color: AppColors.error)),
+          ),
           data: (conversations) {
             if (conversations.isEmpty) {
               return Center(
@@ -31,15 +37,28 @@ class MessagesScreen extends ConsumerWidget {
                       decoration: BoxDecoration(
                         color: AppColors.primary.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.3),
+                        ),
                       ),
-                      child: const Icon(Icons.chat_bubble_outline, size: 40, color: AppColors.primary),
+                      child: const Icon(
+                        Icons.chat_bubble_outline,
+                        size: 40,
+                        color: AppColors.primary,
+                      ),
                     ).animate().scale(),
                     const SizedBox(height: 24),
-                    const Text('Henüz mesajınız yok', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                    const Text(
+                      'Henüz mesajınız yok',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     const Text(
-                      'Yolculuk rezervasyonu yaptığınızda\nsürücüyle mesajlaşabilirsiniz',
+                      'İlan detayındaki Mesaj butonundan\nrezervasyon yapmadan konuşma başlatabilirsiniz.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: AppColors.textSecondary),
                     ),
@@ -72,7 +91,9 @@ class _ConversationTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => context.push('/chat/${conversation.id}?name=${Uri.encodeComponent(conversation.otherName)}&trip=${Uri.encodeComponent(conversation.tripInfo ?? '')}'),
+      onTap: () => context.push(
+        '/chat/${conversation.id}?name=${Uri.encodeComponent(conversation.otherName)}&trip=${Uri.encodeComponent(conversation.tripInfo ?? '')}',
+      ),
       child: GlassContainer(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -82,10 +103,19 @@ class _ConversationTile extends StatelessWidget {
                 CircleAvatar(
                   radius: 28,
                   backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                  backgroundImage: conversation.otherPhoto != null ? NetworkImage(conversation.otherPhoto!) : null,
-                  child: conversation.otherPhoto == null 
-                    ? Text(conversation.otherName[0], style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 18))
-                    : null,
+                  backgroundImage: conversation.otherPhoto != null
+                      ? NetworkImage(conversation.otherPhoto!)
+                      : null,
+                  child: conversation.otherPhoto == null
+                      ? Text(
+                          conversation.otherName[0],
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        )
+                      : null,
                 ),
                 if (conversation.unreadCount > 0)
                   Positioned(
@@ -99,7 +129,11 @@ class _ConversationTile extends StatelessWidget {
                       ),
                       child: Text(
                         conversation.unreadCount.toString(),
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -113,23 +147,35 @@ class _ConversationTile extends StatelessWidget {
                   Row(
                     children: [
                       Expanded(
-                        child: Text(conversation.otherName, 
+                        child: Text(
+                          conversation.otherName,
                           style: TextStyle(
-                            color: AppColors.textPrimary, 
-                            fontWeight: conversation.unreadCount > 0 ? FontWeight.bold : FontWeight.w500,
+                            color: AppColors.textPrimary,
+                            fontWeight: conversation.unreadCount > 0
+                                ? FontWeight.bold
+                                : FontWeight.w500,
                           ),
                         ),
                       ),
                       if (conversation.lastMessageTime != null)
                         Text(
                           _formatTime(conversation.lastMessageTime!),
-                          style: const TextStyle(color: AppColors.textTertiary, fontSize: 12),
+                          style: const TextStyle(
+                            color: AppColors.textTertiary,
+                            fontSize: 12,
+                          ),
                         ),
                     ],
                   ),
                   if (conversation.tripInfo != null) ...[
                     const SizedBox(height: 2),
-                    Text(conversation.tripInfo!, style: const TextStyle(color: AppColors.primary, fontSize: 12)),
+                    Text(
+                      conversation.tripInfo!,
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 12,
+                      ),
+                    ),
                   ],
                   if (conversation.lastMessage != null) ...[
                     const SizedBox(height: 4),
@@ -138,7 +184,9 @@ class _ConversationTile extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: conversation.unreadCount > 0 ? AppColors.textPrimary : AppColors.textSecondary,
+                        color: conversation.unreadCount > 0
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
                         fontSize: 13,
                       ),
                     ),
@@ -156,7 +204,7 @@ class _ConversationTile extends StatelessWidget {
   String _formatTime(DateTime time) {
     final now = DateTime.now();
     final diff = now.difference(time);
-    
+
     if (diff.inMinutes < 60) {
       return '${diff.inMinutes} dk';
     } else if (diff.inHours < 24) {

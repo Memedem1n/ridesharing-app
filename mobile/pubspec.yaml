@@ -87,4 +87,7 @@ flutter:
   assets:
     - assets/images/ID-Verification-1.jpg
     - assets/branding/yoliva/icon-routepin-asphalt-soft-curve-app.svg
+    - assets/illustrations/web/hero_rideshare.png
+    - assets/illustrations/web/safety_trust.png
+    - assets/illustrations/web/share_cost.png
 

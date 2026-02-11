@@ -1,9 +1,12 @@
 import 'dart:io';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../features/vehicles/domain/vehicle_models.dart';
 import 'auth_provider.dart';
 import '../api/api_client.dart';
-import '../../features/vehicles/domain/vehicle_models.dart';
 
 class VehicleService {
   final Dio _dio = Dio(BaseOptions(baseUrl: baseUrl));
@@ -17,7 +20,7 @@ class VehicleService {
       );
       final List<dynamic> data = response.data;
       return data.map((json) => Vehicle.fromJson(json)).toList();
-    } catch (e) {
+    } catch (_) {
       return [];
     }
   }
@@ -36,11 +39,35 @@ class VehicleService {
 
       return response.data['url'];
     } catch (e) {
-      throw Exception('Belge yüklenemedi: $e');
+      throw Exception('Belge yuklenemedi: $e');
     }
   }
 
-  Future<bool> updateVehicle(String id, Map<String, dynamic> data, String token) async {
+  Future<String?> uploadRegistrationXFile(XFile file, String token) async {
+    try {
+      final bytes = await file.readAsBytes();
+      final filename = file.name.isNotEmpty ? file.name : 'registration.jpg';
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+      });
+
+      final response = await _uploadDio.post(
+        '/verification/upload-vehicle-registration',
+        data: formData,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      return response.data['url'];
+    } catch (e) {
+      throw Exception('Belge yuklenemedi: $e');
+    }
+  }
+
+  Future<bool> updateVehicle(
+    String id,
+    Map<String, dynamic> data,
+    String token,
+  ) async {
     try {
       await _dio.put(
         '/vehicles/$id',
@@ -48,12 +75,11 @@ class VehicleService {
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
       return true;
-    } catch (e) {
+    } catch (_) {
       return false;
     }
   }
-  
-  // Create vehicle
+
   Future<Vehicle> createVehicle(Map<String, dynamic> data, String token) async {
     final response = await _dio.post(
       '/vehicles',
