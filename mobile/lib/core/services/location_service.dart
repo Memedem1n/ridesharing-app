@@ -25,35 +25,30 @@ class LocationService {
   Future<List<LocationSuggestion>> search(String query) async {
     if (query.trim().length < 2) return [];
 
-    final uri = kIsWeb
-        ? Uri.parse('$baseUrl/locations/search')
-            .replace(queryParameters: {'q': query})
-        : Uri.https('nominatim.openstreetmap.org', '/search', {
-            'format': 'jsonv2',
-            'q': query,
-            'addressdetails': '1',
-            'limit': '6',
-            'countrycodes': 'tr',
-            'accept-language': 'tr',
-          });
+    final backendUri = Uri.parse('$baseUrl/locations/search')
+        .replace(queryParameters: {'q': query});
 
     final headers = <String, String>{
       'Accept': 'application/json',
     };
-    // Browsers do not allow custom User-Agent headers.
     if (!kIsWeb) {
       headers['User-Agent'] = 'yoliva-ridesharing/1.0 (local-dev)';
     }
 
-    late final http.Response response;
+    http.Response response;
     try {
-      response = await _client.get(uri, headers: headers);
+      response = await _client.get(backendUri, headers: headers);
     } catch (_) {
-      return [];
+      if (kIsWeb) return [];
+      response = await _fallbackNominatim(query, headers);
     }
 
     if (response.statusCode != 200) {
-      return [];
+      if (kIsWeb) return [];
+      response = await _fallbackNominatim(query, headers);
+      if (response.statusCode != 200) {
+        return [];
+      }
     }
 
     dynamic data;
@@ -67,8 +62,7 @@ class LocationService {
     return data
         .map<LocationSuggestion>((raw) {
           final map = raw as Map<String, dynamic>;
-          if (kIsWeb) {
-            // Backend proxy already filters to TR and returns normalized fields.
+          if (map.containsKey('displayName')) {
             final city = map['city']?.toString() ?? '';
             final lat = double.tryParse(map['lat']?.toString() ?? '') ?? 0;
             final lon = double.tryParse(map['lon']?.toString() ?? '') ?? 0;
@@ -111,5 +105,20 @@ class LocationService {
         })
         .where((s) => s.displayName.isNotEmpty && (s.lat != 0 || s.lon != 0))
         .toList();
+  }
+
+  Future<http.Response> _fallbackNominatim(
+    String query,
+    Map<String, String> headers,
+  ) {
+    final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
+      'format': 'jsonv2',
+      'q': query,
+      'addressdetails': '1',
+      'limit': '6',
+      'countrycodes': 'tr',
+      'accept-language': 'tr',
+    });
+    return _client.get(uri, headers: headers);
   }
 }

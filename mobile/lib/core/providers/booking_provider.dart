@@ -54,11 +54,21 @@ class BookingActionsNotifier extends StateNotifier<AsyncValue<void>> {
 
   BookingActionsNotifier(this._repository, this._ref) : super(const AsyncValue.data(null));
 
-  Future<Booking?> createBooking(String tripId, int seatCount) async {
+  Future<Booking?> createBooking(
+    String tripId,
+    int seatCount, {
+    String? requestedFrom,
+    String? requestedTo,
+  }) async {
     state = const AsyncValue.loading();
     try {
       final booking = await _repository.createBooking(
-        CreateBookingRequest(tripId: tripId, seatCount: seatCount),
+        CreateBookingRequest(
+          tripId: tripId,
+          seatCount: seatCount,
+          requestedFrom: requestedFrom,
+          requestedTo: requestedTo,
+        ),
       );
       state = const AsyncValue.data(null);
       _ref.invalidate(myBookingsProvider);

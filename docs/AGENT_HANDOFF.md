@@ -1,6 +1,6 @@
 ﻿# Agent Handoff (ridesharing-app)
 
-Last updated: 2026-02-11
+Last updated: 2026-02-12
 
 ## Scope
 This handoff captures the current technical state of the ridesharing app at:
@@ -304,12 +304,43 @@ C:\Users\barut\workspace\ridesharing-app
     - local API boot/login smoke is blocked while PostgreSQL is down (`P1001 localhost:5432`); bring DB up first (`docker compose up -d postgres`).
     - local `docker compose up -d postgres` attempt failed in this session because Docker Desktop engine pipe was unavailable.
 
+## Conversation summary (2026-02-12)
+- Continued implementation on search/matching, booking pricing context, and web/mobile UX polish.
+- Backend feature additions kept in-progress state (already modified in working tree):
+  - fuzzy/partial route matching and contextual segment pricing in trip search
+  - contextual trip-detail query support (`GET /trips/:id?from=...&to=...`)
+  - booking request segment fields (`requestedFrom`, `requestedTo`) and segment-aware pricing data
+  - location search service overhaul with memory cache + fuzzy normalization
+- Mobile feature additions kept in-progress state (already modified in working tree):
+  - contextual trip/booking navigation (`from/to/sp` query propagation)
+  - search results partial-match labels and segment route rendering
+  - home map density points for active route visualization
+  - create-trip route step readability and web step navigation controls
+- Stabilization fixes completed in this pass:
+  - fixed Flutter compile error in `mobile/lib/core/services/location_service.dart` (`late final` re-assignment)
+  - restored UTF-8 text integrity in:
+    - `mobile/lib/features/trips/presentation/create_trip_screen.dart`
+    - `mobile/lib/features/home/presentation/home_screen.dart`
+  - improved route-selection readability (distance/duration text contrast) in `mobile/lib/features/trips/presentation/create_trip_screen.dart`
+  - fixed missing web SVG assets by adding them to `mobile/pubspec.yaml`
+- Validation run results (2026-02-12):
+  - backend `npm run type-check` ✅
+  - backend `npm test -- --runInBand src/application/services/trips/trips.service.spec.ts` ✅
+  - backend `npm test -- --runInBand src/application/services/bookings/bookings.service.spec.ts` ✅
+  - mobile `flutter analyze` ✅
+  - mobile `flutter build apk --debug` ✅
+  - web `flutter run -d chrome` starts and UI opens after asset fix ✅
+- Important open issue discovered:
+  - `/v1/trips` response currently contains invalid UTF-8 bytes in some seeded text fields (seen as `Bad UTF-8 encoding (U+FFFD)` in Flutter web logs). This should be cleaned at DB/data source level before final UX sign-off.
+- User-request continuity note:
+  - New request to build a usable pitch deck under `C:\Users\barut\workspace\Sunumlar` was acknowledged, but implementation did not start due user interruption.
+
 ## Next session start here
-1. Web auth/menu stabilization + demo-user login smoke (manual browser QA + fixes).
-2. iOS release setup: real bundle identifier + App Store Connect key + signing profiles (paid Apple/App Store Connect dependency).
-3. Payment system (Iyzico): live payment/refund/tokenization + wallet reconciliation hardening.
-4. Admin web panel UI: moderation and verification workflows over existing `/v1/admin` APIs.
-5. E-Devlet integration: legal/process-aligned automatic document checks.
+1. Clean invalid UTF-8 trip data in DB/seeds and re-run web smoke on `/`, `/search`, `/trip/:id`.
+2. Continue and finalize in-progress route matching + segment pricing change set in backend/mobile, then run full backend tests + mobile analyze/test.
+3. Verify web auth/menu and reservations/profile entrypoints manually after data cleanup.
+4. Start requested pitch deck implementation in `C:\Users\barut\workspace\Sunumlar` (React app scaffold + provided component integration).
+5. Resume product backlog items: iOS release setup, Iyzico live flow, admin panel UI, E-Devlet integration.
 
 ## Selected skill set (use for future work)
 Repo skills:

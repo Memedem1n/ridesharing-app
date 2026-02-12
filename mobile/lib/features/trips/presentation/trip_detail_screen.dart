@@ -24,8 +24,15 @@ import '../../../features/bookings/domain/booking_models.dart' hide Trip;
 
 class TripDetailScreen extends ConsumerStatefulWidget {
   final String tripId;
+  final String? requestedFrom;
+  final String? requestedTo;
 
-  const TripDetailScreen({super.key, required this.tripId});
+  const TripDetailScreen({
+    super.key,
+    required this.tripId,
+    this.requestedFrom,
+    this.requestedTo,
+  });
 
   @override
   ConsumerState<TripDetailScreen> createState() => _TripDetailScreenState();
@@ -199,7 +206,18 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
   Future<void> _book(Trip trip) async {
     final isAuthenticated = ref.read(isAuthenticatedProvider);
     if (!isAuthenticated) {
-      final next = Uri.encodeComponent('/booking/${trip.id}');
+      final nextRoute = Uri(
+        path: '/booking/${trip.id}',
+        queryParameters: {
+          if ((widget.requestedFrom ?? '').trim().isNotEmpty)
+            'from': widget.requestedFrom!.trim(),
+          if ((widget.requestedTo ?? '').trim().isNotEmpty)
+            'to': widget.requestedTo!.trim(),
+          if (trip.segmentPricePerSeat != null)
+            'sp': trip.segmentPricePerSeat!.toStringAsFixed(2),
+        },
+      ).toString();
+      final next = Uri.encodeComponent(nextRoute);
       context.push('/login?next=$next');
       return;
     }
@@ -220,7 +238,12 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
 
     final booking = await ref
         .read(bookingActionsProvider.notifier)
-        .createBooking(trip.id, _selectedSeats);
+        .createBooking(
+          trip.id,
+          _selectedSeats,
+          requestedFrom: widget.requestedFrom,
+          requestedTo: widget.requestedTo,
+        );
     if (!mounted) return;
 
     if (booking != null) {
@@ -391,7 +414,15 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tripAsync = ref.watch(tripDetailProvider(widget.tripId));
+    final tripAsync = ref.watch(
+      tripDetailWithContextProvider(
+        TripDetailQuery(
+          tripId: widget.tripId,
+          from: widget.requestedFrom,
+          to: widget.requestedTo,
+        ),
+      ),
+    );
     final bookingsAsync = ref.watch(myBookingsProvider);
 
     return Scaffold(

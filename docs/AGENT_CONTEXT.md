@@ -1,6 +1,6 @@
 ﻿# Agent Context (ridesharing-app)
 
-Last updated: 2026-02-10
+Last updated: 2026-02-12
 
 Purpose
 This file is the short on-ramp for new agents. Read this instead of scanning the whole repo.
@@ -51,6 +51,8 @@ API Basics
 - Auth OTP: `POST /auth/send-otp`, `POST /auth/verify-otp` (returns tokens)
 - Device token: `POST /users/me/device-token` (stored under user preferences)
 - Guest browsing rule: mobile/web can browse home/search/trip-detail without login; reservation/protected routes require auth and redirect via `next` query.
+- Trip detail context query: `GET /trips/:id` optionally accepts `from` and `to` for partial-route pricing context.
+- Location autocomplete path for web/mobile: `GET /locations/search` (backend proxy + fuzzy suggestions).
 
 Agent Workflow
 - Log every change set in `docs/AGENT_LOG.md` using `scripts/agent-log.ps1`.

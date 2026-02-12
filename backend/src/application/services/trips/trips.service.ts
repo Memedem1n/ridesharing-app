@@ -31,6 +31,23 @@ import { RoutingProviderResolver } from "@infrastructure/maps/routing-provider-r
 import { v4 as uuid } from "uuid";
 import axios from "axios";
 
+type TripSearchMatch = {
+  matchType: "full" | "partial";
+  segmentDeparture: string;
+  segmentArrival: string;
+  segmentDistanceKm: number;
+  segmentRatio: number;
+  segmentPricePerSeat: number;
+};
+
+type TripStop = {
+  city: string;
+  district?: string;
+  lat?: number;
+  lng?: number;
+  searchText: string;
+};
+
 @Injectable()
 export class TripsService {
   private readonly logger = new Logger(TripsService.name);
@@ -397,18 +414,11 @@ export class TripsService {
     ) {
       throw new BadRequestException("Koltuk sayisi gecersiz");
     }
-    const skip = (page - 1) * limit;
+    const hasFrom = typeof from === "string" && from.trim().length > 0;
+    const hasTo = typeof to === "string" && to.trim().length > 0;
+    const hasLocationQuery = hasFrom || hasTo;
 
-    const where: any = {
-      status: "published",
-    };
-
-    if (from) {
-      where.departureCity = { contains: from, mode: "insensitive" };
-    }
-    if (to) {
-      where.arrivalCity = { contains: to, mode: "insensitive" };
-    }
+    const where: any = { status: "published" };
     if (date) {
       const startOfDay = new Date(`${date}T00:00:00.000Z`);
       const endOfDay = new Date(`${date}T23:59:59.999Z`);
@@ -436,33 +446,83 @@ export class TripsService {
       where.womenOnly = womenOnly;
     }
 
+    const candidateTake = hasLocationQuery
+      ? Math.max(limit * 8, 250)
+      : limit;
+    const skip = hasLocationQuery ? 0 : (page - 1) * limit;
+
     const [trips, total] = await Promise.all([
       this.prisma.trip.findMany({
         where,
         skip,
-        take: limit,
+        take: candidateTake,
         orderBy: { departureTime: "asc" },
         include: {
           driver: true,
           vehicle: true,
         },
       }),
-      this.prisma.trip.count({ where }),
+      hasLocationQuery
+        ? Promise.resolve(0)
+        : this.prisma.trip.count({ where }),
     ]);
 
+    let mappedTrips = trips.map((trip) => this.mapToResponse(trip));
+
+    if (hasLocationQuery) {
+      mappedTrips = mappedTrips
+        .map((trip) => {
+          const match = this.resolveTripSearchMatch(trip, from, to);
+          if (!match) return null;
+          return this.applySearchMatchToTrip(trip, match);
+        })
+        .filter(Boolean) as TripResponseDto[];
+
+      mappedTrips.sort((a, b) => {
+        if (a.matchType !== b.matchType) {
+          return a.matchType === "full" ? -1 : 1;
+        }
+        return (
+          new Date(a.departureTime).getTime() -
+          new Date(b.departureTime).getTime()
+        );
+      });
+
+      const totalMatched = mappedTrips.length;
+      const start = (page - 1) * limit;
+      const end = start + limit;
+      const pagedTrips = mappedTrips.slice(start, end);
+
+      const result: TripListResponseDto = {
+        trips: pagedTrips,
+        total: totalMatched,
+        page,
+        limit,
+        totalPages: Math.max(1, Math.ceil(totalMatched / limit)),
+      };
+
+      await this.setSearchCache(cacheKey, result);
+      return result;
+    }
+
     const result: TripListResponseDto = {
-      trips: trips.map((trip) => this.mapToResponse(trip)),
+      trips: mappedTrips,
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.max(1, Math.ceil(total / limit)),
     };
 
     await this.setSearchCache(cacheKey, result);
     return result;
   }
 
-  async findById(id: string, viewerId?: string): Promise<TripResponseDto> {
+  async findById(
+    id: string,
+    viewerId?: string,
+    from?: string,
+    to?: string,
+  ): Promise<TripResponseDto> {
     const trip = await this.prisma.trip.findUnique({
       where: { id },
       include: {
@@ -526,7 +586,7 @@ export class TripsService {
       { confirmedSeats: 0, passengerCount: 0 },
     );
 
-    const response = this.mapToResponse(trip, {
+    let response = this.mapToResponse(trip, {
       canViewPassengerList,
       canViewLiveLocation,
       occupancy,
@@ -540,6 +600,11 @@ export class TripsService {
           }))
         : undefined,
     });
+
+    const contextualMatch = this.resolveTripSearchMatch(response, from, to);
+    if (contextualMatch) {
+      response = this.applySearchMatchToTrip(response, contextualMatch);
+    }
 
     // Get bus reference price from cache
     const busPrice = await this.getBusReferencePrice(
@@ -786,8 +851,8 @@ export class TripsService {
 
   private buildSearchCacheKey(query: SearchTripsDto): string {
     const keyPayload = {
-      from: query.from?.toLowerCase() || "",
-      to: query.to?.toLowerCase() || "",
+      from: this.normalizeForSearch(query.from || ""),
+      to: this.normalizeForSearch(query.to || ""),
       date: query.date || "",
       seats: query.seats || "",
       type: query.type || "",
@@ -855,6 +920,7 @@ export class TripsService {
       }>;
       canViewPassengerList?: boolean;
       canViewLiveLocation?: boolean;
+      searchMatch?: TripSearchMatch;
     },
   ): TripResponseDto {
     const preferences = this.parseTripPreferences(trip.preferences);
@@ -906,7 +972,14 @@ export class TripsService {
       departureTime: trip.departureTime,
       estimatedArrivalTime: trip.estimatedArrivalTime,
       availableSeats: trip.availableSeats,
-      pricePerSeat: Number(trip.pricePerSeat),
+      pricePerSeat:
+        options?.searchMatch?.segmentPricePerSeat ?? Number(trip.pricePerSeat),
+      matchType: options?.searchMatch?.matchType,
+      segmentDeparture: options?.searchMatch?.segmentDeparture,
+      segmentArrival: options?.searchMatch?.segmentArrival,
+      segmentDistanceKm: options?.searchMatch?.segmentDistanceKm,
+      segmentRatio: options?.searchMatch?.segmentRatio,
+      segmentPricePerSeat: options?.searchMatch?.segmentPricePerSeat,
       allowsPets: trip.allowsPets,
       allowsCargo: trip.allowsCargo,
       womenOnly: trip.womenOnly,
@@ -922,6 +995,306 @@ export class TripsService {
       canViewLiveLocation: options?.canViewLiveLocation,
       createdAt: trip.createdAt,
     };
+  }
+
+  private applySearchMatchToTrip(
+    trip: TripResponseDto,
+    match: TripSearchMatch,
+  ): TripResponseDto {
+    return {
+      ...trip,
+      pricePerSeat: match.segmentPricePerSeat,
+      matchType: match.matchType,
+      segmentDeparture: match.segmentDeparture,
+      segmentArrival: match.segmentArrival,
+      segmentDistanceKm: match.segmentDistanceKm,
+      segmentRatio: match.segmentRatio,
+      segmentPricePerSeat: match.segmentPricePerSeat,
+    };
+  }
+
+  private resolveTripSearchMatch(
+    trip: TripResponseDto,
+    from?: string,
+    to?: string,
+  ): TripSearchMatch | null {
+    const fromQuery = String(from || "").trim();
+    const toQuery = String(to || "").trim();
+    const hasFrom = fromQuery.length > 0;
+    const hasTo = toQuery.length > 0;
+    if (!hasFrom && !hasTo) return null;
+
+    const stops = this.buildTripStops(trip);
+    if (stops.length < 2) return null;
+
+    const startIndex = hasFrom
+      ? this.findMatchingStopIndex(stops, fromQuery, 0)
+      : 0;
+    if (startIndex < 0) return null;
+
+    const endIndex = hasTo
+      ? this.findMatchingStopIndex(
+          stops,
+          toQuery,
+          hasFrom ? startIndex + 1 : 0,
+        )
+      : stops.length - 1;
+    if (endIndex < 0 || endIndex <= startIndex) return null;
+
+    const isFullMatch = startIndex === 0 && endIndex === stops.length - 1;
+    const startStop = stops[startIndex];
+    const endStop = stops[endIndex];
+
+    const totalDistanceKm = this.resolveTripDistanceKm(trip, stops);
+    if (!Number.isFinite(totalDistanceKm) || totalDistanceKm <= 0) {
+      return null;
+    }
+
+    const segmentDistanceKm = isFullMatch
+      ? totalDistanceKm
+      : this.resolveSegmentDistanceKm(
+          trip,
+          stops,
+          startIndex,
+          endIndex,
+          totalDistanceKm,
+        );
+    if (!Number.isFinite(segmentDistanceKm) || segmentDistanceKm <= 0) {
+      return null;
+    }
+
+    const segmentRatio = this.clamp01(segmentDistanceKm / totalDistanceKm);
+    if (!Number.isFinite(segmentRatio) || segmentRatio <= 0) {
+      return null;
+    }
+
+    const basePrice = Number(trip.pricePerSeat);
+    if (!Number.isFinite(basePrice) || basePrice <= 0) {
+      return null;
+    }
+
+    const segmentPricePerSeat = this.toMoney(basePrice * segmentRatio);
+
+    return {
+      matchType: isFullMatch ? "full" : "partial",
+      segmentDeparture: startStop.city,
+      segmentArrival: endStop.city,
+      segmentDistanceKm: this.toMoney(segmentDistanceKm),
+      segmentRatio: this.toMoney(segmentRatio),
+      segmentPricePerSeat,
+    };
+  }
+
+  private buildTripStops(trip: TripResponseDto): TripStop[] {
+    const stops: TripStop[] = [];
+
+    stops.push({
+      city: trip.departureCity,
+      lat: trip.departureLat,
+      lng: trip.departureLng,
+      searchText: trip.departureCity,
+    });
+
+    for (const via of trip.viaCities || []) {
+      const city = String(via.city || "").trim();
+      if (!city) continue;
+      const district = via.district ? String(via.district).trim() : undefined;
+      const key = this.normalizeForSearch(
+        district ? `${city} ${district}` : city,
+      );
+      const duplicate = stops.some(
+        (stop) => this.normalizeForSearch(stop.searchText) === key,
+      );
+      if (duplicate) continue;
+      stops.push({
+        city,
+        district,
+        lat: via.lat,
+        lng: via.lng,
+        searchText: district ? `${city} ${district}` : city,
+      });
+    }
+
+    stops.push({
+      city: trip.arrivalCity,
+      lat: trip.arrivalLat,
+      lng: trip.arrivalLng,
+      searchText: trip.arrivalCity,
+    });
+
+    return stops;
+  }
+
+  private findMatchingStopIndex(
+    stops: TripStop[],
+    query: string,
+    startIndex: number,
+  ): number {
+    for (let i = Math.max(0, startIndex); i < stops.length; i += 1) {
+      if (this.matchesLocationQuery(query, stops[i].searchText)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private matchesLocationQuery(query: string, candidate: string): boolean {
+    const normalizedQuery = this.normalizeForSearch(query);
+    const normalizedCandidate = this.normalizeForSearch(candidate);
+    if (!normalizedQuery || !normalizedCandidate) return false;
+
+    if (
+      normalizedCandidate.includes(normalizedQuery) ||
+      normalizedQuery.includes(normalizedCandidate)
+    ) {
+      return true;
+    }
+
+    const queryTokens = normalizedQuery.split(" ").filter(Boolean);
+    const candidateTokens = normalizedCandidate.split(" ").filter(Boolean);
+    if (!queryTokens.length || !candidateTokens.length) return false;
+
+    return queryTokens.every((token) =>
+      candidateTokens.some((candidateToken) =>
+        this.isFuzzyTokenMatch(token, candidateToken),
+      ),
+    );
+  }
+
+  private isFuzzyTokenMatch(queryToken: string, candidateToken: string): boolean {
+    if (
+      candidateToken.includes(queryToken) ||
+      queryToken.includes(candidateToken)
+    ) {
+      return true;
+    }
+    const maxDistance =
+      queryToken.length <= 4 ? 1 : queryToken.length <= 8 ? 2 : 3;
+    return (
+      this.levenshteinDistance(queryToken, candidateToken, maxDistance) <=
+      maxDistance
+    );
+  }
+
+  private normalizeForSearch(value: string): string {
+    return String(value || "")
+      .trim()
+      .toLocaleLowerCase("tr-TR")
+      .replace(/ı/g, "i")
+      .replace(/ğ/g, "g")
+      .replace(/ş/g, "s")
+      .replace(/ö/g, "o")
+      .replace(/ü/g, "u")
+      .replace(/ç/g, "c")
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  private levenshteinDistance(
+    left: string,
+    right: string,
+    maxDistance: number,
+  ): number {
+    if (left === right) return 0;
+    if (!left.length) return right.length;
+    if (!right.length) return left.length;
+    if (Math.abs(left.length - right.length) > maxDistance) {
+      return maxDistance + 1;
+    }
+
+    const previousRow = Array.from({ length: right.length + 1 }, (_, i) => i);
+    const currentRow = new Array<number>(right.length + 1);
+
+    for (let i = 1; i <= left.length; i += 1) {
+      currentRow[0] = i;
+      let rowMin = currentRow[0];
+
+      for (let j = 1; j <= right.length; j += 1) {
+        const insertCost = currentRow[j - 1] + 1;
+        const deleteCost = previousRow[j] + 1;
+        const replaceCost =
+          previousRow[j - 1] + (left[i - 1] === right[j - 1] ? 0 : 1);
+        const next = Math.min(insertCost, deleteCost, replaceCost);
+        currentRow[j] = next;
+        if (next < rowMin) {
+          rowMin = next;
+        }
+      }
+
+      if (rowMin > maxDistance) {
+        return maxDistance + 1;
+      }
+
+      for (let j = 0; j <= right.length; j += 1) {
+        previousRow[j] = currentRow[j];
+      }
+    }
+
+    return previousRow[right.length];
+  }
+
+  private resolveTripDistanceKm(trip: TripResponseDto, stops: TripStop[]): number {
+    const routeDistance = Number(trip.route?.distanceKm || 0);
+    if (Number.isFinite(routeDistance) && routeDistance > 0) {
+      return routeDistance;
+    }
+
+    const distanceKm = Number(trip.distanceKm || 0);
+    if (Number.isFinite(distanceKm) && distanceKm > 0) {
+      return distanceKm;
+    }
+
+    const first = stops[0];
+    const last = stops[stops.length - 1];
+    if (
+      first?.lat !== undefined &&
+      first?.lng !== undefined &&
+      last?.lat !== undefined &&
+      last?.lng !== undefined
+    ) {
+      return this.haversineDistanceKm(first.lat, first.lng, last.lat, last.lng);
+    }
+    return 0;
+  }
+
+  private resolveSegmentDistanceKm(
+    trip: TripResponseDto,
+    stops: TripStop[],
+    startIndex: number,
+    endIndex: number,
+    totalDistanceKm: number,
+  ): number {
+    const start = stops[startIndex];
+    const end = stops[endIndex];
+    if (
+      start?.lat !== undefined &&
+      start?.lng !== undefined &&
+      end?.lat !== undefined &&
+      end?.lng !== undefined
+    ) {
+      const direct = this.haversineDistanceKm(start.lat, start.lng, end.lat, end.lng);
+      if (Number.isFinite(direct) && direct > 0) {
+        return Math.min(direct, totalDistanceKm);
+      }
+    }
+
+    if (trip.route?.points && trip.route.points.length >= 2) {
+      const ratioByIndex = (endIndex - startIndex) / (stops.length - 1);
+      return totalDistanceKm * this.clamp01(ratioByIndex);
+    }
+
+    const fallbackRatio = (endIndex - startIndex) / (stops.length - 1);
+    return totalDistanceKm * this.clamp01(fallbackRatio);
+  }
+
+  private clamp01(value: number): number {
+    if (!Number.isFinite(value)) return 0;
+    if (value < 0) return 0;
+    if (value > 1) return 1;
+    return value;
   }
 
   private buildTripPreferences(dto: CreateTripDto): Record<string, any> {
@@ -1234,12 +1607,21 @@ export class TripsService {
   private async forwardGeocodeCity(
     query: string,
   ): Promise<{ lat: number; lng: number } | null> {
-    const normalized = query.trim();
-    if (!normalized) {
+    const raw = String(query || "").trim();
+    if (!raw) {
       return null;
     }
 
-    const variants = [normalized, `${normalized}, Turkiye`];
+    const normalized = this.normalizeForSearch(raw);
+    const variants = Array.from(
+      new Set([
+        raw,
+        `${raw}, Turkiye`,
+        normalized,
+        normalized ? `${normalized}, Turkiye` : "",
+      ].filter((item) => item.trim().length > 0)),
+    );
+
     for (const variant of variants) {
       const resolved = await this.forwardGeocodeByQuery(variant);
       if (resolved) {

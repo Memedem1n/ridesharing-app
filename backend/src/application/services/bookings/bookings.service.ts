@@ -12,6 +12,14 @@ import {
 } from '@application/dto/bookings/bookings.dto';
 import { v4 as uuid } from 'uuid';
 
+type BookingSegmentContext = {
+    departure: string;
+    arrival: string;
+    distanceKm: number;
+    ratio: number;
+    pricePerSeat: number;
+};
+
 @Injectable()
 export class BookingsService {
     private readonly logger = new Logger(BookingsService.name);
@@ -58,12 +66,23 @@ export class BookingsService {
                 throw new BadRequestException('Yeterli koltuk yok');
             }
 
-            const priceTotal = Number(trip.pricePerSeat) * dto.seats;
+            const segmentContext = this.resolveSegmentContext(
+                trip,
+                dto.requestedFrom,
+                dto.requestedTo,
+            );
+            const effectivePricePerSeat =
+                segmentContext?.pricePerSeat ?? Number(trip.pricePerSeat);
+            const priceTotal = this.toMoney(effectivePricePerSeat * dto.seats);
             const commissionAmount = this.iyzicoService.calculateCommission(priceTotal);
             const qrCode = this.generateQRCode();
             const pnrCode = await this.generateUniquePnrCode(tx);
             const isInstant = Boolean(trip.instantBooking);
             const now = new Date();
+            const bookingItemDetails = this.buildBookingItemDetails(
+                dto.itemDetails,
+                segmentContext,
+            );
 
             const created = await tx.booking.create({
                 data: {
@@ -75,7 +94,9 @@ export class BookingsService {
                     priceTotal,
                     commissionAmount,
                     itemType: (dto.itemType as any) || 'person',
-                    itemDetails: dto.itemDetails ? JSON.stringify(dto.itemDetails) : null,
+                    itemDetails: bookingItemDetails
+                        ? JSON.stringify(bookingItemDetails)
+                        : null,
                     qrCode,
                     pnrCode,
                     paymentStatus: 'pending',
@@ -921,7 +942,433 @@ export class BookingsService {
         });
     }
 
+    private resolveSegmentContext(
+        trip: any,
+        requestedFrom?: string,
+        requestedTo?: string,
+    ): BookingSegmentContext | undefined {
+        const fromQuery = String(requestedFrom || '').trim();
+        const toQuery = String(requestedTo || '').trim();
+        if (!fromQuery || !toQuery) {
+            return undefined;
+        }
+
+        const stops = this.buildTripStops(trip);
+        if (stops.length < 2) {
+            return undefined;
+        }
+
+        const startIndex = this.findMatchingStopIndex(stops, fromQuery, 0);
+        if (startIndex < 0) {
+            return undefined;
+        }
+        const endIndex = this.findMatchingStopIndex(stops, toQuery, startIndex + 1);
+        if (endIndex < 0 || endIndex <= startIndex) {
+            return undefined;
+        }
+
+        const totalDistanceKm = this.resolveTripDistanceKm(trip, stops);
+        if (!Number.isFinite(totalDistanceKm) || totalDistanceKm <= 0) {
+            return undefined;
+        }
+
+        const segmentDistanceKm = this.resolveSegmentDistanceKm(
+            stops,
+            startIndex,
+            endIndex,
+            totalDistanceKm,
+        );
+        if (!Number.isFinite(segmentDistanceKm) || segmentDistanceKm <= 0) {
+            return undefined;
+        }
+
+        const ratio = this.clamp01(segmentDistanceKm / totalDistanceKm);
+        if (!Number.isFinite(ratio) || ratio <= 0) {
+            return undefined;
+        }
+
+        const basePricePerSeat = Number(trip.pricePerSeat || 0);
+        if (!Number.isFinite(basePricePerSeat) || basePricePerSeat <= 0) {
+            return undefined;
+        }
+
+        return {
+            departure: stops[startIndex].city,
+            arrival: stops[endIndex].city,
+            distanceKm: this.toMoney(segmentDistanceKm),
+            ratio: this.toMoney(ratio),
+            pricePerSeat: this.toMoney(basePricePerSeat * ratio),
+        };
+    }
+
+    private buildTripStops(trip: any): Array<{
+        city: string;
+        district?: string;
+        lat?: number;
+        lng?: number;
+        searchText: string;
+    }> {
+        const preferences = this.parseTripPreferences(trip.preferences);
+        const viaCities = this.normalizeViaCities(preferences.viaCities);
+        const stops: Array<{
+            city: string;
+            district?: string;
+            lat?: number;
+            lng?: number;
+            searchText: string;
+        }> = [];
+
+        stops.push({
+            city: String(trip.departureCity || '').trim(),
+            lat: this.toFiniteNumber(trip.departureLat),
+            lng: this.toFiniteNumber(trip.departureLng),
+            searchText: String(trip.departureCity || '').trim(),
+        });
+
+        for (const via of viaCities) {
+            const city = via.city.trim();
+            if (!city) continue;
+            const district = via.district?.trim();
+            const text = district ? `${city} ${district}` : city;
+            const dedupeKey = this.normalizeForSearch(text);
+            if (
+                stops.some((stop) => this.normalizeForSearch(stop.searchText) === dedupeKey)
+            ) {
+                continue;
+            }
+            stops.push({
+                city,
+                district,
+                lat: via.lat,
+                lng: via.lng,
+                searchText: text,
+            });
+        }
+
+        stops.push({
+            city: String(trip.arrivalCity || '').trim(),
+            lat: this.toFiniteNumber(trip.arrivalLat),
+            lng: this.toFiniteNumber(trip.arrivalLng),
+            searchText: String(trip.arrivalCity || '').trim(),
+        });
+
+        return stops.filter((stop) => stop.city.length > 0);
+    }
+
+    private findMatchingStopIndex(
+        stops: Array<{ searchText: string }>,
+        query: string,
+        fromIndex: number,
+    ): number {
+        for (let i = Math.max(0, fromIndex); i < stops.length; i += 1) {
+            if (this.matchesLocationQuery(query, stops[i].searchText)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private matchesLocationQuery(query: string, candidate: string): boolean {
+        const normalizedQuery = this.normalizeForSearch(query);
+        const normalizedCandidate = this.normalizeForSearch(candidate);
+        if (!normalizedQuery || !normalizedCandidate) return false;
+
+        if (
+            normalizedCandidate.includes(normalizedQuery) ||
+            normalizedQuery.includes(normalizedCandidate)
+        ) {
+            return true;
+        }
+
+        const queryTokens = normalizedQuery.split(' ').filter(Boolean);
+        const candidateTokens = normalizedCandidate.split(' ').filter(Boolean);
+        if (!queryTokens.length || !candidateTokens.length) return false;
+
+        return queryTokens.every((token) =>
+            candidateTokens.some((candidateToken) =>
+                this.isFuzzyTokenMatch(token, candidateToken),
+            ),
+        );
+    }
+
+    private isFuzzyTokenMatch(queryToken: string, candidateToken: string): boolean {
+        if (
+            candidateToken.includes(queryToken) ||
+            queryToken.includes(candidateToken)
+        ) {
+            return true;
+        }
+        const maxDistance =
+            queryToken.length <= 4 ? 1 : queryToken.length <= 8 ? 2 : 3;
+        return (
+            this.levenshteinDistance(queryToken, candidateToken, maxDistance) <=
+            maxDistance
+        );
+    }
+
+    private levenshteinDistance(
+        left: string,
+        right: string,
+        maxDistance: number,
+    ): number {
+        if (left === right) return 0;
+        if (!left.length) return right.length;
+        if (!right.length) return left.length;
+        if (Math.abs(left.length - right.length) > maxDistance) {
+            return maxDistance + 1;
+        }
+
+        const previousRow = Array.from({ length: right.length + 1 }, (_, i) => i);
+        const currentRow = new Array<number>(right.length + 1);
+
+        for (let i = 1; i <= left.length; i += 1) {
+            currentRow[0] = i;
+            let rowMin = currentRow[0];
+
+            for (let j = 1; j <= right.length; j += 1) {
+                const insertCost = currentRow[j - 1] + 1;
+                const deleteCost = previousRow[j] + 1;
+                const replaceCost =
+                    previousRow[j - 1] + (left[i - 1] === right[j - 1] ? 0 : 1);
+                const next = Math.min(insertCost, deleteCost, replaceCost);
+                currentRow[j] = next;
+                if (next < rowMin) {
+                    rowMin = next;
+                }
+            }
+
+            if (rowMin > maxDistance) {
+                return maxDistance + 1;
+            }
+
+            for (let j = 0; j <= right.length; j += 1) {
+                previousRow[j] = currentRow[j];
+            }
+        }
+
+        return previousRow[right.length];
+    }
+
+    private normalizeForSearch(value: string): string {
+        return String(value || '')
+            .trim()
+            .toLocaleLowerCase('tr-TR')
+            .replace(/ı/g, 'i')
+            .replace(/ğ/g, 'g')
+            .replace(/ş/g, 's')
+            .replace(/ö/g, 'o')
+            .replace(/ü/g, 'u')
+            .replace(/ç/g, 'c')
+            .normalize('NFKD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    private resolveTripDistanceKm(
+        trip: any,
+        stops: Array<{ lat?: number; lng?: number }>,
+    ): number {
+        const preferences = this.parseTripPreferences(trip.preferences);
+        const routeDistance = Number(preferences?.routeSnapshot?.distanceKm || 0);
+        if (Number.isFinite(routeDistance) && routeDistance > 0) {
+            return routeDistance;
+        }
+
+        const tripDistance = Number(trip.distanceKm || 0);
+        if (Number.isFinite(tripDistance) && tripDistance > 0) {
+            return tripDistance;
+        }
+
+        const first = stops[0];
+        const last = stops[stops.length - 1];
+        if (
+            first?.lat !== undefined &&
+            first?.lng !== undefined &&
+            last?.lat !== undefined &&
+            last?.lng !== undefined
+        ) {
+            return this.haversineDistanceKm(first.lat, first.lng, last.lat, last.lng);
+        }
+
+        return 0;
+    }
+
+    private resolveSegmentDistanceKm(
+        stops: Array<{ lat?: number; lng?: number }>,
+        startIndex: number,
+        endIndex: number,
+        totalDistanceKm: number,
+    ): number {
+        const start = stops[startIndex];
+        const end = stops[endIndex];
+        if (
+            start?.lat !== undefined &&
+            start?.lng !== undefined &&
+            end?.lat !== undefined &&
+            end?.lng !== undefined
+        ) {
+            const direct = this.haversineDistanceKm(start.lat, start.lng, end.lat, end.lng);
+            if (Number.isFinite(direct) && direct > 0) {
+                return Math.min(direct, totalDistanceKm);
+            }
+        }
+
+        const stopSpan = stops.length - 1;
+        if (stopSpan <= 0) {
+            return totalDistanceKm;
+        }
+
+        const ratio = this.clamp01((endIndex - startIndex) / stopSpan);
+        return totalDistanceKm * ratio;
+    }
+
+    private clamp01(value: number): number {
+        if (!Number.isFinite(value)) return 0;
+        if (value < 0) return 0;
+        if (value > 1) return 1;
+        return value;
+    }
+
+    private toFiniteNumber(value: any): number | undefined {
+        if (value === null || value === undefined) return undefined;
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : undefined;
+    }
+
+    private toMoney(value: number): number {
+        return Number(Number(value || 0).toFixed(2));
+    }
+
+    private haversineDistanceKm(
+        lat1: number,
+        lng1: number,
+        lat2: number,
+        lng2: number,
+    ): number {
+        const toRad = (deg: number) => (deg * Math.PI) / 180;
+        const earthRadiusKm = 6371;
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return earthRadiusKm * c;
+    }
+
+    private parseTripPreferences(raw: any): Record<string, any> {
+        if (!raw) return {};
+        if (typeof raw === 'string') {
+            try {
+                const parsed = JSON.parse(raw);
+                return parsed && typeof parsed === 'object' ? parsed : {};
+            } catch {
+                return {};
+            }
+        }
+        return typeof raw === 'object' ? raw : {};
+    }
+
+    private normalizeViaCities(raw: any): Array<{
+        city: string;
+        district?: string;
+        lat?: number;
+        lng?: number;
+    }> {
+        if (!Array.isArray(raw)) return [];
+        const dedupe = new Set<string>();
+        return raw
+            .map((entry: any) => {
+                const city = String(entry?.city || '').trim();
+                if (!city) return null;
+                const district = String(entry?.district || '').trim();
+                const key = this.normalizeForSearch(
+                    district ? `${city} ${district}` : city,
+                );
+                if (dedupe.has(key)) return null;
+                dedupe.add(key);
+                return {
+                    city,
+                    district: district || undefined,
+                    lat: this.toFiniteNumber(entry?.lat),
+                    lng: this.toFiniteNumber(entry?.lng),
+                };
+            })
+            .filter(Boolean) as Array<{
+            city: string;
+            district?: string;
+            lat?: number;
+            lng?: number;
+        }>;
+    }
+
+    private buildBookingItemDetails(
+        currentDetails: any,
+        segment?: BookingSegmentContext,
+    ): any {
+        if (!segment) {
+            return currentDetails ?? null;
+        }
+
+        if (currentDetails === null || currentDetails === undefined) {
+            return { segment };
+        }
+
+        if (typeof currentDetails === 'object' && !Array.isArray(currentDetails)) {
+            return {
+                ...currentDetails,
+                segment,
+            };
+        }
+
+        return {
+            value: currentDetails,
+            segment,
+        };
+    }
+
+    private extractSegmentContext(raw: any): BookingSegmentContext | undefined {
+        const segment = raw?.segment;
+        if (!segment || typeof segment !== 'object') {
+            return undefined;
+        }
+
+        const departure = String(segment.departure || '').trim();
+        const arrival = String(segment.arrival || '').trim();
+        const distanceKm = Number(segment.distanceKm);
+        const ratio = Number(segment.ratio);
+        const pricePerSeat = Number(segment.pricePerSeat);
+
+        if (
+            !departure ||
+            !arrival ||
+            !Number.isFinite(distanceKm) ||
+            !Number.isFinite(ratio) ||
+            !Number.isFinite(pricePerSeat)
+        ) {
+            return undefined;
+        }
+
+        return {
+            departure,
+            arrival,
+            distanceKm: this.toMoney(distanceKm),
+            ratio: this.toMoney(ratio),
+            pricePerSeat: this.toMoney(pricePerSeat),
+        };
+    }
+
     private mapToResponse(booking: any): BookingResponseDto {
+        const parsedItemDetails = this.parseItemDetails(booking.itemDetails);
+        const seats = Number(booking.seats || 0);
+        const effectivePricePerSeat =
+            seats > 0
+                ? this.toMoney(Number(booking.priceTotal) / seats)
+                : Number(booking.trip.pricePerSeat);
+        const segment = this.extractSegmentContext(parsedItemDetails);
+
         return {
             id: booking.id,
             tripId: booking.tripId,
@@ -929,7 +1376,7 @@ export class BookingsService {
                 departureCity: booking.trip.departureCity,
                 arrivalCity: booking.trip.arrivalCity,
                 departureTime: booking.trip.departureTime,
-                pricePerSeat: Number(booking.trip.pricePerSeat),
+                pricePerSeat: effectivePricePerSeat,
             },
             passengerId: booking.passengerId,
             passenger: {
@@ -942,7 +1389,8 @@ export class BookingsService {
             priceTotal: Number(booking.priceTotal),
             commissionAmount: Number(booking.commissionAmount),
             itemType: booking.itemType,
-            itemDetails: this.parseItemDetails(booking.itemDetails),
+            itemDetails: parsedItemDetails,
+            segment,
             qrCode: booking.qrCode,
             pnrCode: booking.pnrCode || undefined,
             checkedInAt: booking.checkedInAt || undefined,

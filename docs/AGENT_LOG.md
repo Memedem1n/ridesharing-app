@@ -472,3 +472,12 @@ Summary: Synced OpenAPI with current backend/mobile behavior (vehicle ownership 
 Commands: npm run type-check;npm test -- application/services/vehicles/vehicles.service.spec.ts --runInBand;npm test -- --runInBand;flutter analyze;flutter test
 Files: docs/api/OPENAPI_SPEC.yaml,backend/src/application/services/vehicles/vehicles.service.spec.ts,mobile/lib/features/trips/presentation/trip_detail_screen.dart,TASKS.md,docs/AGENT_HANDOFF.md,docs/AGENT_LOG.md
 Notes: Validation pass complete (backend 7/7 suites, 52/52 tests; mobile analyze/test passed). Manual web auth/menu + demo-user login smoke still pending; direct API smoke requires local Postgres up (`P1001 localhost:5432` when DB is down). `docker compose up -d postgres` was attempted but Docker Desktop engine was unavailable in this session.
+
+## 2026-02-12 03:30
+Level: agent
+Agent: codex
+Task: Stabilization + EOD handoff update
+Summary: Fixed mobile compile/regression issues (location service, UTF-8 text recovery, web SVG asset registration), reran backend/mobile validation, documented current state and next steps for EOD.
+Commands: npm run type-check;npm test -- --runInBand src/application/services/trips/trips.service.spec.ts;npm test -- --runInBand src/application/services/bookings/bookings.service.spec.ts;flutter analyze;flutter build apk --debug;flutter run -d chrome
+Files: mobile/lib/core/services/location_service.dart,mobile/lib/features/trips/presentation/create_trip_screen.dart,mobile/lib/features/home/presentation/home_screen.dart,mobile/pubspec.yaml,docs/AGENT_CONTEXT.md,docs/AGENT_HANDOFF.md,docs/AGENT_LOG.md
+Notes: Observed invalid UTF-8 bytes in /v1/trips payload from existing data; needs DB/data cleanup in next session.

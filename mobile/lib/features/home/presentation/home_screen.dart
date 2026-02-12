@@ -3,8 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:latlong2/latlong.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/booking_provider.dart';
 import '../../../core/providers/trip_provider.dart';
@@ -121,6 +124,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         kBottomNavigationBarHeight + mediaQuery.padding.bottom + 28;
     final user = ref.watch(currentUserProvider);
     final popularRoutesAsync = ref.watch(popularRoutesProvider);
+    final mapDensityAsync = ref.watch(homeMapDensityProvider);
     final recentBookingsAsync = isAuthenticated
         ? ref.watch(recentBookingsProvider)
         : const AsyncValue<List<Booking>>.data(<Booking>[]);
@@ -131,6 +135,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         isAuthenticated: isAuthenticated,
         popularRoutesAsync: popularRoutesAsync,
         recentBookingsAsync: recentBookingsAsync,
+        mapDensityAsync: mapDensityAsync,
       );
     }
     return Scaffold(
@@ -138,8 +143,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
-          const Positioned.fill(
-            child: MapView(),
+          Positioned.fill(
+            child: MapView(
+              markers: _buildDensityMarkers(mapDensityAsync),
+            ),
           ),
           Positioned.fill(
             child: Container(
@@ -176,7 +183,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   Text(
                                     isAuthenticated
                                         ? 'Merhaba'
-                                        : 'Hoş geldiniz',
+                                        : 'Ho�Y geldiniz',
                                     style: TextStyle(
                                       color: AppColors.textSecondary,
                                       fontSize: 14,
@@ -356,7 +363,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Popüler rotalar şu an yüklenemiyor.',
+                              'Popüler rotalar �Yu an yüklenemiyor.',
                               style: TextStyle(color: AppColors.error),
                             ),
                             const SizedBox(height: 8),
@@ -377,7 +384,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           child: GlassContainer(
                             padding: const EdgeInsets.all(16),
                             child: const Text(
-                                'Henüz popüler rota yok. İlk yolculukları sen başlat!',
+                                'Henüz popüler rota yok. İlk yolculukları sen ba�Ylat!',
                                 style:
                                     TextStyle(color: AppColors.textSecondary)),
                           ),
@@ -474,7 +481,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             return GlassContainer(
                               padding: const EdgeInsets.all(16),
                               child: const Text(
-                                  'Henüz yolculuğun yok. Arama yaparak başlayabilirsin.',
+                                  'Henüz yolculu�Yun yok. Arama yaparak ba�Ylayabilirsin.',
                                   style: TextStyle(
                                       color: AppColors.textSecondary)),
                             );
@@ -634,6 +641,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required bool isAuthenticated,
     required AsyncValue<List<PopularRouteSummary>> popularRoutesAsync,
     required AsyncValue<List<Booking>> recentBookingsAsync,
+    required AsyncValue<List<MapDensityPoint>> mapDensityAsync,
   }) {
     final dateLabel = DateFormat('dd MMM yyyy', 'tr').format(_selectedDate);
     final viewportWidth = MediaQuery.of(context).size.width;
@@ -707,9 +715,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               const SizedBox(height: 16),
                               _buildWebIllustrationCard(
                                 assetPath:
-                                    'assets/illustrations/web/hero_rideshare.png',
-                                height: 240,
-                                background: const Color(0xFFEDF4F0),
+                                    'assets/illustrations/web/hero_rideshare.svg',
+                                maxHeight: 260,
                               ),
                               const SizedBox(height: 16),
                               _buildWebSearchPanel(
@@ -777,16 +784,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               Expanded(
                                 child: _buildWebIllustrationCard(
                                   assetPath:
-                                      'assets/illustrations/web/hero_rideshare.png',
-                                  height: 430,
-                                  background: const Color(0xFFEDF4F0),
+                                      'assets/illustrations/web/hero_rideshare.svg',
+                                  maxHeight: 430,
                                 ),
                               ),
                             ],
                           ),
                   ),
                   SizedBox(height: sectionGap),
-                  _buildWebSectionShell(child: _buildWebMapSection()),
+                  _buildWebSectionShell(
+                    child: _buildWebMapSection(mapDensityAsync),
+                  ),
                   SizedBox(height: sectionGap),
                   _buildWebSectionShell(
                     child: Column(
@@ -795,7 +803,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         _buildWebSectionHeader(
                           title: 'Popüler Güzergahlar',
                           subtitle:
-                              'Kullanıcı davranışlarından oluşan popüler rotaları burada topluyoruz. Tek tıkla seçip aramayı saniyeler içinde başlatabilirsin.',
+                              'Kullanıcı davranı�Ylarından olu�Yan popüler rotaları burada topluyoruz. Tek tıkla seçip aramayı saniyeler içinde ba�Ylatabilirsin.',
                         ),
                         const SizedBox(height: 14),
                         popularRoutesAsync.when(
@@ -803,7 +811,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             color: Color(0xFF2F6B57),
                           ),
                           error: (e, _) => Text(
-                            'Popüler rotalar şu an yüklenemiyor.',
+                            'Popüler rotalar �Yu an yüklenemiyor.',
                             style: _webBodyStyle(
                               color: AppColors.error,
                               weight: FontWeight.w600,
@@ -933,7 +941,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               color: Color(0xFF2F6B57),
                             ),
                             error: (e, _) => Text(
-                              'Yolculuklar şu an yüklenemiyor.',
+                              'Yolculuklar �Yu an yüklenemiyor.',
                               style: _webBodyStyle(
                                 color: AppColors.error,
                                 weight: FontWeight.w600,
@@ -1215,23 +1223,96 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildWebIllustrationCard({
     required String assetPath,
-    double height = 160,
-    Color background = const Color(0xFFFFFFFF),
+    double aspectRatio = 1.5,
+    double? height,
+    double? maxHeight,
   }) {
-    return Container(
-      width: double.infinity,
-      height: height,
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFD4DED8)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Image.asset(
-        assetPath,
-        fit: BoxFit.cover,
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth =
+            constraints.maxWidth.isFinite && constraints.maxWidth > 0
+                ? constraints.maxWidth
+                : 320.0;
+        final derivedHeight = availableWidth / aspectRatio;
+        var resolvedHeight = height ?? derivedHeight;
+        if (maxHeight != null && resolvedHeight > maxHeight) {
+          resolvedHeight = maxHeight;
+        }
+        if (resolvedHeight < 120) {
+          resolvedHeight = 120;
+        }
+
+        return SizedBox(
+          width: double.infinity,
+          height: resolvedHeight,
+          child: assetPath.toLowerCase().endsWith('.svg')
+              ? SvgPicture.asset(
+                  assetPath,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.center,
+                )
+              : Image.asset(
+                  assetPath,
+                  fit: BoxFit.contain,
+                  alignment: Alignment.center,
+                  filterQuality: FilterQuality.high,
+                ),
+        );
+      },
     );
+  }
+
+  List<Marker> _buildDensityMarkers(AsyncValue<List<MapDensityPoint>> density) {
+    final points = density.asData?.value ?? const <MapDensityPoint>[];
+    if (points.isEmpty) return const [];
+
+    final maxIntensity = points
+        .map((point) => point.intensity)
+        .fold<double>(0, (prev, val) => val > prev ? val : prev);
+    final safeMax = maxIntensity <= 0 ? 1.0 : maxIntensity;
+
+    return points.map((point) {
+      final ratio = (point.intensity / safeMax).clamp(0.18, 1.0);
+      final size = 16 + (ratio * 34);
+      final glowAlpha = 0.14 + (ratio * 0.22);
+      final strokeAlpha = 0.12 + (ratio * 0.28);
+      final innerSize = size * 0.35;
+
+      return Marker(
+        width: size,
+        height: size,
+        point: LatLng(point.lat, point.lng),
+        child: IgnorePointer(
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.accent.withValues(alpha: glowAlpha),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: strokeAlpha),
+                width: 1.1,
+              ),
+            ),
+            child: Center(
+              child: Container(
+                width: innerSize,
+                height: innerSize,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  String _densityHeadline(AsyncValue<List<MapDensityPoint>> densityAsync) {
+    final points = densityAsync.asData?.value ?? const <MapDensityPoint>[];
+    if (points.isEmpty) return 'Canli ilan yogunlugu hazirlaniyor';
+    final weighted = points.fold<double>(0, (sum, p) => sum + p.intensity);
+    return 'Canli ilan yogunlugu: ~${weighted.round()} aktif akı�Y noktasi';
   }
 
   Widget _buildWebSectionShell({
@@ -1280,21 +1361,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildWebMapSection() {
+  Widget _buildWebMapSection(AsyncValue<List<MapDensityPoint>> densityAsync) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildWebSectionHeader(
-          title: 'Harita görünümü',
+          title: 'Harita g�r�n�m�',
           subtitle:
-              'Arama öncesinde güzergahları harita üzerinde inceleyebilir, bölgesel hareketliliği hızlıca görebilirsin.',
+              'Arama �ncesinde g�zergahlari harita �zerinde inceleyebilir, b�lgesel hareketliligi hizlica g�rebilirsin.',
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _densityHeadline(densityAsync),
+          style: _webBodyStyle(
+            size: 13,
+            color: const Color(0xFF2F6B57),
+            weight: FontWeight.w700,
+          ),
         ),
         const SizedBox(height: 14),
         ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: SizedBox(
             height: 320,
-            child: const MapView(),
+            child: MapView(
+              markers: _buildDensityMarkers(densityAsync),
+            ),
           ),
         ),
       ],
@@ -1328,27 +1420,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: const [
                 _WebInfoCard(
                   icon: Icons.route_outlined,
-                  title: 'Yolculuk Paylaş',
+                  title: 'Yolculuk Payla�Y',
                   description:
-                      'Aynı yöne giden yolcuları bir araya getirir; boş koltuklar değerlendirilirken yolculuk planın daha verimli hale gelir.',
+                      'Aynı yöne giden yolcuları bir araya getirir; bo�Y koltuklar de�Yerlendirilirken yolculuk planın daha verimli hale gelir.',
                 ),
                 _WebInfoCard(
                   icon: Icons.savings_outlined,
                   title: 'Masrafı Azalt',
                   description:
-                      'Rota maliyetini tek başına üstlenmek yerine paylaşımlı modelle dengeleyerek yakıt ve yol masraflarını azaltmana yardımcı olur.',
+                      'Rota maliyetini tek ba�Yına üstlenmek yerine payla�Yımlı modelle dengeleyerek yakıt ve yol masraflarını azaltmana yardımcı olur.',
                 ),
                 _WebInfoCard(
                   icon: Icons.verified_user_outlined,
-                  title: 'Doğrulanmış Profiller',
+                  title: 'Do�Yrulanmı�Y Profiller',
                   description:
-                      'Profil ve belge adımları ile hem sürücü hem yolcu tarafında daha güvenilir bir topluluk deneyimi oluşturmayı hedefler.',
+                      'Profil ve belge adımları ile hem sürücü hem yolcu tarafında daha güvenilir bir topluluk deneyimi olu�Yturmayı hedefler.',
                 ),
                 _WebInfoCard(
                   icon: Icons.chat_bubble_outline,
-                  title: 'Anlık İletişim',
+                  title: 'Anlık İleti�Yim',
                   description:
-                      'Rezervasyon sonrasında uygulama içi mesajlaşma ile buluşma noktası, saat değişikliği ve yolculuk detayları hızla netleşir.',
+                      'Rezervasyon sonrasında uygulama içi mesajla�Yma ile bulu�Yma noktası, saat de�Yi�Yikli�Yi ve yolculuk detayları hızla netle�Yir.',
                 ),
               ],
             );
@@ -1382,19 +1474,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Yolculuğunu paylaş, masrafını azalt',
+                      'Yolculu�Yunu payla�Y, masrafını azalt',
                       style: _webHeadingStyle(size: 28),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Sürücüler boş koltuklarını açarak yol maliyetini paylaşabilir, yolcular ise güvenli bir akışta uygun yolculuğu bulup rezervasyon talebi oluşturabilir.',
+                      'Sürücüler bo�Y koltuklarını açarak yol maliyetini payla�Yabilir, yolcular ise güvenli bir akı�Yta uygun yolculu�Yu bulup rezervasyon talebi olu�Yturabilir.',
                       style: _webBodyStyle(),
                     ),
                     const SizedBox(height: 12),
                     _buildWebIllustrationCard(
-                      assetPath: 'assets/illustrations/web/share_cost.png',
-                      height: 210,
-                      background: const Color(0xFFEAF4EE),
+                      assetPath: 'assets/illustrations/web/share_cost.svg',
+                      maxHeight: 220,
                     ),
                     const SizedBox(height: 14),
                     Wrap(
@@ -1414,12 +1505,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Yolculuğunu paylaş, masrafını azalt',
+                            'Yolculu�Yunu payla�Y, masrafını azalt',
                             style: _webHeadingStyle(size: 28),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'Sürücüler boş koltuklarını açarak yol maliyetini paylaşabilir, yolcular ise güvenli bir akışta uygun yolculuğu bulup rezervasyon talebi oluşturabilir.',
+                            'Sürücüler bo�Y koltuklarını açarak yol maliyetini payla�Yabilir, yolcular ise güvenli bir akı�Yta uygun yolculu�Yu bulup rezervasyon talebi olu�Yturabilir.',
                             style: _webBodyStyle(),
                           ),
                         ],
@@ -1427,11 +1518,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     const SizedBox(width: 18),
                     SizedBox(
-                      width: 220,
+                      width: 250,
                       child: _buildWebIllustrationCard(
-                        assetPath: 'assets/illustrations/web/share_cost.png',
-                        height: 240,
-                        background: const Color(0xFFEAF4EE),
+                        assetPath: 'assets/illustrations/web/share_cost.svg',
+                        maxHeight: 190,
                       ),
                     ),
                     const SizedBox(width: 18),
@@ -1499,7 +1589,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _buildWebSectionHeader(
           title: 'Güvenlik ve risk önleme',
           subtitle:
-              'Yolculuk sürecinde oluşabilecek riskleri azaltmak için profil doğrulama, rezervasyon kontrolü ve destek akışları birlikte çalışır.',
+              'Yolculuk sürecinde olu�Yabilecek riskleri azaltmak için profil do�Yrulama, rezervasyon kontrolü ve destek akı�Yları birlikte çalı�Yır.',
         ),
         const SizedBox(height: 14),
         LayoutBuilder(
@@ -1510,9 +1600,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildWebIllustrationCard(
-                    assetPath: 'assets/illustrations/web/safety_trust.png',
-                    height: 210,
-                    background: const Color(0xFFEAF4EE),
+                    assetPath: 'assets/illustrations/web/safety_trust.svg',
+                    maxHeight: 220,
                   ),
                   const SizedBox(height: 14),
                 ],
@@ -1524,7 +1613,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        'Profil doğrulama, check-in ve destek akışlarını tek yerde yönetiyoruz.',
+                        'Profil do�Yrulama, check-in ve destek akı�Ylarını tek yerde yönetiyoruz.',
                         style: _webBodyStyle(
                           size: 15,
                           weight: FontWeight.w600,
@@ -1534,11 +1623,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     const SizedBox(width: 16),
                     SizedBox(
-                      width: 220,
+                      width: 250,
                       child: _buildWebIllustrationCard(
-                        assetPath: 'assets/illustrations/web/safety_trust.png',
-                        height: 220,
-                        background: const Color(0xFFEAF4EE),
+                        assetPath: 'assets/illustrations/web/safety_trust.svg',
+                        maxHeight: 190,
                       ),
                     ),
                   ],
@@ -1610,28 +1698,28 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildWebFaqSection() {
     const faqItems = <(String, String)>[
       (
-        'Giriş yapmadan neler yapabilirim?',
-        'Misafir olarak rota, tarih ve fiyat odaklı arama yapabilir; ilan detaylarını, koltuk durumunu ve sürücü bilgilerini inceleyebilirsiniz. Rezervasyon adımına kadar tüm keşif süreci açık kalır.'
+        'Giri�Y yapmadan neler yapabilirim?',
+        'Misafir olarak rota, tarih ve fiyat odaklı arama yapabilir; ilan detaylarını, koltuk durumunu ve sürücü bilgilerini inceleyebilirsiniz. Rezervasyon adımına kadar tüm ke�Yif süreci açık kalır.'
       ),
       (
-        'Neden rezervasyon aşamasında giriş gerekiyor?',
-        'Rezervasyon işlemi kişiye özeldir ve doğrudan hesapla ilişkilendirilir. Bu sayede mesajlaşma, check-in, iptal/iade ve yolculuk takibi gibi adımlar güvenli şekilde yönetilir.'
+        'Neden rezervasyon a�Yamasında giri�Y gerekiyor?',
+        'Rezervasyon i�Ylemi ki�Yiye özeldir ve do�Yrudan hesapla ili�Ykilendirilir. Bu sayede mesajla�Yma, check-in, iptal/iade ve yolculuk takibi gibi adımlar güvenli �Yekilde yönetilir.'
       ),
       (
-        'Rezervasyon kesinleşmesi nasıl oluyor?',
-        'Yolcu talep oluşturduktan sonra sürücü uygunluk durumuna göre onay verir. Onay sonrasında rezervasyon kesinleşir ve her iki tarafın ekranında yolculuk planı detaylı olarak görünür.'
+        'Rezervasyon kesinle�Ymesi nasıl oluyor?',
+        'Yolcu talep olu�Yturduktan sonra sürücü uygunluk durumuna göre onay verir. Onay sonrasında rezervasyon kesinle�Yir ve her iki tarafın ekranında yolculuk planı detaylı olarak görünür.'
       ),
       (
-        'Yolculuk günü doğrulama nasıl yapılıyor?',
-        'Yolculuk gününde sistem QR veya PNR tabanlı check-in adımlarını destekler. Bu akış, rezervasyon sahibinin doğrulanmasını kolaylaştırır ve yanlış eşleşme riskini azaltır.'
+        'Yolculuk günü do�Yrulama nasıl yapılıyor?',
+        'Yolculuk gününde sistem QR veya PNR tabanlı check-in adımlarını destekler. Bu akı�Y, rezervasyon sahibinin do�Yrulanmasını kolayla�Ytırır ve yanlı�Y e�Yle�Yme riskini azaltır.'
       ),
       (
-        'Güvenlik sorunu yaşarsam ne yapmalıyım?',
-        'Yardım ve destek bölümünden anında bildirim oluşturabilir, gerekirse hesap güvenliği adımlarını hızla aktif ederek süreci kayıt altına alabilirsiniz. Ekiplerimiz olay tipine göre yönlendirme sağlar.'
+        'Güvenlik sorunu ya�Yarsam ne yapmalıyım?',
+        'Yardım ve destek bölümünden anında bildirim olu�Yturabilir, gerekirse hesap güvenli�Yi adımlarını hızla aktif ederek süreci kayıt altına alabilirsiniz. Ekiplerimiz olay tipine göre yönlendirme sa�Ylar.'
       ),
       (
-        'Sürücü olarak yolculuk paylaşmak için ne gerekli?',
-        'Sürücü olarak başlamak için hesap oluşturup profil bilgilerinizi ve gerekli belge adımlarını tamamlamanız gerekir. Ardından tarih, rota, koltuk ve tercih detaylarıyla ilan açabilirsiniz.'
+        'Sürücü olarak yolculuk payla�Ymak için ne gerekli?',
+        'Sürücü olarak ba�Ylamak için hesap olu�Yturup profil bilgilerinizi ve gerekli belge adımlarını tamamlamanız gerekir. Ardından tarih, rota, koltuk ve tercih detaylarıyla ilan açabilirsiniz.'
       ),
     ];
     return Column(
@@ -1640,7 +1728,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _buildWebSectionHeader(
           title: 'Sıkça sorulan sorular',
           subtitle:
-              'Platformu ilk kez kullananların en çok sorduğu soruları burada topladık.',
+              'Platformu ilk kez kullananların en çok sordu�Yu soruları burada topladık.',
         ),
         const SizedBox(height: 14),
         Container(
@@ -1756,16 +1844,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onTap: () => context.push('/about'),
             ),
             WebFooterLinkData(
-              label: 'İletişim',
+              label: 'İleti�Yim',
               onTap: () => context.push('/help'),
             ),
           ],
         ),
       ],
       description:
-          'Yoliva, aynı yöne giden insanları güvenli şekilde buluşturup yolculuk maliyetlerini dengelemeyi hedefler.',
+          'Yoliva, aynı yöne giden insanları güvenli �Yekilde bulu�Yturup yolculuk maliyetlerini dengelemeyi hedefler.',
       copyright:
-          '(c) 2026 Yoliva. Tüm hakları saklıdır. Özellikler bölgeye göre değişebilir.',
+          '(c) 2026 Yoliva. Tüm hakları saklıdır. �-zellikler bölgeye göre de�Yi�Yebilir.',
       onPrivacyTap: () => context.push('/help'),
       onTermsTap: () => context.push('/help'),
       onCookieTap: () => context.push('/help'),
@@ -2078,3 +2166,4 @@ class _RecentBookingCard extends StatelessWidget {
     );
   }
 }
+

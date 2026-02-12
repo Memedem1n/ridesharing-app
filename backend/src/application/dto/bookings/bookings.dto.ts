@@ -49,6 +49,16 @@ export class CreateBookingDto {
     @ApiPropertyOptional({ description: 'Pet/cargo details' })
     @IsOptional()
     itemDetails?: PetDetails | CargoDetails;
+
+    @ApiPropertyOptional({ description: 'Optional segment departure query (for partial route pricing)' })
+    @IsOptional()
+    @IsString()
+    requestedFrom?: string;
+
+    @ApiPropertyOptional({ description: 'Optional segment arrival query (for partial route pricing)' })
+    @IsOptional()
+    @IsString()
+    requestedTo?: string;
 }
 
 export class PetDetails {
@@ -173,6 +183,24 @@ export class BookingResponseDto {
 
     @ApiPropertyOptional()
     itemDetails?: any;
+
+    @ApiPropertyOptional({
+        type: Object,
+        example: {
+            departure: 'Izmir',
+            arrival: 'Mugla',
+            distanceKm: 92.4,
+            ratio: 0.33,
+            pricePerSeat: 500,
+        },
+    })
+    segment?: {
+        departure: string;
+        arrival: string;
+        distanceKm: number;
+        ratio: number;
+        pricePerSeat: number;
+    };
 
     @ApiProperty()
     qrCode: string;

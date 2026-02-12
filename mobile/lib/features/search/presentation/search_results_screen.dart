@@ -223,7 +223,12 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                 itemCount: trips.length,
                 itemBuilder: (context, index) {
                   final trip = trips[index];
-                  return _TripCard(trip: trip, index: index);
+                  return _TripCard(
+                    trip: trip,
+                    index: index,
+                    searchFrom: widget.from,
+                    searchTo: widget.to,
+                  );
                 },
               );
             },
@@ -319,6 +324,32 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                             final trip = trips[index];
                             final isFull = trip.availableSeats <= 0 ||
                                 trip.status.toLowerCase() == 'full';
+                            final queryFrom = (widget.from ?? '').trim();
+                            final queryTo = (widget.to ?? '').trim();
+                            final tripQuery = <String, String>{
+                              if (queryFrom.isNotEmpty) 'from': queryFrom,
+                              if (queryTo.isNotEmpty) 'to': queryTo,
+                            };
+                            final bookingQuery = <String, String>{
+                              ...tripQuery,
+                              if (trip.segmentPricePerSeat != null)
+                                'sp': trip.segmentPricePerSeat!
+                                    .toStringAsFixed(2),
+                            };
+                            final tripPath = Uri(
+                              path: '/trip/${trip.id}',
+                              queryParameters:
+                                  tripQuery.isEmpty ? null : tripQuery,
+                            ).toString();
+                            final bookingPath = Uri(
+                              path: '/booking/${trip.id}',
+                              queryParameters:
+                                  bookingQuery.isEmpty ? null : bookingQuery,
+                            ).toString();
+                            final displayFrom =
+                                trip.segmentDeparture ?? trip.departureCity;
+                            final displayTo =
+                                trip.segmentArrival ?? trip.arrivalCity;
                             return Container(
                               padding: const EdgeInsets.all(18),
                               decoration: BoxDecoration(
@@ -340,20 +371,32 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                                 children: [
                                   Expanded(
                                     child: InkWell(
-                                      onTap: () =>
-                                          context.push('/trip/${trip.id}'),
+                                      onTap: () => context.push(tripPath),
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            '${trip.departureCity} -> ${trip.arrivalCity}',
+                                            '$displayFrom -> $displayTo',
                                             style: const TextStyle(
                                               color: Color(0xFF1F3A30),
                                               fontWeight: FontWeight.w800,
                                               fontSize: 18,
                                             ),
                                           ),
+                                          if (trip.matchType == 'partial')
+                                            const Padding(
+                                              padding:
+                                                  EdgeInsets.only(top: 4),
+                                              child: Text(
+                                                'Kismi rota eslesmesi',
+                                                style: TextStyle(
+                                                  color: Color(0xFF2F6B57),
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
                                           const SizedBox(height: 6),
                                           Text(
                                             '${DateFormat('dd MMM yyyy HH:mm', 'tr').format(trip.departureTime)} | ${trip.driverName}',
@@ -435,13 +478,12 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                                                   if (!isAuthenticated) {
                                                     final next =
                                                         Uri.encodeComponent(
-                                                            '/booking/${trip.id}');
+                                                            bookingPath);
                                                     context.push(
                                                         '/login?next=$next');
                                                     return;
                                                   }
-                                                  context.push(
-                                                      '/booking/${trip.id}');
+                                                  context.push(bookingPath);
                                                 },
                                           style: FilledButton.styleFrom(
                                             backgroundColor:
@@ -636,8 +678,15 @@ class _WebTag extends StatelessWidget {
 class _TripCard extends StatelessWidget {
   final Trip trip;
   final int index;
+  final String? searchFrom;
+  final String? searchTo;
 
-  const _TripCard({required this.trip, required this.index});
+  const _TripCard({
+    required this.trip,
+    required this.index,
+    this.searchFrom,
+    this.searchTo,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -645,9 +694,21 @@ class _TripCard extends StatelessWidget {
     final dateFormat = DateFormat('dd MMM', 'tr');
     final isFull =
         trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
+    final queryFrom = (searchFrom ?? '').trim();
+    final queryTo = (searchTo ?? '').trim();
+    final routeQuery = <String, String>{
+      if (queryFrom.isNotEmpty) 'from': queryFrom,
+      if (queryTo.isNotEmpty) 'to': queryTo,
+    };
+    final tripPath = Uri(
+      path: '/trip/${trip.id}',
+      queryParameters: routeQuery.isEmpty ? null : routeQuery,
+    ).toString();
+    final displayFrom = trip.segmentDeparture ?? trip.departureCity;
+    final displayTo = trip.segmentArrival ?? trip.arrivalCity;
 
     return GestureDetector(
-      onTap: () => context.push('/trip/${trip.id}'),
+      onTap: () => context.push(tripPath),
       child: GlassContainer(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -732,6 +793,18 @@ class _TripCard extends StatelessWidget {
                     const Text('kisi basi',
                         style: TextStyle(
                             color: AppColors.textTertiary, fontSize: 10)),
+                    if (trip.matchType == 'partial')
+                      const Padding(
+                        padding: EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Kismi rota',
+                          style: TextStyle(
+                            color: AppColors.primaryLight,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ],
@@ -765,12 +838,12 @@ class _TripCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(trip.departureCity,
+                      Text(displayFrom,
                           style: const TextStyle(
                               color: AppColors.textPrimary,
                               fontWeight: FontWeight.w500)),
                       const SizedBox(height: 20),
-                      Text(trip.arrivalCity,
+                      Text(displayTo,
                           style: const TextStyle(
                               color: AppColors.textPrimary,
                               fontWeight: FontWeight.w500)),

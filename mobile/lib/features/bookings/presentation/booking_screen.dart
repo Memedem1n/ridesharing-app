@@ -11,8 +11,17 @@ import '../../../core/theme/app_theme.dart';
 
 class BookingScreen extends ConsumerStatefulWidget {
   final String tripId;
+  final String? requestedFrom;
+  final String? requestedTo;
+  final double? segmentPricePerSeat;
 
-  const BookingScreen({super.key, required this.tripId});
+  const BookingScreen({
+    super.key,
+    required this.tripId,
+    this.requestedFrom,
+    this.requestedTo,
+    this.segmentPricePerSeat,
+  });
 
   @override
   ConsumerState<BookingScreen> createState() => _BookingScreenState();
@@ -22,7 +31,18 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
   int _seats = 1;
 
   void _redirectToLogin(String tripId) {
-    final next = Uri.encodeComponent('/booking/$tripId');
+    final nextRoute = Uri(
+      path: '/booking/$tripId',
+      queryParameters: {
+        if ((widget.requestedFrom ?? '').trim().isNotEmpty)
+          'from': widget.requestedFrom!.trim(),
+        if ((widget.requestedTo ?? '').trim().isNotEmpty)
+          'to': widget.requestedTo!.trim(),
+        if (widget.segmentPricePerSeat != null)
+          'sp': widget.segmentPricePerSeat!.toStringAsFixed(2),
+      },
+    ).toString();
+    final next = Uri.encodeComponent(nextRoute);
     context.push('/login?next=$next');
   }
 
@@ -48,7 +68,12 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
     final booking = await ref
         .read(bookingActionsProvider.notifier)
-        .createBooking(trip.id, _seats);
+        .createBooking(
+          trip.id,
+          _seats,
+          requestedFrom: widget.requestedFrom,
+          requestedTo: widget.requestedTo,
+        );
     if (booking == null) {
       String message = 'Rezervasyon basarisiz';
       final actionState = ref.read(bookingActionsProvider);
@@ -120,7 +145,15 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final tripAsync = ref.watch(tripDetailProvider(widget.tripId));
+    final tripAsync = ref.watch(
+      tripDetailWithContextProvider(
+        TripDetailQuery(
+          tripId: widget.tripId,
+          from: widget.requestedFrom,
+          to: widget.requestedTo,
+        ),
+      ),
+    );
     final actionsState = ref.watch(bookingActionsProvider);
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
 
@@ -139,7 +172,10 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                     style: TextStyle(color: AppColors.textSecondary)));
           }
 
-          final price = trip.pricePerSeat * _seats;
+          final effectivePricePerSeat = widget.segmentPricePerSeat ??
+              trip.segmentPricePerSeat ??
+              trip.pricePerSeat;
+          final price = effectivePricePerSeat * _seats;
           final commission = (price * 0.1).round();
           final total = price;
           final isFull = trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
@@ -288,7 +324,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                         const Divider(),
                         _PriceRow(
                             label: 'Koltuk basi',
-                            value: '${trip.pricePerSeat.toStringAsFixed(0)} ₺'),
+                            value:
+                                '${effectivePricePerSeat.toStringAsFixed(0)} ₺'),
                         _PriceRow(label: 'Koltuk sayisi', value: 'x $_seats'),
                         const Divider(),
                         _PriceRow(

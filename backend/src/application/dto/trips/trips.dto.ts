@@ -592,6 +592,24 @@ export class TripResponseDto {
   @ApiProperty()
   pricePerSeat: number;
 
+  @ApiPropertyOptional({ enum: ["full", "partial"] })
+  matchType?: "full" | "partial";
+
+  @ApiPropertyOptional({ example: "Izmir" })
+  segmentDeparture?: string;
+
+  @ApiPropertyOptional({ example: "Mugla" })
+  segmentArrival?: string;
+
+  @ApiPropertyOptional({ example: 92.4 })
+  segmentDistanceKm?: number;
+
+  @ApiPropertyOptional({ example: 0.33 })
+  segmentRatio?: number;
+
+  @ApiPropertyOptional({ example: 500 })
+  segmentPricePerSeat?: number;
+
   @ApiProperty()
   allowsPets: boolean;
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -131,7 +132,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content:
-              Text('Rota çıkarmak için kalkış ve varış alanlarını doldurun.'),
+              Text('Rota çıkarmak için kalkı�Y ve varı�Y alanlarını doldurun.'),
         ),
       );
       return;
@@ -183,7 +184,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              'Rota bulunamadı. Kalkış/varış için daha net bir şehir veya ilçe seçin.',
+              'Rota bulunamadı. Kalkı�Y/varı�Y için daha net bir �Yehir veya ilçe seçin.',
             ),
           ),
         );
@@ -530,9 +531,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
               : AppColors.textTertiary.withValues(alpha: 0.45),
           strokeWidth: isSelected ? 5 : 3,
           borderStrokeWidth: isSelected ? 2 : 0,
-          borderColor: isSelected
-              ? AppColors.background.withValues(alpha: 0.55)
-              : null,
+          borderColor:
+              isSelected ? AppColors.background.withValues(alpha: 0.55) : null,
         ),
       );
     }
@@ -623,11 +623,14 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   @override
   Widget build(BuildContext context) {
     final vehiclesAsync = ref.watch(myVehiclesProvider);
+    if (kIsWeb) {
+      return _buildWebScaffold(vehiclesAsync);
+    }
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Yolculuk Oluştur'),
+        title: const Text('Yolculuk Olu�Ytur'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -651,6 +654,138 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                 ),
                 _buildBottomActions(),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWebScaffold(AsyncValue<List<Vehicle>> vehiclesAsync) {
+    const stepTitles = <String>[
+      'Rota bilgileri',
+      'Rota secimi',
+      'Ara duraklar',
+      'Arac ve fiyat',
+      'Son ayarlar',
+    ];
+    const stepDescriptions = <String>[
+      'Kalkis, varis, tarih ve saat sec.',
+      'Alternatif rotalari getir ve sec.',
+      'Ara sehir toplama politikasini belirle.',
+      'Arac secimi ve kisi basi fiyat tanimi.',
+      'Tercihleri kontrol et ve ilani yayinla.',
+    ];
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F6F4),
+      appBar: AppBar(
+        title: const Text('Yolculuk Olustur'),
+        actions: [
+          TextButton.icon(
+            onPressed: () => context.go('/'),
+            icon: const Icon(Icons.home_outlined),
+            label: const Text('Ana Sayfa'),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1280),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFDCE6E1)),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Web panelinden ilani adim adim olustur. Tum alanlar mobil ile ayni API akisini kullanir.',
+                              style: const TextStyle(
+                                color: Color(0xFF4E665C),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          SizedBox(
+                            width: 220,
+                            child: _StepHeader(currentStep: _step),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(
+                            width: 300,
+                            child: Container(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                border:
+                                    Border.all(color: const Color(0xFFDCE6E1)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Adimlar',
+                                    style: TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF1F3A30),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  for (int i = 0; i < stepTitles.length; i++)
+                                    Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 10),
+                                      child: _WebStepTile(
+                                        index: i,
+                                        title: stepTitles[i],
+                                        description: stepDescriptions[i],
+                                        isActive: i == _step,
+                                        isDone: i < _step,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.only(right: 2),
+                              child: _buildStepContent(vehiclesAsync),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    _buildWebBottomActions(),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
@@ -783,7 +918,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           const SizedBox(height: 8),
           const Text(
             'Rotaları çıkarıp size en uygun alternatifi seçin.',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+            style: TextStyle(color: AppColors.textPrimary, fontSize: 12),
           ),
           const SizedBox(height: 10),
           SizedBox(
@@ -791,7 +926,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             child: GradientButton(
               text: _isRoutePreviewLoading
                   ? 'Rotalar getiriliyor...'
-                  : 'Rotaları Çıkar',
+                  : 'Rotaları �?ıkar',
               icon: Icons.alt_route,
               isLoading: _isRoutePreviewLoading,
               onPressed: _isRoutePreviewLoading ? null : _previewRoutes,
@@ -800,8 +935,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           const SizedBox(height: 10),
           if (_routeAlternatives.isEmpty)
             const Text(
-              'Henüz rota çıkarılmadı. Kalkış/varış metni yazılıysa sistem koordinatı otomatik çözmeye çalışır.',
-              style: TextStyle(color: AppColors.textSecondary),
+              'Henüz rota çıkarılmadı. Kalkı�Y/varı�Y metni yazılıysa sistem koordinatı otomatik çözmeye çalı�Yır.',
+              style: TextStyle(color: AppColors.textPrimary),
             )
           else ...[
             Container(
@@ -814,9 +949,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                 border: Border.all(color: AppColors.glassStroke),
               ),
               child: Text(
-                '${_routeAlternatives.length} rota bulundu. Seçim değiştiğinde ara durak tercihleri korunur.',
+                '${_routeAlternatives.length} rota bulundu. Seçim de�Yi�Yti�Yinde ara durak tercihleri korunur.',
                 style: const TextStyle(
-                    color: AppColors.textSecondary, fontSize: 12),
+                    color: AppColors.textPrimary, fontSize: 12),
               ),
             ),
             Container(
@@ -870,6 +1005,28 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                   onTap: () => _selectRoute(i),
                 ),
               ),
+            if (kIsWeb)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _step > 0 ? _previousStep : null,
+                      icon: const Icon(Icons.arrow_back),
+                      label: const Text('Geri'),
+                    ),
+                    const Spacer(),
+                    SizedBox(
+                      width: 180,
+                      child: GradientButton(
+                        text: 'Devam Et',
+                        icon: Icons.arrow_forward,
+                        onPressed: _canContinueStep(_step) ? _nextStep : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
           ],
         ],
       ),
@@ -881,7 +1038,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     if (selected == null) {
       return const GlassContainer(
         padding: EdgeInsets.all(16),
-        child: Text('Önce bir rota seçmelisiniz.',
+        child: Text('�-nce bir rota seçmelisiniz.',
             style: TextStyle(color: AppColors.textSecondary)),
       );
     }
@@ -896,8 +1053,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                   color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           const Text(
-              'Tüm ara duraklar için tek bir alım noktası seçin, ardından şehir bazında aç/kapat yapın.',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              'Tüm ara duraklar için tek bir alım noktası seçin, ardından �Yehir bazında aç/kapat yapın.',
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 12)),
           const SizedBox(height: 10),
           DropdownButtonFormField<String>(
             initialValue: _globalPickupType,
@@ -930,8 +1087,8 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           const SizedBox(height: 12),
           if (selected.viaCities.isEmpty)
             const Text(
-              'Bu rota için ara şehir bulunamadı. Bir sonraki adıma geçebilirsiniz.',
-              style: TextStyle(color: AppColors.textSecondary),
+              'Bu rota için ara �Yehir bulunamadı. Bir sonraki adıma geçebilirsiniz.',
+              style: TextStyle(color: AppColors.textPrimary),
             )
           else
             for (final city in selected.viaCities)
@@ -1004,13 +1161,13 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           Text(
             'Ortak alım noktası: ${_pickupTypeLabel(_globalPickupType)}',
             style:
-                const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                const TextStyle(color: AppColors.textPrimary, fontSize: 12),
           ),
           if (!value.pickupAllowed)
             const Padding(
               padding: EdgeInsets.only(top: 4),
               child: Text(
-                'Bu şehirde yolcu alınmayacak.',
+                'Bu �Yehirde yolcu alınmayacak.',
                 style: TextStyle(color: AppColors.textTertiary, fontSize: 11),
               ),
             ),
@@ -1054,15 +1211,15 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             controller: _priceController,
             keyboardType: TextInputType.number,
             decoration: InputDecoration(
-              labelText: 'Kişi başı fiyat',
+              labelText: 'Ki�Yi ba�Yı fiyat',
               helperText: suggestedPerSeat == null
-                  ? 'Örn: 250'
-                  : 'Öneri: ₺${suggestedPerSeat.toStringAsFixed(0)} kişi başı',
+                  ? '�-rn: 250'
+                  : '�-neri: �,�${suggestedPerSeat.toStringAsFixed(0)} ki�Yi ba�Yı',
               helperStyle: const TextStyle(
                 color: AppColors.textTertiary,
                 fontSize: 12,
               ),
-              suffixText: '₺',
+              suffixText: '�,�',
             ),
             validator: (value) =>
                 value == null || value.trim().isEmpty ? 'Fiyat gerekli' : null,
@@ -1158,11 +1315,11 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             Text(
               'Seçili rota: ${selected.distanceKm.toStringAsFixed(1)} km, ${selected.durationMin.toStringAsFixed(0)} dk',
               style:
-                  const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  const TextStyle(color: AppColors.textPrimary, fontSize: 12),
             ),
           const SizedBox(height: 8),
-          const Text('Yolculuk oluştur butonu ile kaydı tamamlayabilirsiniz.',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+          const Text('Yolculuk olu�Ytur butonu ile kaydı tamamlayabilirsiniz.',
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 12)),
         ],
       ),
     ).animate().fadeIn().slideY(begin: 0.08);
@@ -1187,7 +1344,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
             const Expanded(
               child: Text(
                 'Tahmini maliyet için önce rota çıkarın.',
-                style: TextStyle(color: AppColors.textSecondary),
+                style: TextStyle(color: AppColors.textPrimary),
               ),
             ),
             const SizedBox(width: 8),
@@ -1236,7 +1393,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            '${_estimatedDistanceKm!.toStringAsFixed(1)} km • ${_estimatedDurationMin!.toStringAsFixed(0)} dk',
+            '${_estimatedDistanceKm!.toStringAsFixed(1)} km �?� ${_estimatedDurationMin!.toStringAsFixed(0)} dk',
             style: const TextStyle(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 6),
@@ -1250,9 +1407,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           ),
           const SizedBox(height: 2),
           Text(
-            'Önerilen kişi başı: TL ${perSeatSuggestion.toStringAsFixed(0)}',
+            '�-nerilen ki�Yi ba�Yı: TL ${perSeatSuggestion.toStringAsFixed(0)}',
             style:
-                const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                const TextStyle(color: AppColors.textPrimary, fontSize: 12),
           ),
         ],
       ),
@@ -1290,7 +1447,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Araç bulunamadı. Önce araç ekleyin.',
+              const Text('Araç bulunamadı. �-nce araç ekleyin.',
                   style: TextStyle(color: AppColors.textSecondary)),
               const SizedBox(height: 8),
               GradientButton(
@@ -1308,7 +1465,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           children: vehicles.map((vehicle) {
             final selected = vehicle.id == selectedId;
             final ownerBadge =
-                vehicle.ownershipType == 'relative' ? ' • Akraba aracı' : '';
+                vehicle.ownershipType == 'relative' ? ' �?� Akraba aracı' : '';
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: InkWell(
@@ -1367,7 +1524,49 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           Expanded(
             child: GradientButton(
               text: _step == 4
-                  ? (_isLoading ? 'Oluşturuluyor...' : 'Yolculuk Oluştur')
+                  ? (_isLoading ? 'Olu�Yturuluyor...' : 'Yolculuk Olu�Ytur')
+                  : 'Devam Et',
+              icon: _step == 4 ? Icons.check_circle : Icons.arrow_forward,
+              isLoading: _isLoading,
+              onPressed: _isLoading
+                  ? null
+                  : () {
+                      if (_step == 4) {
+                        _createTrip();
+                      } else {
+                        _nextStep();
+                      }
+                    },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWebBottomActions() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFDCE6E1)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          if (_step > 0)
+            OutlinedButton.icon(
+              onPressed: _previousStep,
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Geri'),
+            ),
+          if (_step > 0) const SizedBox(width: 10),
+          SizedBox(
+            width: 230,
+            child: GradientButton(
+              text: _step == 4
+                  ? (_isLoading ? 'Olusturuluyor...' : 'Yolculugu Olustur')
                   : 'Devam Et',
               icon: _step == 4 ? Icons.check_circle : Icons.arrow_forward,
               isLoading: _isLoading,
@@ -1393,7 +1592,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
     if (selectedRoute == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Yolculuk oluşturmadan önce rota seçmelisiniz.')),
+            content: Text('Yolculuk olu�Yturmadan önce rota seçmelisiniz.')),
       );
       return;
     }
@@ -1450,7 +1649,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Yolculuk başarıyla oluşturuldu.'),
+            content: Text('Yolculuk ba�Yarıyla olu�Yturuldu.'),
             backgroundColor: AppColors.success),
       );
       context.pop();
@@ -1492,6 +1691,87 @@ class _StepHeader extends StatelessWidget {
           ),
         );
       }),
+    );
+  }
+}
+
+class _WebStepTile extends StatelessWidget {
+  final int index;
+  final String title;
+  final String description;
+  final bool isActive;
+  final bool isDone;
+
+  const _WebStepTile({
+    required this.index,
+    required this.title,
+    required this.description,
+    required this.isActive,
+    required this.isDone,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = isActive
+        ? AppColors.primary
+        : isDone
+            ? const Color(0xFF3A8C6B)
+            : const Color(0xFF93A8A0);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isActive ? const Color(0xFFEAF3EE) : const Color(0xFFF7FAF8),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isActive ? const Color(0xFF8EB9A7) : const Color(0xFFD9E4DE),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: accent,
+            ),
+            child: Text(
+              '${index + 1}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Color(0xFF1F3A30),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    color: Color(0xFF597469),
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1559,18 +1839,28 @@ class _RouteAlternativeCard extends StatelessWidget {
                   ),
                 ],
                 const Spacer(),
-                Text('${alternative.distanceKm.toStringAsFixed(1)} km',
-                    style: const TextStyle(color: AppColors.textSecondary)),
+                Text(
+                  '${alternative.distanceKm.toStringAsFixed(1)} km',
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(width: 10),
-                Text('${alternative.durationMin.toStringAsFixed(0)} dk',
-                    style: const TextStyle(color: AppColors.textSecondary)),
+                Text(
+                  '${alternative.durationMin.toStringAsFixed(0)} dk',
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 6),
             Text(
               viaText,
               style:
-                  const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  const TextStyle(color: AppColors.textPrimary, fontSize: 12),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -1675,3 +1965,4 @@ class _TypeChip extends StatelessWidget {
     );
   }
 }
+

@@ -126,7 +126,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/trip/:id',
           builder: (context, state) =>
-              TripDetailScreen(tripId: state.pathParameters['id']!)),
+              TripDetailScreen(
+                tripId: state.pathParameters['id']!,
+                requestedFrom: state.uri.queryParameters['from'],
+                requestedTo: state.uri.queryParameters['to'],
+              )),
       GoRoute(
         path: '/search-results',
         builder: (context, state) => SearchResultsScreen(
@@ -138,7 +142,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
           path: '/booking/:tripId',
           builder: (context, state) =>
-              BookingScreen(tripId: state.pathParameters['tripId']!)),
+              BookingScreen(
+                tripId: state.pathParameters['tripId']!,
+                requestedFrom: state.uri.queryParameters['from'],
+                requestedTo: state.uri.queryParameters['to'],
+                segmentPricePerSeat:
+                    double.tryParse(state.uri.queryParameters['sp'] ?? ''),
+              )),
       GoRoute(
           path: '/verification',
           builder: (context, state) => const VerificationScreen()),
@@ -249,8 +259,7 @@ class MainShell extends ConsumerWidget {
     final isAuthenticated = ref.watch(isAuthenticatedProvider);
     final isWideWeb = kIsWeb;
     final location = GoRouterState.of(context).matchedLocation;
-    final isCompactNav = MediaQuery.sizeOf(context).width < 380;
-    final bookingsLabel = isCompactNav ? 'Rezerv.' : strings.navBookings;
+    final bookingsLabel = 'Rezerv.';
     final navDestinations = isAuthenticated
         ? <NavigationDestination>[
             NavigationDestination(

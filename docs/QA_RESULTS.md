@@ -95,3 +95,24 @@ Notes
 - Messaging and QR flows depend on payment confirmation; currently payment is mocked but UI flow does not expose it.
 - There are duplicate/unused screens: `trip_details_screen.dart` (demo) and `booking_screen.dart` (demo) reachable only via unused route.
 - Many Turkish strings still show mojibake in several screens.
+
+---
+
+## Quick Update (2026-02-12)
+Scope: Regression sanity after ongoing route/search/context work.
+
+Checks executed
+- Backend: `npm run type-check` -> PASS
+- Backend: `npm test -- --runInBand src/application/services/trips/trips.service.spec.ts` -> PASS
+- Backend: `npm test -- --runInBand src/application/services/bookings/bookings.service.spec.ts` -> PASS
+- Mobile: `flutter analyze` -> PASS
+- Mobile: `flutter build apk --debug` -> PASS
+
+Fixes validated
+- `mobile/lib/core/services/location_service.dart`: compile fix (`late final` assignment issue removed).
+- `mobile/lib/features/trips/presentation/create_trip_screen.dart`: UTF-8 text recovered + route card readability improved.
+- `mobile/lib/features/home/presentation/home_screen.dart`: UTF-8 text recovered.
+- `mobile/pubspec.yaml`: web SVG illustration assets registered to remove runtime 404s.
+
+Open issue
+- Flutter web log still reports invalid UTF-8 in `/v1/trips` response body (`Bad UTF-8 encoding (U+FFFD)`), indicating existing DB/seed text corruption. Needs data-level cleanup before final smoke sign-off.

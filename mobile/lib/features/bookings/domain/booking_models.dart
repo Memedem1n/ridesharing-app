@@ -21,6 +21,7 @@ class Booking {
   final String? disputeStatus;
   final DateTime createdAt;
   final Trip? trip;
+  final BookingSegment? segment;
 
   Booking({
     required this.id,
@@ -41,6 +42,7 @@ class Booking {
     this.disputeStatus,
     required this.createdAt,
     this.trip,
+    this.segment,
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
@@ -66,6 +68,36 @@ class Booking {
       disputeStatus: json['disputeStatus'],
       createdAt: DateTime.parse(json['createdAt']),
       trip: json['trip'] != null ? Trip.fromJson(json['trip']) : null,
+      segment: json['segment'] != null
+          ? BookingSegment.fromJson(
+              Map<String, dynamic>.from(json['segment'] as Map))
+          : null,
+    );
+  }
+}
+
+class BookingSegment {
+  final String departure;
+  final String arrival;
+  final double distanceKm;
+  final double ratio;
+  final double pricePerSeat;
+
+  BookingSegment({
+    required this.departure,
+    required this.arrival,
+    required this.distanceKm,
+    required this.ratio,
+    required this.pricePerSeat,
+  });
+
+  factory BookingSegment.fromJson(Map<String, dynamic> json) {
+    return BookingSegment(
+      departure: json['departure']?.toString() ?? '',
+      arrival: json['arrival']?.toString() ?? '',
+      distanceKm: (json['distanceKm'] ?? 0).toDouble(),
+      ratio: (json['ratio'] ?? 0).toDouble(),
+      pricePerSeat: (json['pricePerSeat'] ?? 0).toDouble(),
     );
   }
 }
@@ -133,11 +165,22 @@ class Trip {
 class CreateBookingRequest {
   final String tripId;
   final int seatCount;
+  final String? requestedFrom;
+  final String? requestedTo;
 
-  CreateBookingRequest({required this.tripId, required this.seatCount});
+  CreateBookingRequest({
+    required this.tripId,
+    required this.seatCount,
+    this.requestedFrom,
+    this.requestedTo,
+  });
 
   Map<String, dynamic> toJson() => {
     'tripId': tripId,
     'seats': seatCount,
+    if (requestedFrom != null && requestedFrom!.trim().isNotEmpty)
+      'requestedFrom': requestedFrom!.trim(),
+    if (requestedTo != null && requestedTo!.trim().isNotEmpty)
+      'requestedTo': requestedTo!.trim(),
   };
 }

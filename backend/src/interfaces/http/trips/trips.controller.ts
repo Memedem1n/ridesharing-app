@@ -39,8 +39,13 @@ export class TripsController {
     @ApiOperation({ summary: 'Get trip details' })
     @ApiResponse({ status: 200, description: 'Trip details', type: TripResponseDto })
     @ApiResponse({ status: 404, description: 'Trip not found' })
-    async getById(@Param('id') id: string, @Request() req): Promise<TripResponseDto> {
-        return this.tripsService.findById(id, req.user?.sub);
+    async getById(
+        @Param('id') id: string,
+        @Request() req,
+        @Query('from') from?: string,
+        @Query('to') to?: string,
+    ): Promise<TripResponseDto> {
+        return this.tripsService.findById(id, req.user?.sub, from, to);
     }
 
     @Post('route-preview')

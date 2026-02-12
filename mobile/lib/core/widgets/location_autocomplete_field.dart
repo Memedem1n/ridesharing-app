@@ -113,6 +113,8 @@ class _LocationAutocompleteFieldState extends State<LocationAutocompleteField> {
         TextFormField(
           controller: widget.controller,
           focusNode: _focusNode,
+          hintLocales: const [Locale('tr', 'TR')],
+          textCapitalization: TextCapitalization.words,
           style: const TextStyle(color: AppColors.textPrimary),
           decoration: InputDecoration(
             hintText: widget.hintText,

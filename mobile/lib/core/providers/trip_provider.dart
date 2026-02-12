@@ -165,6 +165,12 @@ class Trip {
   final List<TripPassenger> passengers;
   final bool canViewPassengerList;
   final bool canViewLiveLocation;
+  final String? matchType;
+  final String? segmentDeparture;
+  final String? segmentArrival;
+  final double? segmentDistanceKm;
+  final double? segmentRatio;
+  final double? segmentPricePerSeat;
 
   Trip({
     required this.id,
@@ -201,6 +207,12 @@ class Trip {
     this.passengers = const [],
     this.canViewPassengerList = false,
     this.canViewLiveLocation = false,
+    this.matchType,
+    this.segmentDeparture,
+    this.segmentArrival,
+    this.segmentDistanceKm,
+    this.segmentRatio,
+    this.segmentPricePerSeat,
   });
 
   factory Trip.fromJson(Map<String, dynamic> json) {
@@ -268,8 +280,44 @@ class Trip {
           .toList(),
       canViewPassengerList: json['canViewPassengerList'] == true,
       canViewLiveLocation: json['canViewLiveLocation'] == true,
+      matchType: json['matchType']?.toString(),
+      segmentDeparture: json['segmentDeparture']?.toString(),
+      segmentArrival: json['segmentArrival']?.toString(),
+      segmentDistanceKm: json['segmentDistanceKm'] != null
+          ? (json['segmentDistanceKm']).toDouble()
+          : null,
+      segmentRatio: json['segmentRatio'] != null
+          ? (json['segmentRatio']).toDouble()
+          : null,
+      segmentPricePerSeat: json['segmentPricePerSeat'] != null
+          ? (json['segmentPricePerSeat']).toDouble()
+          : null,
     );
   }
+}
+
+class TripDetailQuery {
+  final String tripId;
+  final String? from;
+  final String? to;
+
+  const TripDetailQuery({
+    required this.tripId,
+    this.from,
+    this.to,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is TripDetailQuery &&
+        other.tripId == tripId &&
+        other.from == from &&
+        other.to == to;
+  }
+
+  @override
+  int get hashCode => Object.hash(tripId, from, to);
 }
 
 class TripSearchParams {
@@ -350,6 +398,18 @@ class PopularRouteSummary {
   });
 }
 
+class MapDensityPoint {
+  final double lat;
+  final double lng;
+  final double intensity;
+
+  MapDensityPoint({
+    required this.lat,
+    required this.lng,
+    required this.intensity,
+  });
+}
+
 List<PopularRouteSummary> buildPopularRoutes(List<Trip> trips) {
   final Map<String, _RouteAgg> aggregates = {};
   for (final trip in trips) {
@@ -396,6 +456,64 @@ class _RouteAgg {
   _RouteAgg({required this.from, required this.to});
 }
 
+List<MapDensityPoint> buildMapDensityPoints(List<Trip> trips) {
+  final aggregates = <String, _DensityAgg>{};
+
+  void addPoint(double? lat, double? lng, double weight) {
+    if (lat == null || lng == null) return;
+    if (!lat.isFinite || !lng.isFinite) return;
+
+    final roundedLat = (lat * 100).round() / 100;
+    final roundedLng = (lng * 100).round() / 100;
+    final key = '$roundedLat|$roundedLng';
+    final agg = aggregates.putIfAbsent(
+      key,
+      () => _DensityAgg(lat: roundedLat, lng: roundedLng),
+    );
+    agg.intensity += weight;
+  }
+
+  for (final trip in trips) {
+    addPoint(trip.departureLat, trip.departureLng, 2.2);
+    addPoint(trip.arrivalLat, trip.arrivalLng, 2.2);
+
+    for (final via in trip.viaCities) {
+      addPoint(via.lat, via.lng, 1.2);
+    }
+
+    final points = trip.route?.points ?? const <TripRoutePoint>[];
+    if (points.length >= 2) {
+      final step =
+          ((points.length / 18).ceil().clamp(1, points.length) as num).toInt();
+      for (int i = 0; i < points.length; i += step) {
+        final point = points[i];
+        addPoint(point.lat, point.lng, 0.55);
+      }
+      final last = points.last;
+      addPoint(last.lat, last.lng, 0.6);
+    }
+  }
+
+  final density = aggregates.values
+      .map((agg) => MapDensityPoint(
+            lat: agg.lat,
+            lng: agg.lng,
+            intensity: agg.intensity,
+          ))
+      .toList();
+
+  density.sort((a, b) => b.intensity.compareTo(a.intensity));
+  return density.take(120).toList();
+}
+
+class _DensityAgg {
+  final double lat;
+  final double lng;
+  double intensity = 0;
+
+  _DensityAgg({required this.lat, required this.lng});
+}
+
 class TripService {
   final Dio _dio;
 
@@ -412,9 +530,20 @@ class TripService {
     }).toList();
   }
 
-  Future<Trip?> getTripById(String id) async {
+  Future<Trip?> getTripById(
+    String id, {
+    String? from,
+    String? to,
+  }) async {
     try {
-      final response = await _dio.get('/trips/$id');
+      final queryParameters = <String, dynamic>{
+        if ((from ?? '').trim().isNotEmpty) 'from': from!.trim(),
+        if ((to ?? '').trim().isNotEmpty) 'to': to!.trim(),
+      };
+      final response = await _dio.get(
+        '/trips/$id',
+        queryParameters: queryParameters.isEmpty ? null : queryParameters,
+      );
       return Trip.fromJson(response.data);
     } catch (_) {
       return null;
@@ -453,9 +582,25 @@ final tripDetailProvider =
   return service.getTripById(tripId);
 });
 
+final tripDetailWithContextProvider =
+    FutureProvider.family<Trip?, TripDetailQuery>((ref, query) async {
+  final service = ref.read(tripServiceProvider);
+  return service.getTripById(
+    query.tripId,
+    from: query.from,
+    to: query.to,
+  );
+});
+
 final popularRoutesProvider =
     FutureProvider<List<PopularRouteSummary>>((ref) async {
   final service = ref.read(tripServiceProvider);
   final trips = await service.searchTrips(TripSearchParams(page: 1, limit: 50));
   return buildPopularRoutes(trips).take(8).toList();
+});
+
+final homeMapDensityProvider = FutureProvider<List<MapDensityPoint>>((ref) async {
+  final service = ref.read(tripServiceProvider);
+  final trips = await service.searchTrips(TripSearchParams(page: 1, limit: 120));
+  return buildMapDensityPoints(trips);
 });
