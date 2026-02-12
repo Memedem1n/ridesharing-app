@@ -16,6 +16,7 @@ class Booking {
   final String? pnrCode;
   final DateTime? checkedInAt;
   final DateTime? acceptedAt;
+  final DateTime? paymentDueAt;
   final DateTime? completedAt;
   final DateTime? disputeDeadlineAt;
   final String? disputeStatus;
@@ -37,6 +38,7 @@ class Booking {
     this.pnrCode,
     this.checkedInAt,
     this.acceptedAt,
+    this.paymentDueAt,
     this.completedAt,
     this.disputeDeadlineAt,
     this.disputeStatus,
@@ -57,14 +59,28 @@ class Booking {
               json['passengerAvatar']?.toString()),
       seatCount: json['seats'] ?? json['seatCount'] ?? 1,
       totalPrice: (json['priceTotal'] ?? json['totalPrice'] ?? 0).toDouble(),
-      serviceFee: (json['commissionAmount'] ?? json['serviceFee'] ?? 0).toDouble(),
+      serviceFee:
+          (json['commissionAmount'] ?? json['serviceFee'] ?? 0).toDouble(),
       status: _parseStatus(statusRaw),
       qrCode: json['qrCode'],
       pnrCode: json['pnrCode'],
-      checkedInAt: json['checkedInAt'] != null ? DateTime.parse(json['checkedInAt']) : null,
-      acceptedAt: json['acceptedAt'] != null ? DateTime.parse(json['acceptedAt']) : null,
-      completedAt: json['completedAt'] != null ? DateTime.parse(json['completedAt']) : null,
-      disputeDeadlineAt: json['disputeDeadlineAt'] != null ? DateTime.parse(json['disputeDeadlineAt']) : null,
+      checkedInAt: json['checkedInAt'] != null
+          ? DateTime.parse(json['checkedInAt'])
+          : null,
+      acceptedAt: json['acceptedAt'] != null
+          ? DateTime.parse(json['acceptedAt'])
+          : null,
+      paymentDueAt: json['paymentDueAt'] != null
+          ? DateTime.parse(json['paymentDueAt'])
+          : (json['expiresAt'] != null
+              ? DateTime.parse(json['expiresAt'])
+              : null),
+      completedAt: json['completedAt'] != null
+          ? DateTime.parse(json['completedAt'])
+          : null,
+      disputeDeadlineAt: json['disputeDeadlineAt'] != null
+          ? DateTime.parse(json['disputeDeadlineAt'])
+          : null,
       disputeStatus: json['disputeStatus'],
       createdAt: DateTime.parse(json['createdAt']),
       trip: json['trip'] != null ? Trip.fromJson(json['trip']) : null,
@@ -102,7 +118,16 @@ class BookingSegment {
   }
 }
 
-enum BookingStatus { pending, awaitingPayment, confirmed, checkedIn, completed, disputed, cancelled, rejected }
+enum BookingStatus {
+  pending,
+  awaitingPayment,
+  confirmed,
+  checkedIn,
+  completed,
+  disputed,
+  cancelled,
+  rejected
+}
 
 BookingStatus _parseStatus(String? raw) {
   switch (raw) {
@@ -176,11 +201,11 @@ class CreateBookingRequest {
   });
 
   Map<String, dynamic> toJson() => {
-    'tripId': tripId,
-    'seats': seatCount,
-    if (requestedFrom != null && requestedFrom!.trim().isNotEmpty)
-      'requestedFrom': requestedFrom!.trim(),
-    if (requestedTo != null && requestedTo!.trim().isNotEmpty)
-      'requestedTo': requestedTo!.trim(),
-  };
+        'tripId': tripId,
+        'seats': seatCount,
+        if (requestedFrom != null && requestedFrom!.trim().isNotEmpty)
+          'requestedFrom': requestedFrom!.trim(),
+        if (requestedTo != null && requestedTo!.trim().isNotEmpty)
+          'requestedTo': requestedTo!.trim(),
+      };
 }

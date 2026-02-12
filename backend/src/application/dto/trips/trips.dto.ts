@@ -31,6 +31,11 @@ export enum TripStatus {
   CANCELLED = "cancelled",
 }
 
+export enum TripBookingType {
+  INSTANT = "instant",
+  APPROVAL_REQUIRED = "approval_required",
+}
+
 export enum PetLocation {
   FRONT = "front",
   BACK = "back",
@@ -396,6 +401,14 @@ export class CreateTripDto {
   @IsBoolean()
   instantBooking?: boolean;
 
+  @ApiPropertyOptional({
+    enum: TripBookingType,
+    default: TripBookingType.INSTANT,
+  })
+  @IsOptional()
+  @IsEnum(TripBookingType)
+  bookingType?: TripBookingType;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
@@ -621,6 +634,9 @@ export class TripResponseDto {
 
   @ApiProperty()
   instantBooking: boolean;
+
+  @ApiProperty({ enum: TripBookingType })
+  bookingType: TripBookingType;
 
   @ApiPropertyOptional()
   description?: string;

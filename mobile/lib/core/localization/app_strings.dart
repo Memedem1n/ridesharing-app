@@ -211,4 +211,3 @@ class AppStrings {
   String get cancel => _t('cancel');
   String get confirm => _t('confirm');
 }
-

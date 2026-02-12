@@ -247,6 +247,9 @@ export class BookingResponseDto {
     @ApiPropertyOptional()
     expiresAt?: Date;
 
+    @ApiPropertyOptional()
+    paymentDueAt?: Date;
+
     @ApiProperty({ enum: PaymentStatus })
     paymentStatus: PaymentStatus;
 

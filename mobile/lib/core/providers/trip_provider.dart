@@ -153,6 +153,7 @@ class Trip {
   final bool allowsCargo;
   final bool womenOnly;
   final bool instantBooking;
+  final String bookingType;
   final String? description;
   final String? vehicleBrand;
   final String? vehicleModel;
@@ -195,6 +196,7 @@ class Trip {
     required this.allowsCargo,
     required this.womenOnly,
     required this.instantBooking,
+    this.bookingType = 'instant',
     this.description,
     this.vehicleBrand,
     this.vehicleModel,
@@ -221,6 +223,11 @@ class Trip {
     final pickupPoliciesJson = (json['pickupPolicies'] as List?) ?? const [];
     final passengersJson = (json['passengers'] as List?) ?? const [];
     final occupancyJson = json['occupancy'] as Map?;
+
+    final rawBookingType = json['bookingType']?.toString().trim().toLowerCase();
+    final normalizedBookingType =
+        rawBookingType == 'approval_required' ? 'approval_required' : 'instant';
+    final legacyInstant = json['instantBooking'] == false ? false : true;
 
     return Trip(
       id: json['id']?.toString() ?? '',
@@ -254,7 +261,10 @@ class Trip {
       allowsPets: json['allowsPets'] ?? false,
       allowsCargo: json['allowsCargo'] ?? false,
       womenOnly: json['womenOnly'] ?? false,
-      instantBooking: json['instantBooking'] ?? true,
+      instantBooking: json.containsKey('bookingType')
+          ? normalizedBookingType == 'instant'
+          : legacyInstant,
+      bookingType: normalizedBookingType,
       description: json['description']?.toString(),
       vehicleBrand: json['vehicle']?['brand']?.toString(),
       vehicleModel: json['vehicle']?['model']?.toString(),
@@ -456,6 +466,103 @@ class _RouteAgg {
   _RouteAgg({required this.from, required this.to});
 }
 
+List<PopularRouteSummary> buildMockPopularRoutes() {
+  final routes = <PopularRouteSummary>[
+    PopularRouteSummary(
+      from: 'Istanbul',
+      to: 'Ankara',
+      count: 96,
+      minPrice: 289,
+      avgPrice: 319,
+    ),
+    PopularRouteSummary(
+      from: 'Ankara',
+      to: 'Istanbul',
+      count: 92,
+      minPrice: 279,
+      avgPrice: 309,
+    ),
+    PopularRouteSummary(
+      from: 'Istanbul',
+      to: 'Izmir',
+      count: 88,
+      minPrice: 349,
+      avgPrice: 389,
+    ),
+    PopularRouteSummary(
+      from: 'Izmir',
+      to: 'Istanbul',
+      count: 84,
+      minPrice: 339,
+      avgPrice: 379,
+    ),
+    PopularRouteSummary(
+      from: 'Ankara',
+      to: 'Izmir',
+      count: 79,
+      minPrice: 329,
+      avgPrice: 359,
+    ),
+    PopularRouteSummary(
+      from: 'Izmir',
+      to: 'Ankara',
+      count: 75,
+      minPrice: 319,
+      avgPrice: 349,
+    ),
+    PopularRouteSummary(
+      from: 'Istanbul',
+      to: 'Bursa',
+      count: 73,
+      minPrice: 199,
+      avgPrice: 229,
+    ),
+    PopularRouteSummary(
+      from: 'Bursa',
+      to: 'Istanbul',
+      count: 70,
+      minPrice: 189,
+      avgPrice: 219,
+    ),
+    PopularRouteSummary(
+      from: 'Ankara',
+      to: 'Eskisehir',
+      count: 69,
+      minPrice: 169,
+      avgPrice: 199,
+    ),
+    PopularRouteSummary(
+      from: 'Eskisehir',
+      to: 'Ankara',
+      count: 67,
+      minPrice: 159,
+      avgPrice: 189,
+    ),
+    PopularRouteSummary(
+      from: 'Ankara',
+      to: 'Konya',
+      count: 65,
+      minPrice: 179,
+      avgPrice: 209,
+    ),
+    PopularRouteSummary(
+      from: 'Istanbul',
+      to: 'Antalya',
+      count: 62,
+      minPrice: 389,
+      avgPrice: 429,
+    ),
+  ];
+
+  routes.sort((a, b) {
+    final byCount = b.count.compareTo(a.count);
+    if (byCount != 0) return byCount;
+    return a.minPrice.compareTo(b.minPrice);
+  });
+
+  return routes;
+}
+
 List<MapDensityPoint> buildMapDensityPoints(List<Trip> trips) {
   final aggregates = <String, _DensityAgg>{};
 
@@ -550,12 +657,26 @@ class TripService {
     }
   }
 
-  Future<List<Trip>> getMyTrips() async {
-    final response = await _dio.get('/trips/my');
+  Future<List<Trip>> getMyTrips({
+    bool includeDeleted = false,
+    String? status,
+  }) async {
+    final query = <String, dynamic>{
+      if (includeDeleted) 'includeDeleted': 'true',
+      if ((status ?? '').trim().isNotEmpty) 'status': status!.trim(),
+    };
+    final response = await _dio.get(
+      '/trips/my',
+      queryParameters: query.isEmpty ? null : query,
+    );
     final data = response.data;
     final list =
         data is Map ? (data['trips'] as List? ?? []) : (data as List? ?? []);
     return list.map((json) => Trip.fromJson(json)).toList();
+  }
+
+  Future<void> deleteTrip(String id) async {
+    await _dio.delete('/trips/$id');
   }
 }
 
@@ -594,13 +715,13 @@ final tripDetailWithContextProvider =
 
 final popularRoutesProvider =
     FutureProvider<List<PopularRouteSummary>>((ref) async {
-  final service = ref.read(tripServiceProvider);
-  final trips = await service.searchTrips(TripSearchParams(page: 1, limit: 50));
-  return buildPopularRoutes(trips).take(8).toList();
+  return buildMockPopularRoutes();
 });
 
-final homeMapDensityProvider = FutureProvider<List<MapDensityPoint>>((ref) async {
+final homeMapDensityProvider =
+    FutureProvider<List<MapDensityPoint>>((ref) async {
   final service = ref.read(tripServiceProvider);
-  final trips = await service.searchTrips(TripSearchParams(page: 1, limit: 120));
+  final trips =
+      await service.searchTrips(TripSearchParams(page: 1, limit: 120));
   return buildMapDensityPoints(trips);
 });

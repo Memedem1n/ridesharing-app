@@ -1,6 +1,6 @@
 ﻿# Agent Handoff (ridesharing-app)
 
-Last updated: 2026-02-12
+Last updated: 2026-02-13
 
 ## Scope
 This handoff captures the current technical state of the ridesharing app at:
@@ -335,13 +335,12 @@ C:\Users\barut\workspace\ridesharing-app
 - User-request continuity note:
   - New request to build a usable pitch deck under `C:\Users\barut\workspace\Sunumlar` was acknowledged, but implementation did not start due user interruption.
 
-## Next session start here
-1. Clean invalid UTF-8 trip data in DB/seeds and re-run web smoke on `/`, `/search`, `/trip/:id`.
-2. Continue and finalize in-progress route matching + segment pricing change set in backend/mobile, then run full backend tests + mobile analyze/test.
-3. Verify web auth/menu and reservations/profile entrypoints manually after data cleanup.
-4. Start requested pitch deck implementation in `C:\Users\barut\workspace\Sunumlar` (React app scaffold + provided component integration).
-5. Resume product backlog items: iOS release setup, Iyzico live flow, admin panel UI, E-Devlet integration.
-
+## Next session start here (updated 2026-02-13)
+1. Resolve web route issue where direct URLs (`/search`, `/login`, `/help`) on `http://localhost:3000` collapse to `/`; verify with Playwright URL assertions and browser devtools.
+2. Re-run full web evidence capture after routing fix (public + authenticated pages) and ensure screenshots are unique per page.
+3. Complete Android end-to-end screenshot evidence for each critical flow (home/search/trip-detail/create-trip/reservations/messages/profile/driver-reservations).
+4. Finalize repository hygiene pass (unused scripts/artifacts, stale temp files) and keep only required code/docs.
+5. Update docs (`TASKS.md`, `docs/QA_RESULTS.md`, `docs/AGENT_HANDOFF.md`) with final audit outcomes and release-ready checklist.
 ## Selected skill set (use for future work)
 Repo skills:
 - ridesharing-backend
@@ -374,3 +373,29 @@ Repo skills sync:
 
 
 
+
+## Conversation summary (2026-02-13 EOD)
+- User asked for full day-end closure: write done/in-progress/pending status, clean unnecessary leftovers, and prepare a commit-ready state.
+- Runtime/state checks completed:
+  - Backend health endpoint `GET /v1/health` reachable on `http://localhost:3000`.
+  - Flutter web server (`:4100`) and Android emulator processes were running during validation.
+  - Existing Playwright screenshot set from earlier pass was invalid for audit (many files had identical hash/blank captures).
+- Implemented in this session:
+  - Added web URL strategy initialization in `mobile/lib/main.dart` (`setUrlStrategy(PathUrlStrategy())`).
+  - Added direct `flutter_web_plugins` SDK dependency in `mobile/pubspec.yaml`.
+  - Updated web top-nav primary actions to point to `/search` from home and search-results screens.
+  - Added guest-visible `Mesajlar` action in shared web header (`mobile/lib/core/widgets/web/site_header.dart`).
+  - Set trip creation default booking mode to approval-first (`_instantBooking = false`) so payment is not the initial step.
+  - Updated GoRouter web initial location handling in `mobile/lib/core/router/app_router.dart` using `Uri.base`.
+  - Removed temporary local debug scripts used for ad-hoc Playwright diagnosis.
+- Validation rerun (current working tree):
+  - Backend: `npm run type-check` ✅
+  - Backend: `npm test -- --runInBand` ✅ (7/7 suites, 52/52 tests)
+  - Mobile: `flutter analyze` ✅
+  - Mobile: `flutter test` ✅
+  - Mobile: `flutter build web --release --pwa-strategy=none` ✅
+- Key unfinished blocker at end of day:
+  - Direct web routes on `http://localhost:3000` still normalize back to `/` in headless checks (`/search`, `/login`, `/help`, `/about`, `/security`), so final page-by-page web screenshot evidence is not yet trustworthy.
+- Closing status:
+  - Code and docs are checkpointed for continuation.
+  - Next session should start from routing root-cause resolution before final UI evidence pass.

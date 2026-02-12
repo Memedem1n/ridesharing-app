@@ -75,9 +75,13 @@ String? _sanitizeNextRoute(String? rawNext) {
 // ==================== ROUTER ====================
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authProvider);
+  final webInitialLocation = kIsWeb
+      ? '${Uri.base.path.isEmpty ? '/' : Uri.base.path}'
+          '${Uri.base.hasQuery ? '?${Uri.base.query}' : ''}'
+      : '/';
 
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: webInitialLocation,
     redirect: (context, state) {
       final isAuth = authState.status == AuthStatus.authenticated;
       final path = state.uri.path;
@@ -125,8 +129,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
           path: '/trip/:id',
-          builder: (context, state) =>
-              TripDetailScreen(
+          builder: (context, state) => TripDetailScreen(
                 tripId: state.pathParameters['id']!,
                 requestedFrom: state.uri.queryParameters['from'],
                 requestedTo: state.uri.queryParameters['to'],
@@ -141,8 +144,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
           path: '/booking/:tripId',
-          builder: (context, state) =>
-              BookingScreen(
+          builder: (context, state) => BookingScreen(
                 tripId: state.pathParameters['tripId']!,
                 requestedFrom: state.uri.queryParameters['from'],
                 requestedTo: state.uri.queryParameters['to'],
@@ -164,7 +166,9 @@ final routerProvider = Provider<GoRouter>((ref) {
               )),
       GoRoute(
           path: '/driver-reservations',
-          builder: (context, state) => const DriverReservationsScreen()),
+          builder: (context, state) => DriverReservationsScreen(
+                initialTripId: state.uri.queryParameters['tripId'],
+              )),
       GoRoute(
           path: '/boarding-qr',
           builder: (context, state) => BoardingQRScreen(

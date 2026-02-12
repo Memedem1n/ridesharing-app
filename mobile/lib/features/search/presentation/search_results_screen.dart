@@ -386,8 +386,7 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
                                           ),
                                           if (trip.matchType == 'partial')
                                             const Padding(
-                                              padding:
-                                                  EdgeInsets.only(top: 4),
+                                              padding: EdgeInsets.only(top: 4),
                                               child: Text(
                                                 'Kismi rota eslesmesi',
                                                 style: TextStyle(
@@ -554,16 +553,24 @@ class _SearchResultsScreenState extends ConsumerState<SearchResultsScreen> {
 
   Widget _buildWebTopBar(BuildContext context, bool isAuthenticated) {
     final createTripNext = Uri.encodeComponent('/create-trip');
+    final messagesNext = Uri.encodeComponent('/messages');
     return WebSiteHeader(
       isAuthenticated: isAuthenticated,
       primaryNavLabel: 'Aramayi duzenle',
       onBrandTap: () => context.go('/'),
-      onPrimaryNavTap: () => context.go('/'),
+      onPrimaryNavTap: () => context.go('/search'),
       onCreateTripTap: () {
         if (isAuthenticated) {
           context.push('/create-trip');
         } else {
           context.push('/login?next=$createTripNext');
+        }
+      },
+      onMessagesTap: () {
+        if (isAuthenticated) {
+          context.go('/messages');
+        } else {
+          context.push('/login?next=$messagesNext');
         }
       },
       onReservationsTap: () => context.go('/reservations'),

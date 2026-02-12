@@ -1,7 +1,7 @@
 ﻿# Task Status (Ridesharing SuperApp)
 
 Source: repo code/docs audit
-Last verification pass: 2026-02-11 (Vehicle ownership hardening + API contract sync + backend/mobile validation)
+Last verification pass: 2026-02-13 (EOD checkpoint: web route diagnostics + mobile/backend validation rerun)
 
 ## Open Items (Priority, 2026-02-09)
 - [ ] Web auth/menu stabilization + demo-user login smoke on web (manual QA pass pending; local API smoke needs PostgreSQL running on `localhost:5432`)
@@ -14,6 +14,31 @@ Last verification pass: 2026-02-11 (Vehicle ownership hardening + API contract s
 - [ ] Admin web panel UI (optional): admin moderation API exists, but a dedicated web panel is not in repo
 - [ ] Payment system (Iyzico): live payment/refund/tokenization + wallet reconciliation (defer to final phase)
 - [ ] Help/About/Support legal and operational copy finalization (current content is temporary demo text)
+
+## Session Checkpoint (2026-02-13 EOD)
+### Completed today
+- [x] Web path URL strategy initialization added in Flutter (`setUrlStrategy(PathUrlStrategy())`).
+- [x] Shared web header updated so guest users also see `Mesajlar` action.
+- [x] Web top navigation primary actions aligned to `/search` on home and search-results.
+- [x] Trip creation default booking mode switched to approval-first (`bookingType: approval_required` path by default).
+- [x] Temporary debug scripts used for ad-hoc Playwright diagnosis were removed from backend root.
+- [x] Validation rerun completed on current working tree:
+  - backend `npm run type-check` passed
+  - backend `npm test -- --runInBand` passed (`7/7`, `52/52`)
+  - mobile `flutter analyze` passed
+  - mobile `flutter test` passed
+  - mobile `flutter build web --release` passed
+
+### In progress
+- [ ] Full web screenshot evidence regeneration is in progress but blocked by routing behavior mismatch in headless checks.
+
+### Open blocker (must-fix)
+- [ ] Direct web routes on `http://localhost:3000` (`/search`, `/login`, `/help`, `/about`, `/security`) collapse back to `/` in current Playwright checks; root cause not finalized yet.
+
+### Pending next
+- [ ] After routing fix, regenerate unique per-page web screenshots (public + authenticated pages).
+- [ ] Capture complete Android screenshot evidence for all critical pages/flows.
+- [ ] Finish final repo hygiene pass (unused artifacts/temp outputs) and close QA report.
 
 ## Completed
 - [x] Project setup: Flutter + NestJS base stack
@@ -115,4 +140,5 @@ Last verification pass: 2026-02-11 (Vehicle ownership hardening + API contract s
 - [x] Bus price scraping via Playwright. Skills: typescript-expert, backend-architect
 - [x] Multi-language support (EN/AR). Skills: flutter-expert, mobile-design
 - [x] E2E automation script: create test DB, run prisma push/migrate, and execute `npm run test:e2e`. Skills: backend-ops, devex
+
 

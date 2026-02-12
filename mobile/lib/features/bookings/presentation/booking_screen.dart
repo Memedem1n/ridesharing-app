@@ -8,6 +8,7 @@ import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/booking_provider.dart';
 import '../../../core/providers/trip_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../domain/booking_models.dart' as booking_models;
 
 class BookingScreen extends ConsumerStatefulWidget {
   final String tripId;
@@ -53,7 +54,8 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       return;
     }
 
-    final isFull = trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
+    final isFull =
+        trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
     if (isFull) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -66,14 +68,13 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       return;
     }
 
-    final booking = await ref
-        .read(bookingActionsProvider.notifier)
-        .createBooking(
-          trip.id,
-          _seats,
-          requestedFrom: widget.requestedFrom,
-          requestedTo: widget.requestedTo,
-        );
+    final booking =
+        await ref.read(bookingActionsProvider.notifier).createBooking(
+              trip.id,
+              _seats,
+              requestedFrom: widget.requestedFrom,
+              requestedTo: widget.requestedTo,
+            );
     if (booking == null) {
       String message = 'Rezervasyon basarisiz';
       final actionState = ref.read(bookingActionsProvider);
@@ -97,6 +98,16 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     }
 
     if (!mounted) return;
+    final needsApproval =
+        booking.status == booking_models.BookingStatus.pending;
+    final paymentOpened =
+        booking.status == booking_models.BookingStatus.awaitingPayment;
+    final statusMessage = needsApproval
+        ? 'Talebiniz surucu onayina gonderildi. Onay sonrasi odeme ekrani acilacak.'
+        : paymentOpened
+            ? 'Rezervasyon olusturuldu. Odeme adimi aktif, Rezervasyonlarim sayfasindan devam edebilirsiniz.'
+            : 'Rezervasyon olusturuldu.';
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -107,8 +118,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
-                'Rezervasyon olusturuldu. Odeme tamamlandiginda onaylanacak.'),
+            Text(statusMessage),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(16),
@@ -178,9 +188,11 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           final price = effectivePricePerSeat * _seats;
           final commission = (price * 0.1).round();
           final total = price;
-          final isFull = trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
+          final isFull =
+              trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
           final dateFormat = DateFormat('dd MMM yyyy', 'tr');
           final timeFormat = DateFormat('HH:mm');
+          final approvalRequired = trip.bookingType == 'approval_required';
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
@@ -255,6 +267,35 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                               Text(timeFormat.format(trip.departureTime))
                             ]),
                           ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          approvalRequired
+                              ? Icons.approval_outlined
+                              : Icons.flash_on,
+                          color: AppColors.primary,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            approvalRequired
+                                ? 'Bu ilanda once talep surucu onayina duser. Onaydan sonra odeme acilir.'
+                                : 'Bu ilanda aninda rezervasyon aktif. Talep sonrasi odeme adimi hemen acilir.',
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -381,7 +422,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                                 trip.status.toLowerCase() == 'full')
                         ? 'Dolu'
                         : (isAuthenticated
-                            ? 'Rezervasyon Yap'
+                            ? ((trip?.bookingType == 'approval_required')
+                                ? 'Talep Olustur'
+                                : 'Rezervasyon Yap')
                             : 'Giris yap ve rezerve et'),
                   ),
           ),

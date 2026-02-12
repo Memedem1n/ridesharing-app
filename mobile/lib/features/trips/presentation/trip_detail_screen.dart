@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -18,6 +19,7 @@ import '../../../core/providers/message_provider.dart';
 import '../../../core/providers/trip_provider.dart';
 import '../../../core/services/route_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/duration_formatter.dart';
 import '../../../core/widgets/animated_buttons.dart';
 import '../../../core/widgets/map_view.dart';
 import '../../../features/bookings/domain/booking_models.dart' hide Trip;
@@ -236,14 +238,13 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
 
     setState(() => _isBooking = true);
 
-    final booking = await ref
-        .read(bookingActionsProvider.notifier)
-        .createBooking(
-          trip.id,
-          _selectedSeats,
-          requestedFrom: widget.requestedFrom,
-          requestedTo: widget.requestedTo,
-        );
+    final booking =
+        await ref.read(bookingActionsProvider.notifier).createBooking(
+              trip.id,
+              _selectedSeats,
+              requestedFrom: widget.requestedFrom,
+              requestedTo: widget.requestedTo,
+            );
     if (!mounted) return;
 
     if (booking != null) {
@@ -426,14 +427,17 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
     final bookingsAsync = ref.watch(myBookingsProvider);
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
+      extendBodyBehindAppBar: !kIsWeb,
       appBar: AppBar(
         title: const Text('Yolculuk Detayı'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
+        backgroundColor: kIsWeb ? Colors.white : Colors.transparent,
+        foregroundColor: kIsWeb ? const Color(0xFF1F3A30) : null,
+        elevation: kIsWeb ? 1 : 0,
       ),
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.darkGradient),
+        decoration: kIsWeb
+            ? const BoxDecoration(color: Color(0xFFF3F6F4))
+            : const BoxDecoration(gradient: AppColors.darkGradient),
         child: tripAsync.when(
           loading: () => const Center(
               child: CircularProgressIndicator(color: AppColors.primary)),
@@ -448,6 +452,9 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
             }
 
             _ensureFallbackRoute(trip);
+            if (kIsWeb) {
+              return _buildWebContent(trip, bookingsAsync);
+            }
             return _buildContent(trip, bookingsAsync);
           },
         ),
@@ -493,18 +500,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
         trip.occupancyPassengerCount ?? trip.passengers.length;
     final occupiedSeats = trip.occupancyConfirmedSeats ??
         trip.passengers.fold<int>(0, (sum, passenger) => sum + passenger.seats);
-    final viaCitiesUnique = (() {
-      final seen = <String>{};
-      final list = <TripViaCity>[];
-      for (final via in trip.viaCities) {
-        final name = via.city.trim();
-        if (name.isEmpty) continue;
-        final key = name.toLowerCase();
-        if (!seen.add(key)) continue;
-        list.add(via);
-      }
-      return list;
-    })();
+    final viaCitiesUnique = _uniqueViaCities(trip);
 
     return Column(
       children: [
@@ -651,7 +647,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                                 _MiniInfoChip(
                                     icon: Icons.timer,
                                     label:
-                                        '${route.durationMin.toStringAsFixed(0)} dk'),
+                                        formatDurationMin(route.durationMin)),
                               ],
                             ),
                           ],
@@ -659,7 +655,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                           ClipRRect(
                             borderRadius: BorderRadius.circular(14),
                             child: SizedBox(
-                              height: 180,
+                              height: 240,
                               child: MapView(
                                 initialPosition:
                                     _initialMapPosition(route, trip),
@@ -673,27 +669,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
                     ).animate().fadeIn(delay: 80.ms).slideY(begin: 0.08),
                     const SizedBox(height: 14),
                     if (viaCitiesUnique.isNotEmpty)
-                      GlassContainer(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const _SectionTitle(
-                                icon: Icons.alt_route, label: 'Ara Duraklar'),
-                            const SizedBox(height: 8),
-                            for (final via in viaCitiesUnique)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 6),
-                                child: Text(
-                                  via.city,
-                                  style: const TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 12),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
+                      _buildViaStopsCard(viaCitiesUnique),
                     if (viaCitiesUnique.isNotEmpty) const SizedBox(height: 14),
                     if (canViewLiveLocation)
                       _buildLiveTrackingSection(isDriver, trip)
@@ -772,15 +748,532 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
     );
   }
 
+  List<TripViaCity> _uniqueViaCities(Trip trip) {
+    final seen = <String>{};
+    final list = <TripViaCity>[];
+    for (final via in trip.viaCities) {
+      final name = via.city.trim();
+      if (name.isEmpty) continue;
+      final key = name.toLowerCase();
+      if (!seen.add(key)) continue;
+      list.add(via);
+    }
+    return list;
+  }
+
+  Widget _buildViaStopsCard(
+    List<TripViaCity> viaCities, {
+    bool lightTheme = false,
+  }) {
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionTitle(icon: Icons.alt_route, label: 'Ara Duraklar'),
+        const SizedBox(height: 10),
+        for (int i = 0; i < viaCities.length; i++) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                children: [
+                  Container(
+                    width: 14,
+                    height: 14,
+                    decoration: const BoxDecoration(
+                      color: AppColors.warning,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  if (i != viaCities.length - 1)
+                    Container(
+                      width: 2,
+                      height: 26,
+                      color: AppColors.glassStroke,
+                    ),
+                ],
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 1),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        viaCities[i].city,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if ((viaCities[i].district ?? '').trim().isNotEmpty)
+                        Text(
+                          viaCities[i].district!.trim(),
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (i != viaCities.length - 1) const SizedBox(height: 6),
+        ],
+      ],
+    );
+
+    if (!lightTheme) {
+      return GlassContainer(
+        padding: const EdgeInsets.all(16),
+        child: content,
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD4DED8)),
+      ),
+      child: content,
+    );
+  }
+
+  Widget _buildWebContent(Trip trip, AsyncValue<List<Booking>> bookingsAsync) {
+    final currentUser = ref.read(currentUserProvider);
+    final isDriver = currentUser?.id == trip.driverId;
+
+    Booking? viewerBooking;
+    final myBookings = bookingsAsync.asData?.value;
+    if (myBookings != null) {
+      viewerBooking = _findBookingForTrip(myBookings, trip.id);
+    }
+
+    final bookingAllowsLiveLocation = viewerBooking != null &&
+        _statusAllowsLiveLocation(viewerBooking.status);
+    final canViewLiveLocation =
+        isDriver || trip.canViewLiveLocation || bookingAllowsLiveLocation;
+    final canViewPassengerList = isDriver || trip.canViewPassengerList;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _syncRoomSubscription(canViewLiveLocation);
+      }
+    });
+
+    final route = trip.route ?? _fallbackRoute;
+    final routePolylines = _buildRoutePolylines(route, trip);
+    final markers = _buildRouteMarkers(route, trip);
+    final viaCitiesUnique = _uniqueViaCities(trip);
+    final isFull =
+        trip.availableSeats <= 0 || trip.status.toLowerCase() == 'full';
+    final dateLabel =
+        DateFormat('dd MMM yyyy, HH:mm', 'tr').format(trip.departureTime);
+    final departureAddress = (trip.departureAddress ?? '').trim();
+    final arrivalAddress = (trip.arrivalAddress ?? '').trim();
+    final totalPrice = trip.pricePerSeat * _selectedSeats;
+    final passengerCount =
+        trip.occupancyPassengerCount ?? trip.passengers.length;
+    final occupiedSeats = trip.occupancyConfirmedSeats ??
+        trip.passengers.fold<int>(0, (sum, passenger) => sum + passenger.seats);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 38),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1180),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFD4DED8)),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 26,
+                      backgroundColor:
+                          AppColors.primary.withValues(alpha: 0.18),
+                      backgroundImage: trip.driverPhoto != null
+                          ? NetworkImage(trip.driverPhoto!)
+                          : null,
+                      child: trip.driverPhoto == null
+                          ? Text(
+                              trip.driverName.isNotEmpty
+                                  ? trip.driverName[0].toUpperCase()
+                                  : '?',
+                              style: const TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            trip.driverName,
+                            style: const TextStyle(
+                              color: Color(0xFF1F3A30),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '$dateLabel • ${trip.departureCity} → ${trip.arrivalCity}',
+                            style: const TextStyle(
+                              color: Color(0xFF4E665C),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (isFull)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEE2E2),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Text(
+                          'Dolu',
+                          style: TextStyle(
+                            color: Color(0xFF991B1B),
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final stacked = constraints.maxWidth < 1020;
+                  final leftColumn = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFD4DED8)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Rota detayları',
+                              style: TextStyle(
+                                color: Color(0xFF1F3A30),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                _MiniInfoChip(
+                                  icon: Icons.straighten,
+                                  label:
+                                      '${route?.distanceKm.toStringAsFixed(1) ?? '-'} km',
+                                ),
+                                const SizedBox(width: 8),
+                                _MiniInfoChip(
+                                  icon: Icons.timer,
+                                  label: formatDurationMin(route?.durationMin),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              '${trip.departureCity} (${departureAddress.isEmpty ? 'Adres yok' : departureAddress})',
+                              style: const TextStyle(
+                                color: Color(0xFF2C4D40),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${trip.arrivalCity} (${arrivalAddress.isEmpty ? 'Adres yok' : arrivalAddress})',
+                              style: const TextStyle(
+                                color: Color(0xFF2C4D40),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: SizedBox(
+                                height: 320,
+                                child: MapView(
+                                  initialPosition:
+                                      _initialMapPosition(route, trip),
+                                  markers: markers,
+                                  polylines: routePolylines,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (viaCitiesUnique.isNotEmpty) ...[
+                        const SizedBox(height: 12),
+                        _buildViaStopsCard(viaCitiesUnique, lightTheme: true),
+                      ],
+                      const SizedBox(height: 12),
+                      if (canViewLiveLocation)
+                        _buildLiveTrackingSection(isDriver, trip)
+                      else
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFD4DED8)),
+                          ),
+                          child: const Text(
+                            'Canlı konum, rezervasyon onayı ve ödeme tamamlandıktan sonra açılır.',
+                            style: TextStyle(
+                              color: Color(0xFF4E665C),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: const Color(0xFFD4DED8)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Yolcu durumu',
+                              style: TextStyle(
+                                color: Color(0xFF1F3A30),
+                                fontWeight: FontWeight.w800,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _MiniInfoChip(
+                                  icon: Icons.person_outline,
+                                  label: '$passengerCount yolcu',
+                                ),
+                                _MiniInfoChip(
+                                  icon: Icons.event_seat,
+                                  label: '$occupiedSeats koltuk dolu',
+                                ),
+                                _MiniInfoChip(
+                                  icon: Icons.airline_seat_recline_normal,
+                                  label: '${trip.availableSeats} boş koltuk',
+                                ),
+                                _PassengerVisibilityPill(
+                                  canViewPassengerList: canViewPassengerList,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            if (canViewPassengerList &&
+                                trip.passengers.isNotEmpty)
+                              for (final passenger in trip.passengers)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: _PassengerRow(passenger: passenger),
+                                )
+                            else
+                              const Text(
+                                'Yolcu listesi sadece sürücü ve onaylı yolcular için görünür.',
+                                style: TextStyle(
+                                  color: Color(0xFF6A7F74),
+                                  fontSize: 12,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+
+                  final rightPanel = _buildWebBookingPanel(
+                    trip,
+                    totalPrice,
+                    isFull: isFull,
+                  );
+
+                  if (stacked) {
+                    return Column(
+                      children: [
+                        leftColumn,
+                        const SizedBox(height: 12),
+                        rightPanel,
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 7, child: leftColumn),
+                      const SizedBox(width: 14),
+                      SizedBox(width: 330, child: rightPanel),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWebBookingPanel(
+    Trip trip,
+    double totalPrice, {
+    required bool isFull,
+  }) {
+    final isAuthenticated = ref.watch(isAuthenticatedProvider);
+    final approvalRequired = trip.bookingType == 'approval_required';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD4DED8)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'TL ${totalPrice.toStringAsFixed(0)}',
+            style: const TextStyle(
+              color: Color(0xFF2F6B57),
+              fontWeight: FontWeight.w800,
+              fontSize: 30,
+            ),
+          ),
+          Text(
+            '$_selectedSeats koltuk',
+            style: const TextStyle(
+              color: Color(0xFF4E665C),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              IconButton(
+                onPressed: !isFull && _selectedSeats > 1
+                    ? () => setState(() => _selectedSeats -= 1)
+                    : null,
+                icon: const Icon(Icons.remove_circle_outline),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    '$_selectedSeats',
+                    style: const TextStyle(
+                      color: Color(0xFF1F3A30),
+                      fontWeight: FontWeight.w800,
+                      fontSize: 22,
+                    ),
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: !isFull && _selectedSeats < trip.availableSeats
+                    ? () => setState(() => _selectedSeats += 1)
+                    : null,
+                icon: const Icon(Icons.add_circle_outline),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF3F8F5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              approvalRequired
+                  ? 'Bu ilanda önce talep sürücü onayına düşer. Onaydan sonra ödeme açılır.'
+                  : 'Bu ilanda anında rezervasyon açık. Rezervasyon sonrası ödeme adımı hemen açılır.',
+              style: const TextStyle(
+                color: Color(0xFF355A4C),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(width: 130, child: _buildMessageButton(context, trip)),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: _isBooking || isFull ? null : () => _book(trip),
+            style: FilledButton.styleFrom(
+              minimumSize: const Size(double.infinity, 48),
+              backgroundColor: const Color(0xFF2F6B57),
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              isFull
+                  ? 'Dolu'
+                  : (!isAuthenticated
+                      ? 'Giriş yap ve rezerve et'
+                      : (_isBooking
+                          ? 'İşleniyor...'
+                          : 'Rezervasyon talebi gönder')),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildLiveTrackingSection(bool isDriver, Trip trip) {
     final markers = _driverLocation != null
         ? [
             Marker(
               point: _driverLocation!,
-              width: 42,
-              height: 42,
+              width: 48,
+              height: 48,
               child: const Icon(Icons.navigation,
-                  color: AppColors.accent, size: 30),
+                  color: AppColors.accent, size: 34),
             ),
           ]
         : <Marker>[];
@@ -807,7 +1300,7 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
           ClipRRect(
             borderRadius: BorderRadius.circular(14),
             child: SizedBox(
-              height: 170,
+              height: 220,
               child: MapView(
                 initialPosition: _driverLocation ??
                     _initialMapPosition(trip.route ?? _fallbackRoute, trip),
@@ -963,7 +1456,9 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
       Polyline(
         points: points,
         color: AppColors.primary,
-        strokeWidth: 4,
+        strokeWidth: 5,
+        borderStrokeWidth: 1.5,
+        borderColor: Colors.white.withValues(alpha: 0.6),
       ),
     ];
   }
@@ -980,8 +1475,8 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
         .map(
           (via) => Marker(
             point: LatLng(via.lat!, via.lng!),
-            width: 12,
-            height: 12,
+            width: 16,
+            height: 16,
             child: Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
@@ -999,17 +1494,17 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
       return [
         Marker(
           point: LatLng(first.lat, first.lng),
-          width: 34,
-          height: 34,
+          width: 42,
+          height: 42,
           child: const Icon(Icons.play_circle_fill,
-              color: AppColors.primary, size: 22),
+              color: AppColors.primary, size: 28),
         ),
         Marker(
           point: LatLng(last.lat, last.lng),
-          width: 34,
-          height: 34,
+          width: 42,
+          height: 42,
           child:
-              const Icon(Icons.flag_circle, color: AppColors.accent, size: 24),
+              const Icon(Icons.flag_circle, color: AppColors.accent, size: 30),
         ),
         ...viaMarkers,
       ];
@@ -1022,17 +1517,17 @@ class _TripDetailScreenState extends ConsumerState<TripDetailScreen> {
       return [
         Marker(
           point: LatLng(trip.departureLat!, trip.departureLng!),
-          width: 34,
-          height: 34,
+          width: 42,
+          height: 42,
           child: const Icon(Icons.play_circle_fill,
-              color: AppColors.primary, size: 22),
+              color: AppColors.primary, size: 28),
         ),
         Marker(
           point: LatLng(trip.arrivalLat!, trip.arrivalLng!),
-          width: 34,
-          height: 34,
+          width: 42,
+          height: 42,
           child:
-              const Icon(Icons.flag_circle, color: AppColors.accent, size: 24),
+              const Icon(Icons.flag_circle, color: AppColors.accent, size: 30),
         ),
         ...viaMarkers,
       ];

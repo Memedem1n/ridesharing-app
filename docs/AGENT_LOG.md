@@ -481,3 +481,12 @@ Summary: Fixed mobile compile/regression issues (location service, UTF-8 text re
 Commands: npm run type-check;npm test -- --runInBand src/application/services/trips/trips.service.spec.ts;npm test -- --runInBand src/application/services/bookings/bookings.service.spec.ts;flutter analyze;flutter build apk --debug;flutter run -d chrome
 Files: mobile/lib/core/services/location_service.dart,mobile/lib/features/trips/presentation/create_trip_screen.dart,mobile/lib/features/home/presentation/home_screen.dart,mobile/pubspec.yaml,docs/AGENT_CONTEXT.md,docs/AGENT_HANDOFF.md,docs/AGENT_LOG.md
 Notes: Observed invalid UTF-8 bytes in /v1/trips payload from existing data; needs DB/data cleanup in next session.
+
+## 2026-02-13 01:30
+Level: agent
+Agent: codex
+Task: EOD checkpoint and closure notes
+Summary: Recorded 2026-02-13 end-of-day status, updated handoff/tasks with done-inprogress-pending split, reran core validations, and documented remaining web route blocker.
+Commands: git status;flutter analyze;flutter test;npm run type-check;npm test -- --runInBand;flutter build web --release --pwa-strategy=none
+Files: docs/AGENT_HANDOFF.md,TASKS.md,docs/AGENT_LOG.md,mobile/lib/main.dart,mobile/lib/core/router/app_router.dart,mobile/lib/core/widgets/web/site_header.dart,mobile/lib/features/home/presentation/home_screen.dart,mobile/lib/features/search/presentation/search_results_screen.dart,mobile/lib/features/trips/presentation/create_trip_screen.dart,mobile/pubspec.yaml,mobile/pubspec.lock
+Notes: Open blocker persisted: direct web routes on :3000 collapse to / in headless checks, so final screenshot evidence remains pending.

@@ -210,6 +210,25 @@ class ProfileScreen extends ConsumerWidget {
                           ),
                           const Spacer(),
                           OutlinedButton.icon(
+                            onPressed: () => context.go('/'),
+                            icon: const Icon(Icons.home_outlined),
+                            label: const Text('Ana Sayfa'),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: () => context.go('/reservations'),
+                            icon:
+                                const Icon(Icons.confirmation_number_outlined),
+                            label: const Text('Rezervasyonlar'),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: () => context.go('/search'),
+                            icon: const Icon(Icons.arrow_back),
+                            label: const Text('Geri'),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
                             onPressed: () => context.push('/settings'),
                             icon: const Icon(Icons.settings_outlined),
                             label: const Text('Ayarlar'),

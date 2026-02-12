@@ -15,7 +15,10 @@ export class BookingExpiryService {
         const expiredBookings = await this.prisma.booking.findMany({
             where: {
                 status: 'awaiting_payment',
-                expiresAt: { lt: now },
+                OR: [
+                    { paymentDueAt: { lt: now } },
+                    { expiresAt: { lt: now } },
+                ],
             },
         });
 
@@ -30,6 +33,7 @@ export class BookingExpiryService {
                     cancellationPenalty: 0,
                     paymentStatus: 'pending',
                     expiresAt: null,
+                    paymentDueAt: null,
                 },
             });
         }

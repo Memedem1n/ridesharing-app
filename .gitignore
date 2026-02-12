@@ -29,12 +29,20 @@ coverage/
 
 # Build
 build/
+output/
 
 # Flutter
 mobile/build/
 mobile/.dart_tool/
 mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
+mobile/.agent-runtime/
+mobile/test-results/
+mobile/bugreport-*.zip
 
 # Prisma
 backend/prisma/migrations/.DS_Store
+
+# Local runtime artifacts
+backend/.data/
+backend/uploads/

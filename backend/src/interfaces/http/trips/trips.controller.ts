@@ -30,8 +30,17 @@ export class TripsController {
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get my trips (as driver)' })
     @ApiResponse({ status: 200, description: 'My trips', type: [TripResponseDto] })
-    async getMyTrips(@Request() req): Promise<TripResponseDto[]> {
-        return this.tripsService.findByDriver(req.user.sub);
+    @ApiQuery({ name: 'includeDeleted', required: false, type: Boolean })
+    @ApiQuery({ name: 'status', required: false, type: String })
+    async getMyTrips(
+        @Request() req,
+        @Query('includeDeleted') includeDeleted?: string,
+        @Query('status') status?: string,
+    ): Promise<TripResponseDto[]> {
+        return this.tripsService.findByDriver(req.user.sub, {
+            includeDeleted: includeDeleted === 'true' || includeDeleted === '1',
+            status,
+        });
     }
 
     @Get(':id')
@@ -82,8 +91,8 @@ export class TripsController {
     @Delete(':id')
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth()
-    @ApiOperation({ summary: 'Cancel trip' })
-    @ApiResponse({ status: 200, description: 'Trip cancelled' })
+    @ApiOperation({ summary: 'Soft delete trip' })
+    @ApiResponse({ status: 200, description: 'Trip removed from active lists' })
     async cancel(@Param('id') id: string, @Request() req): Promise<void> {
         return this.tripsService.cancel(id, req.user.sub);
     }

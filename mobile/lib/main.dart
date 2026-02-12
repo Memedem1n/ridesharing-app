@@ -1,6 +1,7 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'core/providers/auth_provider.dart';
@@ -10,6 +11,7 @@ import 'core/localization/app_strings.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  setUrlStrategy(PathUrlStrategy());
   runApp(const ProviderScope(child: MyApp()));
 }
 
@@ -45,7 +47,8 @@ class _MyAppState extends ConsumerState<MyApp> {
     final strings = ref.watch(appStringsProvider);
 
     // Show loading while checking auth
-    if (authState.status == AuthStatus.initial || authState.status == AuthStatus.loading) {
+    if (authState.status == AuthStatus.initial ||
+        authState.status == AuthStatus.loading) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,

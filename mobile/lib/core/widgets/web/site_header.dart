@@ -7,11 +7,13 @@ class WebSiteHeader extends StatelessWidget {
   final bool isAuthenticated;
   final String primaryNavLabel;
   final String createTripLabel;
+  final String messagesLabel;
   final VoidCallback onBrandTap;
   final VoidCallback onPrimaryNavTap;
   final VoidCallback onCreateTripTap;
   final VoidCallback onReservationsTap;
   final VoidCallback onProfileTap;
+  final VoidCallback? onMessagesTap;
   final VoidCallback onLoginTap;
   final VoidCallback onRegisterTap;
 
@@ -20,11 +22,13 @@ class WebSiteHeader extends StatelessWidget {
     required this.isAuthenticated,
     required this.primaryNavLabel,
     this.createTripLabel = 'Yolculuk Olustur',
+    this.messagesLabel = 'Mesajlar',
     required this.onBrandTap,
     required this.onPrimaryNavTap,
     required this.onCreateTripTap,
     required this.onReservationsTap,
     required this.onProfileTap,
+    this.onMessagesTap,
     required this.onLoginTap,
     required this.onRegisterTap,
   });
@@ -78,6 +82,15 @@ class WebSiteHeader extends StatelessWidget {
 
           final actionItems = isAuthenticated
               ? <Widget>[
+                  if (onMessagesTap != null)
+                    TextButton(
+                      onPressed: onMessagesTap,
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                      ),
+                      child: Text(messagesLabel, style: actionStyle),
+                    ),
                   TextButton(
                     onPressed: onReservationsTap,
                     style: TextButton.styleFrom(
@@ -100,6 +113,15 @@ class WebSiteHeader extends StatelessWidget {
                   ),
                 ]
               : <Widget>[
+                  if (onMessagesTap != null)
+                    TextButton(
+                      onPressed: onMessagesTap,
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0, 40),
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                      ),
+                      child: Text(messagesLabel, style: actionStyle),
+                    ),
                   OutlinedButton(
                     onPressed: onLoginTap,
                     style: OutlinedButton.styleFrom(

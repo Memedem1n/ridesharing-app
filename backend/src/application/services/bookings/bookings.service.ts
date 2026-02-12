@@ -51,6 +51,11 @@ export class BookingsService {
                 throw new NotFoundException('Yolculuk bulunamadi');
             }
 
+            if (trip.deletedAt) {
+                this.logger.warn(`BOOKING_CREATE_TRIP_DELETED tripId=${dto.tripId} passengerId=${userId}`);
+                throw new BadRequestException('Bu yolculuk artik musait degil');
+            }
+
             if (trip.status !== 'published' && trip.status !== 'full') {
                 this.logger.warn(`BOOKING_CREATE_TRIP_NOT_AVAILABLE tripId=${dto.tripId} status=${trip.status} passengerId=${userId}`);
                 throw new BadRequestException('Bu yolculuk artik musait degil');
@@ -77,8 +82,9 @@ export class BookingsService {
             const commissionAmount = this.iyzicoService.calculateCommission(priceTotal);
             const qrCode = this.generateQRCode();
             const pnrCode = await this.generateUniquePnrCode(tx);
-            const isInstant = Boolean(trip.instantBooking);
+            const isInstant = this.resolveTripBookingType(trip) === 'instant';
             const now = new Date();
+            const paymentDueAt = isInstant ? this.getPaymentExpiryFrom(now) : null;
             const bookingItemDetails = this.buildBookingItemDetails(
                 dto.itemDetails,
                 segmentContext,
@@ -101,7 +107,8 @@ export class BookingsService {
                     pnrCode,
                     paymentStatus: 'pending',
                     acceptedAt: isInstant ? now : null,
-                    expiresAt: isInstant ? this.getPaymentExpiryFrom(now) : null,
+                    expiresAt: paymentDueAt,
+                    paymentDueAt,
                 },
                 include: {
                     trip: {
@@ -143,12 +150,14 @@ export class BookingsService {
         }
 
         const now = new Date();
+        const paymentDueAt = this.getPaymentExpiryFrom(now);
         const updated = await this.prisma.booking.update({
             where: { id: bookingId },
             data: {
                 status: 'awaiting_payment',
                 acceptedAt: now,
-                expiresAt: this.getPaymentExpiryFrom(now),
+                expiresAt: paymentDueAt,
+                paymentDueAt,
             },
             include: {
                 trip: { include: { driver: true } },
@@ -187,6 +196,7 @@ export class BookingsService {
                 cancellationTime: new Date(),
                 cancellationPenalty: 0,
                 expiresAt: null,
+                paymentDueAt: null,
                 ...(reason ? { disputeReason: reason.slice(0, 500) } : {}),
             },
             include: {
@@ -223,7 +233,8 @@ export class BookingsService {
             throw new BadRequestException('Bu rezervasyon odeme beklemiyor');
         }
 
-        if (booking.expiresAt && booking.expiresAt.getTime() < Date.now()) {
+        const paymentDueAt = booking.paymentDueAt || booking.expiresAt;
+        if (paymentDueAt && paymentDueAt.getTime() < Date.now()) {
             await this.expireBooking(booking);
             throw new BadRequestException('Odeme suresi dolmus');
         }
@@ -270,6 +281,7 @@ export class BookingsService {
                     status: 'confirmed',
                     paidAt: now,
                     expiresAt: null,
+                    paymentDueAt: null,
                 },
             });
 
@@ -616,6 +628,7 @@ export class BookingsService {
                     paymentStatus: refundPercentage === 100 ? 'refunded' :
                         refundPercentage > 0 ? 'partially_refunded' : booking.paymentStatus,
                     expiresAt: null,
+                    paymentDueAt: null,
                 },
             });
 
@@ -705,6 +718,17 @@ export class BookingsService {
         return new Date(base.getTime() + this.holdMinutes * 60 * 1000);
     }
 
+    private resolveTripBookingType(trip: any): 'instant' | 'approval_required' {
+        const raw = String(trip?.bookingType || '').trim().toLowerCase();
+        if (raw === 'approval_required') {
+            return 'approval_required';
+        }
+        if (raw === 'instant') {
+            return 'instant';
+        }
+        return trip?.instantBooking === false ? 'approval_required' : 'instant';
+    }
+
     private getDisputeDeadlineFrom(base: Date): Date {
         return new Date(base.getTime() + this.disputeWindowHours * 60 * 60 * 1000);
     }
@@ -761,6 +785,7 @@ export class BookingsService {
                 cancellationPenalty: 0,
                 paymentStatus: 'pending',
                 expiresAt: null,
+                paymentDueAt: null,
             },
         });
     }
@@ -1406,6 +1431,7 @@ export class BookingsService {
             payout90ReleasedAt: booking.payout90ReleasedAt || undefined,
             payoutHoldReason: booking.payoutHoldReason || undefined,
             expiresAt: booking.expiresAt || undefined,
+            paymentDueAt: booking.paymentDueAt || undefined,
             paymentStatus: booking.paymentStatus,
             createdAt: booking.createdAt,
         };

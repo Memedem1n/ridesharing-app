@@ -20,6 +20,7 @@ import {
   RouteEstimateDto,
   RouteEstimateResponseDto,
   RouteSnapshotDto,
+  TripBookingType,
   ViaCityDto,
   PickupPolicyDto,
   UpdateTripDto,
@@ -98,6 +99,7 @@ export class TripsService {
 
     const normalizedPreferences = this.buildTripPreferences(dto);
 
+    const bookingType = this.resolveBookingType(dto);
     const trip = await this.prisma.trip.create({
       data: {
         id: uuid(),
@@ -120,7 +122,8 @@ export class TripsService {
         allowsCargo: dto.allowsCargo || false,
         maxCargoWeight: dto.maxCargoWeight,
         womenOnly: dto.womenOnly || false,
-        instantBooking: dto.instantBooking ?? true,
+        instantBooking: bookingType === TripBookingType.INSTANT,
+        bookingType,
         description: dto.description,
         preferences: JSON.stringify(normalizedPreferences),
       },
@@ -418,7 +421,10 @@ export class TripsService {
     const hasTo = typeof to === "string" && to.trim().length > 0;
     const hasLocationQuery = hasFrom || hasTo;
 
-    const where: any = { status: "published" };
+    const where: any = {
+      status: { in: ["published", "full"] },
+      deletedAt: null,
+    };
     if (date) {
       const startOfDay = new Date(`${date}T00:00:00.000Z`);
       const endOfDay = new Date(`${date}T23:59:59.999Z`);
@@ -552,6 +558,9 @@ export class TripsService {
     if (!trip) {
       throw new NotFoundException("Yolculuk bulunamadı");
     }
+    if (trip.deletedAt) {
+      throw new NotFoundException("Yolculuk bulunamadı");
+    }
 
     const isDriverViewer = Boolean(viewerId && trip.driverId === viewerId);
     const isConfirmedPassengerViewer = Boolean(
@@ -618,9 +627,25 @@ export class TripsService {
     return response;
   }
 
-  async findByDriver(driverId: string): Promise<TripResponseDto[]> {
+  async findByDriver(
+    driverId: string,
+    options?: { includeDeleted?: boolean; status?: string },
+  ): Promise<TripResponseDto[]> {
+    const where: any = { driverId };
+    if (!options?.includeDeleted) {
+      where.deletedAt = null;
+    }
+    const statusFilter = String(options?.status || "").trim();
+    if (statusFilter === "active") {
+      where.status = { in: ["published", "full", "in_progress"] };
+    } else if (statusFilter === "archived") {
+      where.status = { in: ["completed", "cancelled"] };
+    } else if (statusFilter.length > 0) {
+      where.status = statusFilter;
+    }
+
     const trips = await this.prisma.trip.findMany({
-      where: { driverId },
+      where,
       orderBy: { createdAt: "desc" },
       include: {
         driver: true,
@@ -641,6 +666,9 @@ export class TripsService {
     });
 
     if (!trip) {
+      throw new NotFoundException("Yolculuk bulunamadı");
+    }
+    if (trip.deletedAt) {
       throw new NotFoundException("Yolculuk bulunamadı");
     }
 
@@ -695,14 +723,21 @@ export class TripsService {
     if (!trip) {
       throw new NotFoundException("Yolculuk bulunamadı");
     }
+    if (trip.deletedAt) {
+      return;
+    }
 
     if (trip.driverId !== userId) {
       throw new ForbiddenException("Bu yolculuğu iptal etme yetkiniz yok");
     }
 
+    const now = new Date();
     await this.prisma.trip.update({
       where: { id },
-      data: { status: "cancelled" },
+      data: {
+        status: trip.status === "completed" ? "completed" : "cancelled",
+        deletedAt: now,
+      },
     });
 
     await this.invalidateSearchCache();
@@ -747,16 +782,17 @@ export class TripsService {
         }
       }
 
-      await this.prisma.booking.update({
-        where: { id: booking.id },
-        data: {
-          status: "cancelled_by_driver",
-          cancellationTime: new Date(),
-          cancellationPenalty: 0,
-          paymentStatus: refundAmount > 0 ? "refunded" : booking.paymentStatus,
-          expiresAt: null,
-        },
-      });
+        await this.prisma.booking.update({
+          where: { id: booking.id },
+          data: {
+            status: "cancelled_by_driver",
+            cancellationTime: new Date(),
+            cancellationPenalty: 0,
+            paymentStatus: refundAmount > 0 ? "refunded" : booking.paymentStatus,
+            expiresAt: null,
+            paymentDueAt: null,
+          },
+        });
 
       await this.notifyTripCancelled(
         booking.passenger,
@@ -924,6 +960,10 @@ export class TripsService {
     },
   ): TripResponseDto {
     const preferences = this.parseTripPreferences(trip.preferences);
+    const bookingType = this.normalizeBookingType(
+      trip.bookingType,
+      trip.instantBooking,
+    );
     const route = this.normalizeRouteSnapshot(preferences.routeSnapshot);
     const viaCities = this.normalizeViaCities(preferences.viaCities);
     const pickupPolicies = this.normalizePickupPolicies(
@@ -983,7 +1023,8 @@ export class TripsService {
       allowsPets: trip.allowsPets,
       allowsCargo: trip.allowsCargo,
       womenOnly: trip.womenOnly,
-      instantBooking: trip.instantBooking,
+      instantBooking: bookingType === TripBookingType.INSTANT,
+      bookingType,
       description: trip.description ?? undefined,
       distanceKm: trip.distanceKm ? Number(trip.distanceKm) : undefined,
       route,
@@ -1314,6 +1355,35 @@ export class TripsService {
     }
 
     return base;
+  }
+
+  private resolveBookingType(dto: CreateTripDto): TripBookingType {
+    if (dto.bookingType === TripBookingType.APPROVAL_REQUIRED) {
+      return TripBookingType.APPROVAL_REQUIRED;
+    }
+    if (dto.bookingType === TripBookingType.INSTANT) {
+      return TripBookingType.INSTANT;
+    }
+    if (dto.instantBooking === false) {
+      return TripBookingType.APPROVAL_REQUIRED;
+    }
+    return TripBookingType.INSTANT;
+  }
+
+  private normalizeBookingType(
+    value: any,
+    instantBooking?: boolean,
+  ): TripBookingType {
+    if (value === TripBookingType.APPROVAL_REQUIRED) {
+      return TripBookingType.APPROVAL_REQUIRED;
+    }
+    if (value === TripBookingType.INSTANT) {
+      return TripBookingType.INSTANT;
+    }
+    if (instantBooking === false) {
+      return TripBookingType.APPROVAL_REQUIRED;
+    }
+    return TripBookingType.INSTANT;
   }
 
   private parseTripPreferences(raw: any): Record<string, any> {

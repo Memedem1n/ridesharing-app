@@ -2,6 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BookingsService } from '@application/services/bookings/bookings.service';
 import { PrismaService } from '@infrastructure/database/prisma.service';
 import { IyzicoService } from '@infrastructure/payment/iyzico.service';
+import { FcmService } from '@infrastructure/notifications/fcm.service';
+import { NetgsmService } from '@infrastructure/notifications/netgsm.service';
+import { ConfigService } from '@nestjs/config';
 import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 
 describe('BookingsService', () => {
@@ -27,6 +30,27 @@ describe('BookingsService', () => {
         processPayment: jest.fn(),
         refundPayment: jest.fn(),
         calculateCommission: jest.fn().mockReturnValue(15),
+    };
+
+    const mockFcmService = {
+        notifyNewBookingRequest: jest.fn(),
+        notifyBookingConfirmed: jest.fn(),
+        notifyCancellation: jest.fn(),
+    };
+
+    const mockNetgsmService = {
+        sendNewBookingRequest: jest.fn(),
+        sendBookingConfirmation: jest.fn(),
+        sendCancellationNotice: jest.fn(),
+    };
+
+    const mockConfigService = {
+        get: jest.fn((key: string) => {
+            if (key === 'BOOKING_HOLD_MINUTES') return 15;
+            if (key === 'BOOKING_DISPUTE_WINDOW_HOURS') return 12;
+            if (key === 'BOOKING_AUTO_COMPLETE_DELAY_MINUTES') return 60;
+            return undefined;
+        }),
     };
 
     const mockTrip = {
@@ -62,6 +86,9 @@ describe('BookingsService', () => {
                 BookingsService,
                 { provide: PrismaService, useValue: mockPrismaService },
                 { provide: IyzicoService, useValue: mockIyzicoService },
+                { provide: FcmService, useValue: mockFcmService },
+                { provide: NetgsmService, useValue: mockNetgsmService },
+                { provide: ConfigService, useValue: mockConfigService },
             ],
         }).compile();
 
@@ -119,8 +146,9 @@ describe('BookingsService', () => {
             mockPrismaService.booking.findUnique.mockResolvedValue({
                 ...mockBooking,
                 paymentStatus: 'pending',
-                status: 'pending',
+                status: 'awaiting_payment',
                 expiresAt: null,
+                paymentDueAt: null,
             });
             mockIyzicoService.processPayment.mockResolvedValue({
                 success: true,
@@ -144,8 +172,9 @@ describe('BookingsService', () => {
             mockPrismaService.booking.findUnique.mockResolvedValue({
                 ...mockBooking,
                 paymentStatus: 'pending',
-                status: 'pending',
+                status: 'awaiting_payment',
                 expiresAt: null,
+                paymentDueAt: null,
             });
             mockIyzicoService.processPayment.mockResolvedValue({
                 success: false,
