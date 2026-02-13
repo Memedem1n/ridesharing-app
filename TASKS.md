@@ -1,10 +1,10 @@
 ﻿# Task Status (Ridesharing SuperApp)
 
 Source: repo code/docs audit
-Last verification pass: 2026-02-13 (EOD checkpoint: web route diagnostics + mobile/backend validation rerun)
+Last verification pass: 2026-02-14 (EOD checkpoint: web UX parity + backend/mobile validation rerun)
 
 ## Open Items (Priority, 2026-02-09)
-- [ ] Web auth/menu stabilization + demo-user login smoke on web (manual QA pass pending; local API smoke needs PostgreSQL running on `localhost:5432`)
+- [x] Web auth/menu stabilization + demo-user login smoke on web (route guard checks now pass on both `http://localhost:4100` and `http://localhost:3000`; web profile/messages/reservations top-menu/back actions aligned)
 - [x] Trip creation parity v2: route alternatives + via-city pickup policy UX hardening (completed 2026-02-10)
 - [x] Trip detail parity v2: passenger roster and compact readability polish on all breakpoints (completed 2026-02-10)
 - [x] Web desktop parity v2: spacing/typography and CTA hierarchy polish for desktop baseline (completed 2026-02-10)
@@ -13,7 +13,7 @@ Last verification pass: 2026-02-13 (EOD checkpoint: web route diagnostics + mobi
 - [ ] E-Devlet integration: auto document checks (legal/process dependency)
 - [ ] Admin web panel UI (optional): admin moderation API exists, but a dedicated web panel is not in repo
 - [ ] Payment system (Iyzico): live payment/refund/tokenization + wallet reconciliation (defer to final phase)
-- [ ] Help/About/Support legal and operational copy finalization (current content is temporary demo text)
+- [ ] Legal final approval/sign-off for Help/About/Security copy (draft v1 content shipped in app)
 
 ## Session Checkpoint (2026-02-13 EOD)
 ### Completed today
@@ -21,6 +21,9 @@ Last verification pass: 2026-02-13 (EOD checkpoint: web route diagnostics + mobi
 - [x] Shared web header updated so guest users also see `Mesajlar` action.
 - [x] Web top navigation primary actions aligned to `/search` on home and search-results.
 - [x] Trip creation default booking mode switched to approval-first (`bookingType: approval_required` path by default).
+- [x] Security/legal screen added (`/security`) and Help/About text updated to legal-ready draft copy.
+- [x] Profile verification and vehicle verification screens now have web-specific layouts instead of mobile-only UI.
+- [x] Route-check automation script hardened with URL-stability wait (covers delayed auth bootstrap redirects).
 - [x] Temporary debug scripts used for ad-hoc Playwright diagnosis were removed from backend root.
 - [x] Validation rerun completed on current working tree:
   - backend `npm run type-check` passed
@@ -30,15 +33,43 @@ Last verification pass: 2026-02-13 (EOD checkpoint: web route diagnostics + mobi
   - mobile `flutter build web --release` passed
 
 ### In progress
-- [ ] Full web screenshot evidence regeneration is in progress but blocked by routing behavior mismatch in headless checks.
+- [ ] Full web screenshot evidence regeneration is in progress (route-level captures now regenerated on backend-served runtime).
 
 ### Open blocker (must-fix)
-- [ ] Direct web routes on `http://localhost:3000` (`/search`, `/login`, `/help`, `/about`, `/security`) collapse back to `/` in current Playwright checks; root cause not finalized yet.
+- [x] `http://localhost:3000` route verification blocker resolved (PostgreSQL + backend runtime restored, route checks passed).
 
 ### Pending next
-- [ ] After routing fix, regenerate unique per-page web screenshots (public + authenticated pages).
+- [ ] Regenerate expanded per-page web screenshots (beyond route smoke set) for final release evidence.
 - [ ] Capture complete Android screenshot evidence for all critical pages/flows.
 - [ ] Finish final repo hygiene pass (unused artifacts/temp outputs) and close QA report.
+
+## Session Continuation (2026-02-14)
+### Completed now
+- [x] Docker/PostgreSQL/Redis runtime restored locally and backend restarted on `http://localhost:3000`.
+- [x] Web route checks rerun successfully against backend-served runtime:
+  - command: `scripts/check-web-routes.ps1 -BaseUrl http://localhost:3000`
+  - report: `output/playwright/web-route-check-report.json`
+  - result: public routes stayed stable, protected routes redirected to `/login?next=...` as expected.
+- [x] `4100` (Flutter web server) UI changes are now confirmed on `3000` runtime with matching route behavior.
+
+## Session Closure (2026-02-14 EOD)
+### Completed now
+- [x] Web chat page now has dedicated desktop layout (readable message bubbles, light input surface, top navigation, back/home/profile/messages actions).
+- [x] Web messages list was separated from mobile glass UI and switched to readable desktop cards with consistent menu/back controls.
+- [x] Web reservations pages were rebuilt for readability:
+  - `Rezervasyonlarim` now has desktop header actions + back flow + light cards + readable status/meta text.
+  - `Gelen Talepler` now has desktop header actions + back flow + selector/filter/readability fixes + web-safe dialog colors.
+- [x] Home web map section brightness adjusted (less dark overlay, lighter map filter) for easier visual scanning.
+- [x] WhatsApp hero illustration flow kept in right-side illustration slot with cleaned edge handling (`hero_whatsapp_car_clean_fixed.png`) and share section visual refreshed.
+- [x] End-of-day validation rerun completed on current working tree:
+  - backend `npm run type-check` passed
+  - backend `npm test -- --runInBand` passed (`7/7`, `55/55`)
+  - mobile `flutter analyze` passed
+
+### Pending next
+- [ ] Regenerate expanded per-page web screenshots (authenticated + guest + profile/legal/messages/reservations variants).
+- [ ] Capture full Android screenshot evidence for critical user and driver flows.
+- [ ] Final repository hygiene pass + final QA evidence closure (`docs/QA_RESULTS.md`).
 
 ## Completed
 - [x] Project setup: Flutter + NestJS base stack

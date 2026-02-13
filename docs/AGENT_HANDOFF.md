@@ -1,6 +1,6 @@
 ﻿# Agent Handoff (ridesharing-app)
 
-Last updated: 2026-02-13
+Last updated: 2026-02-14
 
 ## Scope
 This handoff captures the current technical state of the ridesharing app at:
@@ -335,12 +335,11 @@ C:\Users\barut\workspace\ridesharing-app
 - User-request continuity note:
   - New request to build a usable pitch deck under `C:\Users\barut\workspace\Sunumlar` was acknowledged, but implementation did not start due user interruption.
 
-## Next session start here (updated 2026-02-13)
-1. Resolve web route issue where direct URLs (`/search`, `/login`, `/help`) on `http://localhost:3000` collapse to `/`; verify with Playwright URL assertions and browser devtools.
-2. Re-run full web evidence capture after routing fix (public + authenticated pages) and ensure screenshots are unique per page.
-3. Complete Android end-to-end screenshot evidence for each critical flow (home/search/trip-detail/create-trip/reservations/messages/profile/driver-reservations).
-4. Finalize repository hygiene pass (unused scripts/artifacts, stale temp files) and keep only required code/docs.
-5. Update docs (`TASKS.md`, `docs/QA_RESULTS.md`, `docs/AGENT_HANDOFF.md`) with final audit outcomes and release-ready checklist.
+## Next session start here (updated 2026-02-14)
+1. Regenerate expanded web screenshot evidence set (public + authenticated + profile/legal/menu pages) on `http://localhost:3000`.
+2. Complete Android end-to-end screenshot evidence for critical flows (home/search/trip-detail/create-trip/reservations/messages/profile/driver-reservations).
+3. Finalize repository hygiene pass (remove stale diagnostics/temp artifacts) and close QA evidence gaps.
+4. Refresh `docs/QA_RESULTS.md` with final pass/fail matrix and release-readiness checklist.
 ## Selected skill set (use for future work)
 Repo skills:
 - ridesharing-backend
@@ -399,3 +398,68 @@ Repo skills sync:
 - Closing status:
   - Code and docs are checkpointed for continuation.
   - Next session should start from routing root-cause resolution before final UI evidence pass.
+
+## Conversation continuation (2026-02-13, late session)
+- User request focus was implemented: legal text refresh, web auth/menu stabilization, and critical blocker progression.
+- Mobile/web routing updates completed:
+  - `mobile/lib/core/router/app_router.dart` now includes `/security` in public paths and maps `/security` to `SecurityLegalScreen`.
+  - Shell route child ordering was adjusted (root `/` moved after specific shell paths) to prevent wrong page rendering on direct route opens.
+- Legal/security content updates completed:
+  - Added `mobile/lib/features/profile/presentation/security_legal_screen.dart`.
+  - Rewrote legal/support copy in:
+    - `mobile/lib/features/profile/presentation/about_screen.dart`
+    - `mobile/lib/features/profile/presentation/help_support_screen.dart`
+- Web UX parity improvements completed:
+  - Added web-first layout to `mobile/lib/features/trips/presentation/search_screen.dart`.
+  - Added web-specific verification dashboards for:
+    - `mobile/lib/features/profile/presentation/verification_screen.dart`
+    - `mobile/lib/features/profile/presentation/vehicle_verification_screen.dart`
+- Route blocker diagnostics updated:
+  - Hardened `backend/scripts/check-web-routes.mjs` with delayed bootstrap + stable-URL wait logic.
+  - Wrapper script `scripts/check-web-routes.ps1` used for repeatable checks.
+  - Result: route check now passes on `http://localhost:4100` for all public routes and protected-route login redirects.
+- Validation rerun in this pass:
+  - `flutter analyze` ✅
+  - `flutter test` ✅
+  - `flutter build web --release --pwa-strategy=none` ✅
+  - `scripts/check-web-routes.ps1 -BaseUrl http://localhost:4100` ✅
+- Remaining blocker:
+  - Final `http://localhost:3000` verification is still pending because backend runtime validation needs PostgreSQL available at `localhost:5432`.
+
+## Conversation continuation (2026-02-14, early session)
+- Restored local runtime stack and validated backend-served web mode end-to-end:
+  - Docker daemon started successfully.
+  - `docker compose up -d postgres redis` completed.
+  - backend dev server restarted and `GET /v1/health` responded on `http://localhost:3000`.
+- Route/auth blocker closed on backend-served runtime:
+  - `scripts/check-web-routes.ps1 -BaseUrl http://localhost:3000` passed.
+  - Report confirms:
+    - public routes (`/`, `/search`, `/login`, `/help`, `/about`, `/security`) remain on-path
+    - protected routes (`/reservations`, `/messages`, `/profile`, `/create-trip`) redirect to `/login?next=...`.
+  - Artifact: `output/playwright/web-route-check-report.json`.
+- Status update:
+  - `4100`-validated UI/router updates are now confirmed on `3000` as well.
+  - Remaining work is evidence expansion (full screenshot set + Android captures) and final repo hygiene.
+
+## Conversation continuation (2026-02-14, EOD closeout)
+- User requested full end-of-day closure with commit split and push preparation.
+- Web UX parity fixes completed in this pass:
+  - Web chat got a dedicated desktop layout (readable light surfaces, top menu, back action):
+    - `mobile/lib/features/messages/presentation/chat_screen.dart`
+  - Web messages list separated from mobile-style glass UI and converted to readable desktop cards:
+    - `mobile/lib/features/messages/presentation/messages_screen.dart`
+  - Web reservations pages were stabilized for readability/navigation:
+    - `mobile/lib/features/bookings/presentation/my_reservations_screen.dart`
+    - `mobile/lib/features/bookings/presentation/driver_reservations_screen.dart`
+  - Home map visibility improved by reducing darkness in map overlay/filter:
+    - `mobile/lib/features/home/presentation/home_screen.dart`
+- Illustration status:
+  - Hero slot continues using cleaned image variant (`hero_whatsapp_car_clean_fixed.png`) and share visual remains updated in home web sections.
+- Validation rerun in this closeout:
+  - Backend `npm run type-check` ✅
+  - Backend `npm test -- --runInBand` ✅ (`7/7` suites, `55/55` tests)
+  - Mobile `flutter analyze` ✅
+- Remaining next items:
+  - regenerate full web screenshot evidence set (guest/auth/profile/legal/messages/reservations),
+  - finalize Android screenshot evidence set for critical flows,
+  - complete final repo hygiene + QA evidence closure updates.

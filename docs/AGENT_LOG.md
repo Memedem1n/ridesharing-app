@@ -490,3 +490,57 @@ Summary: Recorded 2026-02-13 end-of-day status, updated handoff/tasks with done-
 Commands: git status;flutter analyze;flutter test;npm run type-check;npm test -- --runInBand;flutter build web --release --pwa-strategy=none
 Files: docs/AGENT_HANDOFF.md,TASKS.md,docs/AGENT_LOG.md,mobile/lib/main.dart,mobile/lib/core/router/app_router.dart,mobile/lib/core/widgets/web/site_header.dart,mobile/lib/features/home/presentation/home_screen.dart,mobile/lib/features/search/presentation/search_results_screen.dart,mobile/lib/features/trips/presentation/create_trip_screen.dart,mobile/pubspec.yaml,mobile/pubspec.lock
 Notes: Open blocker persisted: direct web routes on :3000 collapse to / in headless checks, so final screenshot evidence remains pending.
+
+## 2026-02-13 21:30
+Level: agent
+Agent: codex
+Task: Implement legal/web auth stabilization plan
+Summary: Added legal/security web screens and copy refresh, fixed shell route rendering order, added web verification layouts, and stabilized Playwright route checks with delayed URL-settle logic.
+Commands: dart format;flutter analyze;flutter test;flutter build web --release --pwa-strategy=none;scripts/check-web-routes.ps1 -BaseUrl http://localhost:4100
+Files: mobile/lib/core/router/app_router.dart,mobile/lib/features/profile/presentation/security_legal_screen.dart,mobile/lib/features/profile/presentation/about_screen.dart,mobile/lib/features/profile/presentation/help_support_screen.dart,mobile/lib/features/profile/presentation/verification_screen.dart,mobile/lib/features/profile/presentation/vehicle_verification_screen.dart,mobile/lib/features/trips/presentation/search_screen.dart,backend/scripts/check-web-routes.mjs,scripts/check-web-routes.ps1,TASKS.md,docs/AGENT_HANDOFF.md
+Notes: Route checks now pass on :4100. Final :3000 verification still blocked by local PostgreSQL/runtime availability.
+
+## 2026-02-14 00:24
+Level: agent
+Agent: codex
+Task: Validate 3000 runtime and close route blocker
+Summary: Started Docker/Postgres/Redis, restarted backend, and verified web route/auth redirects on backend-served runtime (:3000).
+Commands: docker compose up -d postgres redis;npm run dev;scripts/check-web-routes.ps1 -BaseUrl http://localhost:3000
+Files: output/playwright/web-route-check-report.json,TASKS.md,docs/AGENT_HANDOFF.md,docs/AGENT_LOG.md
+Notes: All route checks passed on :3000; public paths stable and protected paths redirect to login with next.
+
+## 2026-02-14 00:55
+Level: agent
+Agent: codex
+Task: Integrate WhatsApp illustration on homepage
+Summary: Moved user-provided WhatsApp illustration into mobile assets, wired home hero image references to new asset, rebuilt web, and verified on :3000 with screenshot and route checks.
+Commands: flutter analyze;flutter build web --release --pwa-strategy=none;scripts/check-web-routes.ps1 -BaseUrl http://localhost:3000
+Files: mobile/assets/illustrations/web/hero_whatsapp_car.jpeg,mobile/lib/features/home/presentation/home_screen.dart,mobile/pubspec.yaml,output/playwright/home-with-whatsapp-illustration.png,output/playwright/web-route-check-report.json,docs/AGENT_LOG.md
+Notes: Homepage now uses user-provided illustration in hero background; verification done on backend-served runtime.
+
+## 2026-02-14 01:20
+Level: agent
+Agent: codex
+Task: Move WhatsApp image to hero illustration slot
+Summary: Reverted hero background image to original and placed user WhatsApp image in right-side hero illustration component.
+Commands: flutter analyze;flutter build web --release --pwa-strategy=none
+Files: mobile/lib/features/home/presentation/home_screen.dart,output/playwright/home-illustration-correct-placement.png,docs/AGENT_LOG.md
+Notes: User requested illustration replacement location fix (not background).
+
+## 2026-02-14 01:34
+Level: agent
+Agent: codex
+Task: Clean illustration background
+Summary: Generated transparent PNG from user-provided WhatsApp image by removing outer background and wired homepage illustration slot to cleaned asset.
+Commands: python (Pillow flood-fill bg removal);flutter analyze;flutter build web --release --pwa-strategy=none;scripts/check-web-routes.ps1 -BaseUrl http://localhost:3000
+Files: mobile/assets/illustrations/web/hero_whatsapp_car_clean.png,mobile/lib/features/home/presentation/home_screen.dart,mobile/pubspec.yaml,output/playwright/route-public-_.png,docs/AGENT_LOG.md
+Notes: Background square removed; illustration now blends with hero without white box.
+
+## 2026-02-14 02:38
+Level: agent
+Agent: codex
+Task: EOD closeout + web UX parity stabilization
+Summary: Completed web chat/messages/reservations readability/navigation fixes, lightened home map section, reran backend/mobile validation, and refreshed TASKS/HANDOFF for end-of-day.
+Commands: flutter analyze;npm run type-check;npm test -- --runInBand;dart format;git commit
+Files: mobile/lib/features/messages/presentation/chat_screen.dart,mobile/lib/features/messages/presentation/messages_screen.dart,mobile/lib/features/bookings/presentation/my_reservations_screen.dart,mobile/lib/features/bookings/presentation/driver_reservations_screen.dart,mobile/lib/features/home/presentation/home_screen.dart,TASKS.md,docs/AGENT_HANDOFF.md,docs/AGENT_LOG.md
+Notes: Prepared commit split for backend+mobile+docs before push.
