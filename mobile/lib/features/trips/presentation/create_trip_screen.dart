@@ -590,7 +590,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         return (_departureCityController.text.trim().isNotEmpty &&
             _arrivalCityController.text.trim().isNotEmpty);
       case 1:
-        return _routeAlternatives.isNotEmpty;
+        return _selectedRoute != null;
       case 2:
         return _selectedRoute != null;
       case 3:
@@ -790,9 +790,18 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                           ),
                           const SizedBox(width: 14),
                           Expanded(
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.only(right: 2),
-                              child: _buildStepContent(vehiclesAsync),
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                gradient: AppColors.darkGradient,
+                                borderRadius: BorderRadius.circular(16),
+                                border:
+                                    Border.all(color: const Color(0xFF29453A)),
+                              ),
+                              child: SingleChildScrollView(
+                                padding: const EdgeInsets.only(right: 2),
+                                child: _buildStepContent(vehiclesAsync),
+                              ),
                             ),
                           ),
                         ],
@@ -1022,37 +1031,27 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
                   onTap: () {},
                 ),
               ),
-            if (kIsWeb)
+            if (_selectedRoute != null)
               Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: _step > 0 ? _previousStep : null,
-                      icon: const Icon(Icons.arrow_back),
-                      label: const Text('Geri'),
-                    ),
-                    const Spacer(),
-                    SizedBox(
-                      width: 180,
-                      child: GradientButton(
-                        text: 'Devam Et',
-                        icon: Icons.arrow_forward,
-                        onPressed: _canContinueStep(_step) ? _nextStep : null,
-                      ),
-                    ),
-                  ],
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Rota secildi, devam edebilirsiniz.',
+                  style: TextStyle(
+                    color: AppColors.secondary.withValues(alpha: 0.9),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            if (kIsWeb && _blockedReasonForStep(_step) != null)
+            if (_selectedRoute != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  _blockedReasonForStep(_step)!,
-                  style: const TextStyle(
-                    color: AppColors.warning,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _canContinueStep(1) ? _nextStep : null,
+                    icon: const Icon(Icons.arrow_forward),
+                    label: const Text('Secili Rota ile Devam Et'),
                   ),
                 ),
               ),
@@ -1421,7 +1420,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            '${_estimatedDistanceKm!.toStringAsFixed(1)} km • ${formatDurationMin(_estimatedDurationMin)}',
+            '${_estimatedDistanceKm!.toStringAsFixed(1)} km | ${formatDurationMin(_estimatedDurationMin)}',
             style: const TextStyle(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 6),
@@ -1492,7 +1491,7 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
           children: vehicles.map((vehicle) {
             final selected = vehicle.id == selectedId;
             final ownerBadge =
-                vehicle.ownershipType == 'relative' ? ' • Akraba araci' : '';
+                vehicle.ownershipType == 'relative' ? ' | Akraba araci' : '';
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: InkWell(
@@ -1572,6 +1571,9 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
   }
 
   Widget _buildWebBottomActions() {
+    final blockedReason = _blockedReasonForStep(_step);
+    final canContinue = _canContinueStep(_step);
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
@@ -1579,35 +1581,47 @@ class _CreateTripScreenState extends ConsumerState<CreateTripScreen> {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFDCE6E1)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_step > 0)
-            OutlinedButton.icon(
-              onPressed: _previousStep,
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('Geri'),
-            ),
-          if (_step > 0) const SizedBox(width: 10),
-          SizedBox(
-            width: 230,
-            child: GradientButton(
-              text: _step == 4
-                  ? (_isLoading ? 'Olusturuluyor...' : 'Yolculugu Olustur')
-                  : 'Devam Et',
-              icon: _step == 4 ? Icons.check_circle : Icons.arrow_forward,
-              isLoading: _isLoading,
-              onPressed: _isLoading
-                  ? null
-                  : () {
-                      if (_step == 4) {
-                        _createTrip();
-                      } else {
-                        _nextStep();
-                      }
-                    },
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (_step > 0)
+                OutlinedButton.icon(
+                  onPressed: _previousStep,
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('Geri'),
+                ),
+              if (_step > 0) const SizedBox(width: 10),
+              SizedBox(
+                width: 230,
+                child: GradientButton(
+                  text: _step == 4
+                      ? (_isLoading ? 'Olusturuluyor...' : 'Yolculugu Olustur')
+                      : 'Devam Et',
+                  icon: _step == 4 ? Icons.check_circle : Icons.arrow_forward,
+                  isLoading: _isLoading,
+                  onPressed: _isLoading
+                      ? null
+                      : (_step == 4
+                          ? _createTrip
+                          : (canContinue ? _nextStep : null)),
+                ),
+              ),
+            ],
           ),
+          if (_step < 4 && blockedReason != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              blockedReason,
+              style: const TextStyle(
+                color: Color(0xFF9A6A08),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ],
       ),
     );

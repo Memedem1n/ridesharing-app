@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -6,16 +7,18 @@ import 'package:image_picker/image_picker.dart';
 import 'package:dio/dio.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:camera/camera.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/animated_buttons.dart';
 import '../../../core/providers/auth_provider.dart';
 
 // Verification status provider
-final verificationStatusProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final verificationStatusProvider =
+    FutureProvider<Map<String, dynamic>>((ref) async {
   final dio = ref.read(dioProvider);
   final token = await ref.read(authTokenProvider.future);
-  
+
   try {
     final response = await dio.get(
       '/verification/status',
@@ -63,13 +66,17 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_camera_outlined, color: AppColors.textPrimary),
-              title: const Text('Kamera', style: TextStyle(color: AppColors.textPrimary)),
+              leading: const Icon(Icons.photo_camera_outlined,
+                  color: AppColors.textPrimary),
+              title: const Text('Kamera',
+                  style: TextStyle(color: AppColors.textPrimary)),
               onTap: () => Navigator.pop(context, ImageSource.camera),
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library_outlined, color: AppColors.textPrimary),
-              title: const Text('Galeri', style: TextStyle(color: AppColors.textPrimary)),
+              leading: const Icon(Icons.photo_library_outlined,
+                  color: AppColors.textPrimary),
+              title: const Text('Galeri',
+                  style: TextStyle(color: AppColors.textPrimary)),
               onTap: () => Navigator.pop(context, ImageSource.gallery),
             ),
           ],
@@ -78,7 +85,8 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
     );
   }
 
-  Future<File?> _pickImageFromSource({required String title, required String hint}) async {
+  Future<File?> _pickImageFromSource(
+      {required String title, required String hint}) async {
     final source = await _selectImageSource();
     if (!mounted) return null;
     if (source == null) return null;
@@ -151,7 +159,8 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
 
   Future<void> _uploadDocument(String type) async {
     if (type == 'identity' && _identityImage == null) return;
-    if (type == 'license' && (_licenseFrontImage == null || _licenseBackImage == null)) {
+    if (type == 'license' &&
+        (_licenseFrontImage == null || _licenseBackImage == null)) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -177,10 +186,10 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
     try {
       final dio = ref.read(dioProvider);
       final token = await ref.read(authTokenProvider.future);
-      
+
       String endpoint;
       String successMessage;
-      
+
       if (type == 'identity') {
         endpoint = 'upload-identity';
         successMessage = 'Kimlik yüklendi!';
@@ -250,6 +259,10 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
   @override
   Widget build(BuildContext context) {
     final statusAsync = ref.watch(verificationStatusProvider);
+
+    if (kIsWeb) {
+      return _buildWebScaffold(statusAsync);
+    }
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -338,9 +351,12 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                   subtitle: 'E-Devletten alınan adli sicil kaydı',
                   icon: Icons.gavel,
                   status: statusAsync.value?['criminalRecordStatus'] ?? 'none',
-                  selectedImage: _criminalRecordIsPdf ? null : _criminalRecordFile,
-                  customPreview: _criminalRecordIsPdf && _criminalRecordFile != null
-                      ? _FilePreview(fileName: _criminalRecordFileName ?? 'adli-sicil.pdf')
+                  selectedImage:
+                      _criminalRecordIsPdf ? null : _criminalRecordFile,
+                  customPreview: _criminalRecordIsPdf &&
+                          _criminalRecordFile != null
+                      ? _FilePreview(
+                          fileName: _criminalRecordFileName ?? 'adli-sicil.pdf')
                       : null,
                   isUploading: _uploadingCriminalRecord,
                   onPickImage: _pickCriminalRecordFile,
@@ -366,7 +382,8 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                             color: AppColors.success.withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.verified, color: AppColors.success),
+                          child: const Icon(Icons.verified,
+                              color: AppColors.success),
                         ),
                         const SizedBox(width: 16),
                         const Expanded(
@@ -382,7 +399,9 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
                               ),
                               Text(
                                 'Tüm belgeleriniz onaylandı.',
-                                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                                style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13),
                               ),
                             ],
                           ),
@@ -394,6 +413,275 @@ class _VerificationScreenState extends ConsumerState<VerificationScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildWebScaffold(AsyncValue<Map<String, dynamic>> statusAsync) {
+    final identityStatus =
+        statusAsync.value?['identityStatus']?.toString() ?? 'none';
+    final licenseStatus =
+        statusAsync.value?['licenseStatus']?.toString() ?? 'none';
+    final criminalStatus =
+        statusAsync.value?['criminalRecordStatus']?.toString() ?? 'none';
+    final verified = statusAsync.value?['verified'] == true;
+
+    String normalize(String raw) {
+      switch (raw) {
+        case 'verified':
+          return 'Onaylandi';
+        case 'pending':
+          return 'Inceleniyor';
+        case 'rejected':
+          return 'Reddedildi';
+        default:
+          return 'Yuklenmedi';
+      }
+    }
+
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F6F4),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1080),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'Hesap Dogrulama',
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1F3A30),
+                        ),
+                      ),
+                      const Spacer(),
+                      OutlinedButton.icon(
+                        onPressed: () => context.go('/profile'),
+                        icon: const Icon(Icons.arrow_back),
+                        label: const Text('Profile Don'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => context.go('/security'),
+                        icon: const Icon(Icons.shield_outlined),
+                        label: const Text('Guvenlik'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        onPressed: () => context.go('/'),
+                        icon: const Icon(Icons.home_outlined),
+                        label: const Text('Ana Sayfa'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Web panelde dogrulama adimlarini ve belge durumlarini takip edebilirsiniz.',
+                    style: TextStyle(
+                      color: Color(0xFF4E665C),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFDCE6E1)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Belge Durumlari',
+                                style: TextStyle(
+                                  color: Color(0xFF1F3A30),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              _StatusLine(
+                                  label: 'Kimlik',
+                                  value: normalize(identityStatus)),
+                              _StatusLine(
+                                  label: 'Ehliyet',
+                                  value: normalize(licenseStatus)),
+                              _StatusLine(
+                                label: 'Adli Sicil',
+                                value: normalize(criminalStatus),
+                              ),
+                              const SizedBox(height: 14),
+                              if (verified)
+                                const _StateBanner(
+                                  icon: Icons.verified,
+                                  color: AppColors.success,
+                                  title: 'Hesabiniz dogrulandi',
+                                  subtitle: 'Tum belgeleriniz onaylandi.',
+                                )
+                              else
+                                const _StateBanner(
+                                  icon: Icons.pending_actions_outlined,
+                                  color: AppColors.warning,
+                                  title: 'Dogrulama bekleniyor',
+                                  subtitle:
+                                      'Belgeleri mobil uygulamadan yukleyebilir veya destekten yardim alabilirsiniz.',
+                                ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: const Color(0xFFDCE6E1)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Yukleme Notu',
+                                style: TextStyle(
+                                  color: Color(0xFF1F3A30),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 18,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              const Text(
+                                'Belge yukleme, kamera yonlendirmesi ve dosya kontrolleri mobil deneyimde daha stabil calisir. Webde belge durum takibi ve destek akisi onceliklidir.',
+                                style: TextStyle(color: Color(0xFF4E665C)),
+                              ),
+                              const SizedBox(height: 14),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: [
+                                  FilledButton.icon(
+                                    onPressed: () => context.go('/help'),
+                                    icon: const Icon(Icons.support_agent),
+                                    label: const Text('Destek Al'),
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed: () => context.go('/profile'),
+                                    icon: const Icon(Icons.person_outline),
+                                    label: const Text('Profile Don'),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatusLine extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _StatusLine({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFF1F3A30),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Color(0xFF365D4E),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StateBanner extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+
+  const _StateBanner({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: color,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Color(0xFF365D4E),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -495,13 +783,15 @@ class _DocumentCard extends StatelessWidget {
                     ),
                     Text(
                       subtitle,
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 13),
                     ),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
@@ -514,14 +804,16 @@ class _DocumentCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       statusText,
-                      style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          color: statusColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-
           if (customPreview != null) ...[
             const SizedBox(height: 16),
             customPreview!,
@@ -537,14 +829,11 @@ class _DocumentCard extends StatelessWidget {
               ),
             ),
           ],
-
           if (helper != null) ...[
             const SizedBox(height: 16),
             helper!,
           ],
-
           const SizedBox(height: 16),
-
           if (status != 'verified') ...[
             Row(
               children: [
@@ -564,8 +853,12 @@ class _DocumentCard extends StatelessWidget {
                 Expanded(
                   child: GradientButton(
                     text: isUploading ? 'Yükleniyor...' : 'Yükle',
-                    icon: isUploading ? Icons.hourglass_empty : Icons.cloud_upload,
-                    onPressed: selectedImage != null && !isUploading ? onUpload : () {},
+                    icon: isUploading
+                        ? Icons.hourglass_empty
+                        : Icons.cloud_upload,
+                    onPressed: selectedImage != null && !isUploading
+                        ? onUpload
+                        : () {},
                   ),
                 ),
               ],
@@ -601,7 +894,8 @@ class _CaptureGuideCard extends StatelessWidget {
                   gradient: AppColors.primaryGradient,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.camera_alt_outlined, color: Colors.white),
+                child:
+                    const Icon(Icons.camera_alt_outlined, color: Colors.white),
               ),
               const SizedBox(width: 12),
               Text(
@@ -739,13 +1033,15 @@ class _LicenseDocumentCard extends StatelessWidget {
                     ),
                     Text(
                       subtitle,
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 13),
                     ),
                   ],
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
@@ -758,7 +1054,10 @@ class _LicenseDocumentCard extends StatelessWidget {
                     const SizedBox(width: 4),
                     Text(
                       statusText,
-                      style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                          color: statusColor,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
@@ -795,7 +1094,8 @@ class _LicenseDocumentCard extends StatelessWidget {
               Expanded(
                 child: GradientButton(
                   text: isUploading ? 'Yükleniyor...' : 'Yükle',
-                  icon: isUploading ? Icons.hourglass_empty : Icons.cloud_upload,
+                  icon:
+                      isUploading ? Icons.hourglass_empty : Icons.cloud_upload,
                   onPressed: canUpload ? onUpload : () {},
                 ),
               ),
@@ -837,7 +1137,8 @@ class _ImageSlot extends StatelessWidget {
               color: AppColors.surfaceVariant.withValues(alpha: 0.5),
               child: file == null
                   ? const Center(
-                      child: Icon(Icons.add_a_photo_outlined, color: AppColors.textSecondary),
+                      child: Icon(Icons.add_a_photo_outlined,
+                          color: AppColors.textSecondary),
                     )
                   : Image.file(
                       file!,
@@ -879,11 +1180,13 @@ class _BulletList extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('. ', style: TextStyle(color: AppColors.textSecondary)),
+                  const Text('. ',
+                      style: TextStyle(color: AppColors.textSecondary)),
                   Expanded(
                     child: Text(
                       item,
-                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 12),
                     ),
                   ),
                 ],
@@ -916,7 +1219,8 @@ class _FilePreview extends StatelessWidget {
           Expanded(
             child: Text(
               fileName,
-              style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+              style:
+                  const TextStyle(color: AppColors.textPrimary, fontSize: 13),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -940,7 +1244,8 @@ class CameraCaptureScreen extends StatefulWidget {
   State<CameraCaptureScreen> createState() => _CameraCaptureScreenState();
 }
 
-class _CameraCaptureScreenState extends State<CameraCaptureScreen> with WidgetsBindingObserver {
+class _CameraCaptureScreenState extends State<CameraCaptureScreen>
+    with WidgetsBindingObserver {
   CameraController? _controller;
   Future<void>? _initializeFuture;
   String? _error;
@@ -1075,14 +1380,17 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> with WidgetsB
                                   height: 74,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: Colors.white, width: 4),
+                                    border: Border.all(
+                                        color: Colors.white, width: 4),
                                   ),
                                   child: Center(
                                     child: Container(
                                       width: 52,
                                       height: 52,
                                       decoration: BoxDecoration(
-                                        color: _capturing ? AppColors.textTertiary : Colors.white,
+                                        color: _capturing
+                                            ? AppColors.textTertiary
+                                            : Colors.white,
                                         shape: BoxShape.circle,
                                       ),
                                     ),
@@ -1092,7 +1400,8 @@ class _CameraCaptureScreenState extends State<CameraCaptureScreen> with WidgetsB
                               const SizedBox(height: 12),
                               const Text(
                                 'Belgeyi çerçeveye hizalayın',
-                                style: TextStyle(color: Colors.white70, fontSize: 12),
+                                style: TextStyle(
+                                    color: Colors.white70, fontSize: 12),
                               ),
                             ],
                           ),
@@ -1132,7 +1441,8 @@ class _IdOverlayPainter extends CustomPainter {
       ..fillType = PathFillType.evenOdd;
 
     canvas.drawPath(path, overlayPaint);
-    canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(20)), borderPaint);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(20)), borderPaint);
 
     // Inner guides (photo box + text lines)
     final photoRect = Rect.fromLTWH(
@@ -1141,16 +1451,21 @@ class _IdOverlayPainter extends CustomPainter {
       rect.width * 0.28,
       rect.height * 0.64,
     );
-    canvas.drawRRect(RRect.fromRectAndRadius(photoRect, const Radius.circular(12)), innerPaint);
+    canvas.drawRRect(
+        RRect.fromRectAndRadius(photoRect, const Radius.circular(12)),
+        innerPaint);
 
     final lineStartX = rect.left + rect.width * 0.38;
     final lineEndX = rect.right - rect.width * 0.06;
     final lineY1 = rect.top + rect.height * 0.32;
     final lineY2 = rect.top + rect.height * 0.48;
     final lineY3 = rect.top + rect.height * 0.64;
-    canvas.drawLine(Offset(lineStartX, lineY1), Offset(lineEndX, lineY1), innerPaint);
-    canvas.drawLine(Offset(lineStartX, lineY2), Offset(lineEndX, lineY2), innerPaint);
-    canvas.drawLine(Offset(lineStartX, lineY3), Offset(lineEndX, lineY3), innerPaint);
+    canvas.drawLine(
+        Offset(lineStartX, lineY1), Offset(lineEndX, lineY1), innerPaint);
+    canvas.drawLine(
+        Offset(lineStartX, lineY2), Offset(lineEndX, lineY2), innerPaint);
+    canvas.drawLine(
+        Offset(lineStartX, lineY3), Offset(lineEndX, lineY3), innerPaint);
 
     const corner = 26.0;
     final cornerPaint = Paint()
@@ -1159,24 +1474,34 @@ class _IdOverlayPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     // Top-left
-    canvas.drawLine(rect.topLeft, rect.topLeft + const Offset(corner, 0), cornerPaint);
-    canvas.drawLine(rect.topLeft, rect.topLeft + const Offset(0, corner), cornerPaint);
+    canvas.drawLine(
+        rect.topLeft, rect.topLeft + const Offset(corner, 0), cornerPaint);
+    canvas.drawLine(
+        rect.topLeft, rect.topLeft + const Offset(0, corner), cornerPaint);
     // Top-right
-    canvas.drawLine(rect.topRight, rect.topRight + const Offset(-corner, 0), cornerPaint);
-    canvas.drawLine(rect.topRight, rect.topRight + const Offset(0, corner), cornerPaint);
+    canvas.drawLine(
+        rect.topRight, rect.topRight + const Offset(-corner, 0), cornerPaint);
+    canvas.drawLine(
+        rect.topRight, rect.topRight + const Offset(0, corner), cornerPaint);
     // Bottom-left
-    canvas.drawLine(rect.bottomLeft, rect.bottomLeft + const Offset(corner, 0), cornerPaint);
-    canvas.drawLine(rect.bottomLeft, rect.bottomLeft + const Offset(0, -corner), cornerPaint);
+    canvas.drawLine(rect.bottomLeft, rect.bottomLeft + const Offset(corner, 0),
+        cornerPaint);
+    canvas.drawLine(rect.bottomLeft, rect.bottomLeft + const Offset(0, -corner),
+        cornerPaint);
     // Bottom-right
-    canvas.drawLine(rect.bottomRight, rect.bottomRight + const Offset(-corner, 0), cornerPaint);
-    canvas.drawLine(rect.bottomRight, rect.bottomRight + const Offset(0, -corner), cornerPaint);
+    canvas.drawLine(rect.bottomRight,
+        rect.bottomRight + const Offset(-corner, 0), cornerPaint);
+    canvas.drawLine(rect.bottomRight,
+        rect.bottomRight + const Offset(0, -corner), cornerPaint);
 
     final crossPaint = Paint()
       ..color = Colors.white70
       ..strokeWidth = 2;
     final center = rect.center;
-    canvas.drawLine(center + const Offset(-16, 0), center + const Offset(16, 0), crossPaint);
-    canvas.drawLine(center + const Offset(0, -16), center + const Offset(0, 16), crossPaint);
+    canvas.drawLine(center + const Offset(-16, 0), center + const Offset(16, 0),
+        crossPaint);
+    canvas.drawLine(center + const Offset(0, -16), center + const Offset(0, 16),
+        crossPaint);
   }
 
   @override

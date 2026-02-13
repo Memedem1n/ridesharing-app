@@ -8,6 +8,7 @@ class LocationAutocompleteField extends StatefulWidget {
   final String hintText;
   final IconData icon;
   final Color iconColor;
+  final bool forLightSurface;
   final ValueChanged<LocationSuggestion>? onSelected;
   final ValueChanged<String>? onTextChanged;
   final FormFieldValidator<String>? validator;
@@ -18,6 +19,7 @@ class LocationAutocompleteField extends StatefulWidget {
     required this.hintText,
     required this.icon,
     required this.iconColor,
+    this.forLightSurface = false,
     this.onSelected,
     this.onTextChanged,
     this.validator,
@@ -108,6 +110,25 @@ class _LocationAutocompleteFieldState extends State<LocationAutocompleteField> {
 
   @override
   Widget build(BuildContext context) {
+    final textColor = widget.forLightSurface
+        ? const Color(0xFF1F3A30)
+        : AppColors.textPrimary;
+    final hintColor = widget.forLightSurface
+        ? const Color(0xFF6A7F74)
+        : AppColors.textTertiary;
+    final suggestionBg = widget.forLightSurface
+        ? Colors.white
+        : AppColors.glassBg;
+    final suggestionBorder = widget.forLightSurface
+        ? AppColors.neutralBorder
+        : AppColors.glassStroke;
+    final suggestionTitleColor = widget.forLightSurface
+        ? const Color(0xFF1F3A30)
+        : AppColors.textPrimary;
+    final suggestionSubtitleColor = widget.forLightSurface
+        ? const Color(0xFF5A7066)
+        : AppColors.textSecondary;
+
     return Column(
       children: [
         TextFormField(
@@ -115,10 +136,10 @@ class _LocationAutocompleteFieldState extends State<LocationAutocompleteField> {
           focusNode: _focusNode,
           hintLocales: const [Locale('tr', 'TR')],
           textCapitalization: TextCapitalization.words,
-          style: const TextStyle(color: AppColors.textPrimary),
+          style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
           decoration: InputDecoration(
             hintText: widget.hintText,
-            hintStyle: const TextStyle(color: AppColors.textTertiary),
+            hintStyle: TextStyle(color: hintColor),
             prefixIcon: Icon(widget.icon, color: widget.iconColor, size: 18),
             border: InputBorder.none,
             suffixIcon: _loading
@@ -143,16 +164,16 @@ class _LocationAutocompleteFieldState extends State<LocationAutocompleteField> {
             margin: const EdgeInsets.only(top: 8),
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
-              color: AppColors.glassBg,
+              color: suggestionBg,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.glassStroke),
+              border: Border.all(color: suggestionBorder),
             ),
             child: ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _suggestions.length,
               separatorBuilder: (_, __) =>
-                  const Divider(height: 1, color: AppColors.glassStroke),
+                  Divider(height: 1, color: suggestionBorder),
               itemBuilder: (context, index) {
                 final suggestion = _suggestions[index];
                 final city = suggestion.city.trim();
@@ -162,14 +183,13 @@ class _LocationAutocompleteFieldState extends State<LocationAutocompleteField> {
                       color: AppColors.primary, size: 18),
                   title: Text(
                     city.isNotEmpty ? city : suggestion.displayName,
-                    style: const TextStyle(
-                        color: AppColors.textPrimary, fontSize: 14),
+                    style: TextStyle(color: suggestionTitleColor, fontSize: 14),
                   ),
                   subtitle: city.isNotEmpty
                       ? Text(
                           suggestion.displayName,
-                          style: const TextStyle(
-                              color: AppColors.textSecondary, fontSize: 12),
+                          style: TextStyle(
+                              color: suggestionSubtitleColor, fontSize: 12),
                         )
                       : null,
                   onTap: () => _select(suggestion),
@@ -185,20 +205,19 @@ class _LocationAutocompleteFieldState extends State<LocationAutocompleteField> {
             margin: const EdgeInsets.only(top: 8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: AppColors.glassBg,
+              color: suggestionBg,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.glassStroke),
+              border: Border.all(color: suggestionBorder),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.info_outline,
-                    color: AppColors.textSecondary, size: 16),
-                SizedBox(width: 8),
+                Icon(Icons.info_outline, color: suggestionSubtitleColor, size: 16),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Sonuc bulunamadi. Daha net sehir/ilce adi deneyin.',
                     style: TextStyle(
-                      color: AppColors.textSecondary,
+                      color: suggestionSubtitleColor,
                       fontSize: 12,
                     ),
                   ),

@@ -42,7 +42,11 @@ class MessagesScreen extends ConsumerWidget {
               itemCount: conversations.length,
               itemBuilder: (context, index) {
                 final conv = conversations[index];
-                return _ConversationTile(conversation: conv, index: index);
+                return _ConversationTile(
+                  conversation: conv,
+                  index: index,
+                  forWeb: false,
+                );
               },
             );
           },
@@ -78,6 +82,12 @@ class MessagesScreen extends ConsumerWidget {
                       ),
                       const Spacer(),
                       OutlinedButton.icon(
+                        onPressed: () => context.go('/'),
+                        icon: const Icon(Icons.home_outlined),
+                        label: const Text('Ana Sayfa'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
                         onPressed: () => context.go('/reservations'),
                         icon: const Icon(Icons.confirmation_number_outlined),
                         label: const Text('Rezervasyonlar'),
@@ -89,10 +99,16 @@ class MessagesScreen extends ConsumerWidget {
                         label: const Text('Profil'),
                       ),
                       const SizedBox(width: 8),
-                      FilledButton.icon(
-                        onPressed: () => context.go('/'),
-                        icon: const Icon(Icons.home_outlined),
-                        label: const Text('Ana Sayfa'),
+                      OutlinedButton.icon(
+                        onPressed: () {
+                          if (Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                            return;
+                          }
+                          context.go('/');
+                        },
+                        icon: const Icon(Icons.arrow_back_outlined),
+                        label: const Text('Geri'),
                       ),
                     ],
                   ),
@@ -119,7 +135,7 @@ class MessagesScreen extends ConsumerWidget {
                         ),
                         data: (conversations) {
                           if (conversations.isEmpty) {
-                            return const _MessagesEmptyState();
+                            return const _MessagesEmptyState(forWeb: true);
                           }
                           return ListView.builder(
                             padding: const EdgeInsets.all(16),
@@ -129,6 +145,7 @@ class MessagesScreen extends ConsumerWidget {
                               return _ConversationTile(
                                 conversation: conv,
                                 index: index,
+                                forWeb: true,
                               );
                             },
                           );
@@ -149,120 +166,153 @@ class MessagesScreen extends ConsumerWidget {
 class _ConversationTile extends StatelessWidget {
   final Conversation conversation;
   final int index;
+  final bool forWeb;
 
-  const _ConversationTile({required this.conversation, required this.index});
+  const _ConversationTile({
+    required this.conversation,
+    required this.index,
+    required this.forWeb,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => context.push(
-        '/chat/${conversation.id}?name=${Uri.encodeComponent(conversation.otherName)}&trip=${Uri.encodeComponent(conversation.tripInfo ?? '')}',
-      ),
-      child: GlassContainer(
-        padding: const EdgeInsets.all(16),
-        child: Row(
+    final titleColor = forWeb ? const Color(0xFF1F3A30) : AppColors.textPrimary;
+    final subtitleColor =
+        forWeb ? const Color(0xFF4E665C) : AppColors.textSecondary;
+    final timeColor = forWeb ? const Color(0xFF6A7F75) : AppColors.textTertiary;
+    final routeColor = forWeb ? const Color(0xFF2F6B57) : AppColors.primary;
+
+    final child = Row(
+      children: [
+        Stack(
           children: [
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 28,
-                  backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-                  backgroundImage: conversation.otherPhoto != null
-                      ? NetworkImage(conversation.otherPhoto!)
-                      : null,
-                  child: conversation.otherPhoto == null
-                      ? Text(
-                          conversation.otherName[0],
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                          ),
-                        )
-                      : null,
-                ),
-                if (conversation.unreadCount > 0)
-                  Positioned(
-                    right: 0,
-                    top: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: const BoxDecoration(
-                        color: AppColors.accent,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Text(
-                        conversation.unreadCount.toString(),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          conversation.otherName,
-                          style: TextStyle(
-                            color: AppColors.textPrimary,
-                            fontWeight: conversation.unreadCount > 0
-                                ? FontWeight.bold
-                                : FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      if (conversation.lastMessageTime != null)
-                        Text(
-                          _formatTime(conversation.lastMessageTime!),
-                          style: const TextStyle(
-                            color: AppColors.textTertiary,
-                            fontSize: 12,
-                          ),
-                        ),
-                    ],
-                  ),
-                  if (conversation.tripInfo != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      conversation.tripInfo!,
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+              backgroundImage: conversation.otherPhoto != null
+                  ? NetworkImage(conversation.otherPhoto!)
+                  : null,
+              child: conversation.otherPhoto == null
+                  ? Text(
+                      conversation.otherName[0],
                       style: const TextStyle(
                         color: AppColors.primary,
-                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
                       ),
-                    ),
-                  ],
-                  if (conversation.lastMessage != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      conversation.lastMessage!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: conversation.unreadCount > 0
-                            ? AppColors.textPrimary
-                            : AppColors.textSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+                    )
+                  : null,
             ),
-            const Icon(Icons.chevron_right, color: AppColors.textTertiary),
+            if (conversation.unreadCount > 0)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: const BoxDecoration(
+                    color: AppColors.accent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    conversation.unreadCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
-      ),
-    ).animate(delay: (index * 100).ms).fadeIn().slideX(begin: 0.1);
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      conversation.otherName,
+                      style: TextStyle(
+                        color: titleColor,
+                        fontWeight: conversation.unreadCount > 0
+                            ? FontWeight.bold
+                            : FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (conversation.lastMessageTime != null)
+                    Text(
+                      _formatTime(conversation.lastMessageTime!),
+                      style: TextStyle(color: timeColor, fontSize: 12),
+                    ),
+                ],
+              ),
+              if (conversation.tripInfo != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  conversation.tripInfo!,
+                  style: TextStyle(
+                    color: routeColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+              if (conversation.lastMessage != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  conversation.lastMessage!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: conversation.unreadCount > 0
+                        ? titleColor
+                        : subtitleColor,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        Icon(
+          Icons.chevron_right,
+          color: forWeb ? const Color(0xFF7A8F86) : AppColors.textTertiary,
+        ),
+      ],
+    );
+
+    final tile = forWeb
+        ? InkWell(
+            onTap: () => context.push(
+              '/chat/${conversation.id}?name=${Uri.encodeComponent(conversation.otherName)}&trip=${Uri.encodeComponent(conversation.tripInfo ?? '')}',
+            ),
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FBF9),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFDCE6E1)),
+              ),
+              child: child,
+            ),
+          )
+        : GestureDetector(
+            onTap: () => context.push(
+              '/chat/${conversation.id}?name=${Uri.encodeComponent(conversation.otherName)}&trip=${Uri.encodeComponent(conversation.tripInfo ?? '')}',
+            ),
+            child: GlassContainer(
+              padding: const EdgeInsets.all(16),
+              child: child,
+            ),
+          );
+
+    return tile.animate(delay: (index * 90).ms).fadeIn().slideX(begin: 0.1);
   }
 
   String _formatTime(DateTime time) {
@@ -280,10 +330,16 @@ class _ConversationTile extends StatelessWidget {
 }
 
 class _MessagesEmptyState extends StatelessWidget {
-  const _MessagesEmptyState();
+  final bool forWeb;
+
+  const _MessagesEmptyState({this.forWeb = false});
 
   @override
   Widget build(BuildContext context) {
+    final titleColor = forWeb ? const Color(0xFF1F3A30) : AppColors.textPrimary;
+    final subtitleColor =
+        forWeb ? const Color(0xFF5A7066) : AppColors.textSecondary;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -305,19 +361,19 @@ class _MessagesEmptyState extends StatelessWidget {
             ),
           ).animate().scale(),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'Henuz mesajiniz yok',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: titleColor,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Ilan detayindaki Mesaj butonundan konusma baslatabilirsiniz.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textSecondary),
+            style: TextStyle(color: subtitleColor),
           ),
         ].animate(interval: 100.ms).fadeIn().slideY(begin: 0.2),
       ),

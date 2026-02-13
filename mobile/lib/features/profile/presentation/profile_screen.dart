@@ -223,8 +223,14 @@ class ProfileScreen extends ConsumerWidget {
                           ),
                           const SizedBox(width: 8),
                           OutlinedButton.icon(
-                            onPressed: () => context.go('/search'),
-                            icon: const Icon(Icons.arrow_back),
+                            onPressed: () {
+                              if (Navigator.of(context).canPop()) {
+                                Navigator.of(context).pop();
+                                return;
+                              }
+                              context.go('/');
+                            },
+                            icon: const Icon(Icons.arrow_back_outlined),
                             label: const Text('Geri'),
                           ),
                           const SizedBox(width: 8),
@@ -232,6 +238,16 @@ class ProfileScreen extends ConsumerWidget {
                             onPressed: () => context.push('/settings'),
                             icon: const Icon(Icons.settings_outlined),
                             label: const Text('Ayarlar'),
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton.icon(
+                            onPressed: () => _showLogoutDialog(context, ref),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.error,
+                              foregroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.logout),
+                            label: Text(strings.logout),
                           ),
                         ],
                       ),

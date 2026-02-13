@@ -178,6 +178,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           Positioned.fill(
+            child: IgnorePointer(
+              child: Opacity(
+                opacity: 0.28,
+                child: ColorFiltered(
+                  colorFilter: const ColorFilter.mode(
+                    Color(0xFF111A16),
+                    BlendMode.multiply,
+                  ),
+                  child: Image.asset(
+                    'assets/illustrations/web/hero_rideshare.png',
+                    fit: BoxFit.cover,
+                    alignment: Alignment.topCenter,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
             child: Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -846,7 +864,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                           ),
                                           child: _buildWebIllustrationCard(
                                             assetPath:
-                                                'assets/illustrations/web/share_cost.svg',
+                                                'assets/illustrations/web/hero_whatsapp_car_clean_fixed.png',
                                             maxHeight: 380,
                                           ),
                                         ),
@@ -1329,10 +1347,101 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   assetPath,
                   fit: BoxFit.contain,
                   alignment: Alignment.center,
-                  filterQuality: FilterQuality.high,
+                  filterQuality: FilterQuality.medium,
                 ),
         );
       },
+    );
+  }
+
+  Widget _buildWebShareActionVisual({
+    double maxHeight = 210,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: maxHeight,
+      child: Center(
+        child: Container(
+          width: maxHeight * 0.88,
+          height: maxHeight * 0.88,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(26),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFE7F2EC), Color(0xFFD6E8DE)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(color: const Color(0xFFC0D5C9)),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned(
+                left: 26,
+                top: 30,
+                child: _buildShareAvatar(Icons.person_outline),
+              ),
+              Positioned(
+                right: 26,
+                bottom: 28,
+                child: _buildShareAvatar(Icons.person_outline),
+              ),
+              Container(
+                width: 92,
+                height: 92,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF2F6B57).withValues(alpha: 0.12),
+                  border:
+                      Border.all(color: const Color(0xFF2F6B57), width: 1.1),
+                ),
+                child: const Icon(
+                  Icons.share_rounded,
+                  size: 44,
+                  color: Color(0xFF2F6B57),
+                ),
+              ),
+              Positioned(
+                left: 68,
+                top: 76,
+                child: Transform.rotate(
+                  angle: -0.55,
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Color(0xFF2F6B57),
+                    size: 24,
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 66,
+                bottom: 74,
+                child: Transform.rotate(
+                  angle: 2.6,
+                  child: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Color(0xFF2F6B57),
+                    size: 24,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShareAvatar(IconData icon) {
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFBDD2C7)),
+      ),
+      child: Icon(icon, color: const Color(0xFF2F6B57), size: 24),
     );
   }
 
@@ -1554,19 +1663,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Positioned.fill(
                   child: ColorFiltered(
                     colorFilter: const ColorFilter.matrix(<double>[
-                      0.42,
+                      0.8,
                       0,
                       0,
                       0,
                       0,
                       0,
-                      0.44,
+                      0.84,
                       0,
                       0,
                       0,
                       0,
                       0,
-                      0.42,
+                      0.8,
                       0,
                       0,
                       0,
@@ -1588,9 +1697,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            const Color(0xFF091712).withValues(alpha: 0.30),
-                            const Color(0xFF0D1E18).withValues(alpha: 0.36),
-                            const Color(0xFF091712).withValues(alpha: 0.42),
+                            const Color(0xFF0F2019).withValues(alpha: 0.03),
+                            const Color(0xFF11241C).withValues(alpha: 0.05),
+                            const Color(0xFF0F2019).withValues(alpha: 0.07),
                           ],
                         ),
                       ),
@@ -1695,10 +1804,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       style: _webBodyStyle(),
                     ),
                     const SizedBox(height: 12),
-                    _buildWebIllustrationCard(
-                      assetPath: 'assets/illustrations/web/share_cost.svg',
-                      maxHeight: 220,
-                    ),
+                    _buildWebShareActionVisual(maxHeight: 220),
                     const SizedBox(height: 14),
                     Wrap(
                       spacing: 10,
@@ -1731,10 +1837,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const SizedBox(width: 18),
                     SizedBox(
                       width: 250,
-                      child: _buildWebIllustrationCard(
-                        assetPath: 'assets/illustrations/web/share_cost.svg',
-                        maxHeight: 190,
-                      ),
+                      child: _buildWebShareActionVisual(maxHeight: 190),
                     ),
                     const SizedBox(width: 18),
                     Wrap(

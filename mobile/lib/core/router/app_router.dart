@@ -28,6 +28,7 @@ import '../../features/profile/presentation/placeholder_screen.dart';
 import '../../features/profile/presentation/settings_screen.dart';
 import '../../features/profile/presentation/help_support_screen.dart';
 import '../../features/profile/presentation/about_screen.dart';
+import '../../features/profile/presentation/security_legal_screen.dart';
 import '../providers/auth_provider.dart';
 import '../providers/locale_provider.dart';
 import '../theme/app_theme.dart';
@@ -41,6 +42,7 @@ const Set<String> _publicExactPaths = {
   '/register',
   '/about',
   '/help',
+  '/security',
   '/forgot-password',
 };
 
@@ -72,17 +74,27 @@ String? _sanitizeNextRoute(String? rawNext) {
   return next;
 }
 
+class _GoRouterRefreshNotifier extends ChangeNotifier {
+  void refresh() => notifyListeners();
+}
+
 // ==================== ROUTER ====================
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authProvider);
-  final webInitialLocation = kIsWeb
-      ? '${Uri.base.path.isEmpty ? '/' : Uri.base.path}'
-          '${Uri.base.hasQuery ? '?${Uri.base.query}' : ''}'
-      : '/';
+  final refreshNotifier = _GoRouterRefreshNotifier();
+  ref.listen<AuthState>(authProvider, (_, __) {
+    refreshNotifier.refresh();
+  });
+  ref.onDispose(refreshNotifier.dispose);
 
   return GoRouter(
-    initialLocation: webInitialLocation,
+    refreshListenable: refreshNotifier,
     redirect: (context, state) {
+      final authState = ref.read(authProvider);
+      if (authState.status == AuthStatus.initial ||
+          authState.status == AuthStatus.loading) {
+        return null;
+      }
+
       final isAuth = authState.status == AuthStatus.authenticated;
       final path = state.uri.path;
       final isAuthRoute = path == '/login' || path == '/register';
@@ -106,10 +118,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) => MainShell(child: child),
         routes: [
           GoRoute(
-              path: '/',
-              pageBuilder: (context, state) =>
-                  const NoTransitionPage(child: HomeScreen())),
-          GoRoute(
               path: '/search',
               pageBuilder: (context, state) =>
                   const NoTransitionPage(child: SearchScreen())),
@@ -125,6 +133,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               path: '/profile',
               pageBuilder: (context, state) =>
                   const NoTransitionPage(child: ProfileScreen())),
+          GoRoute(
+              path: '/',
+              pageBuilder: (context, state) =>
+                  const NoTransitionPage(child: HomeScreen())),
         ],
       ),
       GoRoute(
@@ -224,10 +236,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/security',
-        builder: (context, state) => const PlaceholderScreen(
-          title: 'Güvenlik',
-          message: 'Güvenlik ayarları yakında eklenecek.',
-        ),
+        builder: (context, state) => const SecurityLegalScreen(),
       ),
       GoRoute(
         path: '/about',

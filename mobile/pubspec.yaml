@@ -93,6 +93,9 @@ flutter:
     - assets/illustrations/web/safety_trust.svg
     - assets/illustrations/web/share_cost.svg
     - assets/illustrations/web/hero_rideshare.png
+    - assets/illustrations/web/hero_whatsapp_car.jpeg
+    - assets/illustrations/web/hero_whatsapp_car_clean.png
+    - assets/illustrations/web/hero_whatsapp_car_clean_fixed.png
     - assets/illustrations/web/safety_trust.png
     - assets/illustrations/web/share_cost.png
 

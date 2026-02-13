@@ -62,6 +62,12 @@ class HelpSupportScreen extends StatelessWidget {
                         label: const Text('Profile Don'),
                       ),
                       const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => context.go('/security'),
+                        icon: const Icon(Icons.shield_outlined),
+                        label: const Text('Guvenlik ve Yasal'),
+                      ),
+                      const SizedBox(width: 8),
                       FilledButton.icon(
                         onPressed: () => context.go('/'),
                         icon: const Icon(Icons.home_outlined),
@@ -122,13 +128,8 @@ class HelpSupportScreen extends StatelessWidget {
             ),
             SizedBox(height: 8),
             Text(
-              'Canli operasyonda 09:00-23:00 arasi ortalama ilk yanit suresi 7 dakikadir.',
+              'Canli operasyonda 09:00-23:00 saatleri arasinda ortalama ilk yanit suresi 7 dakikadir. Acil guvenlik talepleri oncelikli hatta aktarilir.',
               style: TextStyle(color: AppColors.textSecondary),
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Not (2026-02-09): Bu icerik gecici demo metnidir; operasyon ekibi metinleri sonradan netlestirecek.',
-              style: TextStyle(color: AppColors.warning, fontSize: 12),
             ),
           ],
         ),
@@ -149,8 +150,8 @@ class HelpSupportScreen extends StatelessWidget {
             _SupportRow(
               icon: Icons.email_outlined,
               title: 'E-posta',
-              value: 'support@paylasyol.com',
-              onCopy: () => _copy(context, 'support@paylasyol.com', 'E-posta'),
+              value: 'support@yoliva.app',
+              onCopy: () => _copy(context, 'support@yoliva.app', 'E-posta'),
             ),
             _SupportRow(
               icon: Icons.chat_outlined,
@@ -182,15 +183,35 @@ class HelpSupportScreen extends StatelessWidget {
             SizedBox(height: 10),
             _FaqTile(
               q: 'Odeme yapildi ama rezervasyon gorunmuyor. Ne yapmaliyim?',
-              a: 'Rezervasyonlar sayfasini yenileyin. 2 dakika icinde dusmezse destek hatti odeme id ile manuel eslestirme yapar.',
+              a: 'Rezervasyonlar sayfasini yenileyin. 2 dakika icinde dusmezse odeme kimligi ile destek kaydi acin; ekip manuel eslestirme yapar.',
             ),
             _FaqTile(
               q: 'Surucu gelmedi veya rota degisti, nasil itiraz ederim?',
-              a: 'Rezervasyon detayinda "Itiraz Et" aksiyonunu kullanin. Itiraz penceresi yolculuk bitisinden sonra belirli sure acik kalir.',
+              a: 'Rezervasyon detayindaki "Itiraz Et" akisini kullanin. Itirazlar kayit numarasi ile takip edilir.',
             ),
             _FaqTile(
               q: 'Canli konumu neden goremedim?',
-              a: 'Canli konum guvenlik icin sadece rezervasyon onaylanip odeme tamamlandiktan sonra acilir.',
+              a: 'Canli konum guvenlik geregi yalnizca onayli ve odemesi tamamlanmis rezervasyonlarda acilir.',
+            ),
+          ],
+        ),
+      ),
+      const SizedBox(height: 12),
+      wrap(
+        const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Yasal Basvuru ve Talepler',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'KVKK kapsamindaki veri erisim, duzeltme, silme ve itiraz taleplerinizi destek kanallarindan iletebilirsiniz. Talebiniz kayit numarasi ile takip edilir ve mevzuat sureleri icinde yanitlanir.',
+              style: TextStyle(color: AppColors.textSecondary),
             ),
           ],
         ),

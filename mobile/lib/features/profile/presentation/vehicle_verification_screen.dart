@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -14,10 +15,12 @@ class VehicleVerificationScreen extends ConsumerStatefulWidget {
   const VehicleVerificationScreen({super.key});
 
   @override
-  ConsumerState<VehicleVerificationScreen> createState() => _VehicleVerificationScreenState();
+  ConsumerState<VehicleVerificationScreen> createState() =>
+      _VehicleVerificationScreenState();
 }
 
-class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationScreen> {
+class _VehicleVerificationScreenState
+    extends ConsumerState<VehicleVerificationScreen> {
   final ImagePicker _picker = ImagePicker();
   File? _registrationImage;
   bool _isUploading = false;
@@ -46,20 +49,21 @@ class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationS
     try {
       final token = await ref.read(authTokenProvider.future);
       if (token == null) return;
-      
+
       final service = ref.read(vehicleServiceProvider);
-      
+
       // 1. Upload Document
-      final imageUrl = await service.uploadRegistration(_registrationImage!, token);
-      
+      final imageUrl =
+          await service.uploadRegistration(_registrationImage!, token);
+
       if (imageUrl != null) {
         // 2. Update Vehicle
         await service.updateVehicle(
-          vehicle.id, 
-          {'registrationImage': imageUrl}, 
+          vehicle.id,
+          {'registrationImage': imageUrl},
           token,
         );
-        
+
         if (mounted) {
           _showSuccessDialog();
         }
@@ -94,12 +98,16 @@ class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationS
                 color: AppColors.success.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_circle, size: 48, color: AppColors.success),
+              child: const Icon(Icons.check_circle,
+                  size: 48, color: AppColors.success),
             ).animate().scale(),
             const SizedBox(height: 16),
             const Text(
               'Ruhsat Yüklendi',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary),
             ),
             const SizedBox(height: 8),
             const Text(
@@ -129,6 +137,10 @@ class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationS
   Widget build(BuildContext context) {
     final vehiclesAsync = ref.watch(myVehiclesProvider);
 
+    if (kIsWeb) {
+      return _buildWeb(vehiclesAsync);
+    }
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -141,7 +153,9 @@ class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationS
         child: SafeArea(
           child: vehiclesAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, stack) => Center(child: Text('Hata: $err', style: const TextStyle(color: Colors.white))),
+            error: (err, stack) => Center(
+                child: Text('Hata: $err',
+                    style: const TextStyle(color: Colors.white))),
             data: (vehicles) {
               if (vehicles.isEmpty) {
                 return Center(
@@ -163,11 +177,12 @@ class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationS
                   ),
                 );
               }
-              
+
               // Select first vehicle by default
               _selectedVehicleId ??= vehicles.first.id;
-              final selectedVehicle = vehicles.firstWhere((v) => v.id == _selectedVehicleId);
-              
+              final selectedVehicle =
+                  vehicles.firstWhere((v) => v.id == _selectedVehicleId);
+
               return SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
@@ -177,7 +192,8 @@ class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationS
                     if (vehicles.length > 1) ...[
                       const Text(
                         'Araç Seçin',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                        style: TextStyle(
+                            color: AppColors.textSecondary, fontSize: 14),
                       ),
                       const SizedBox(height: 8),
                       Container(
@@ -191,13 +207,18 @@ class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationS
                           child: DropdownButton<String>(
                             value: _selectedVehicleId,
                             dropdownColor: AppColors.surface,
-                            style: const TextStyle(color: AppColors.textPrimary),
+                            style:
+                                const TextStyle(color: AppColors.textPrimary),
                             isExpanded: true,
-                            items: vehicles.map((v) => DropdownMenuItem(
-                              value: v.id,
-                              child: Text('${v.brand} ${v.model} (${v.licensePlate})'),
-                            )).toList(),
-                            onChanged: (value) => setState(() => _selectedVehicleId = value),
+                            items: vehicles
+                                .map((v) => DropdownMenuItem(
+                                      value: v.id,
+                                      child: Text(
+                                          '${v.brand} ${v.model} (${v.licensePlate})'),
+                                    ))
+                                .toList(),
+                            onChanged: (value) =>
+                                setState(() => _selectedVehicleId = value),
                           ),
                         ),
                       ),
@@ -215,7 +236,8 @@ class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationS
                               color: AppColors.primary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: const Icon(Icons.directions_car, color: AppColors.primary, size: 32),
+                            child: const Icon(Icons.directions_car,
+                                color: AppColors.primary, size: 32),
                           ),
                           const SizedBox(width: 16),
                           Column(
@@ -241,31 +263,37 @@ class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationS
                           ),
                           const Spacer(),
                           if (selectedVehicle.registrationImage != null)
-                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 4),
                               decoration: BoxDecoration(
                                 color: AppColors.warning.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(color: AppColors.warning),
                               ),
-                              child: const Text('İnceleniyor', style: TextStyle(color: AppColors.warning, fontSize: 11)),
-                             ),
+                              child: const Text('İnceleniyor',
+                                  style: TextStyle(
+                                      color: AppColors.warning, fontSize: 11)),
+                            ),
                         ],
                       ),
                     ).animate().fadeIn().slideX(),
 
                     const SizedBox(height: 32),
-                    
+
                     const Text(
                       'Ruhsat Fotoğrafı',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: 8),
                     const Text(
                       'Lütfen araç ruhsatının net ve okunabilir bir fotoğrafını yükleyin.',
                       style: TextStyle(color: AppColors.textSecondary),
                     ),
-                    
+
                     const SizedBox(height: 24),
 
                     // Image Upload Area
@@ -278,23 +306,28 @@ class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationS
                           color: AppColors.glassBg,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: _registrationImage != null ? AppColors.primary : AppColors.glassStroke,
+                            color: _registrationImage != null
+                                ? AppColors.primary
+                                : AppColors.glassStroke,
                             width: 2,
                           ),
                         ),
                         child: _registrationImage != null
                             ? ClipRRect(
                                 borderRadius: BorderRadius.circular(18),
-                                child: Image.file(_registrationImage!, fit: BoxFit.cover),
+                                child: Image.file(_registrationImage!,
+                                    fit: BoxFit.cover),
                               )
                             : Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.add_a_photo, size: 48, color: AppColors.textTertiary),
+                                  Icon(Icons.add_a_photo,
+                                      size: 48, color: AppColors.textTertiary),
                                   const SizedBox(height: 12),
                                   const Text(
                                     'Fotoğraf Seçmek İçin Dokunun',
-                                    style: TextStyle(color: AppColors.textSecondary),
+                                    style: TextStyle(
+                                        color: AppColors.textSecondary),
                                   ),
                                 ],
                               ),
@@ -307,7 +340,8 @@ class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationS
                     SizedBox(
                       width: double.infinity,
                       child: GradientButton(
-                        text: _isUploading ? 'Yükleniyor...' : 'Kaydet ve Gönder',
+                        text:
+                            _isUploading ? 'Yükleniyor...' : 'Kaydet ve Gönder',
                         icon: Icons.upload_file,
                         onPressed: _registrationImage != null && !_isUploading
                             ? () => _uploadDocument(selectedVehicle)
@@ -318,6 +352,219 @@ class _VehicleVerificationScreenState extends ConsumerState<VehicleVerificationS
                 ),
               );
             },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWeb(AsyncValue<List<Vehicle>> vehiclesAsync) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF3F6F4),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1080),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'Arac Ruhsat Dogrulama',
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1F3A30),
+                        ),
+                      ),
+                      const Spacer(),
+                      OutlinedButton.icon(
+                        onPressed: () => context.go('/profile'),
+                        icon: const Icon(Icons.arrow_back),
+                        label: const Text('Profile Don'),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: () => context.go('/my-vehicles'),
+                        icon: const Icon(Icons.directions_car_outlined),
+                        label: const Text('Araclarim'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilledButton.icon(
+                        onPressed: () => context.go('/'),
+                        icon: const Icon(Icons.home_outlined),
+                        label: const Text('Ana Sayfa'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Web panelde ruhsat durumlarini takip edebilirsiniz. Belge yukleme adimi mobilde daha stabil calisir.',
+                    style: TextStyle(
+                      color: Color(0xFF4E665C),
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Expanded(
+                    child: vehiclesAsync.when(
+                      loading: () => const Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                      error: (err, _) => Center(
+                        child: Text(
+                          'Hata: $err',
+                          style: const TextStyle(color: AppColors.error),
+                        ),
+                      ),
+                      data: (vehicles) {
+                        if (vehicles.isEmpty) {
+                          return Center(
+                            child: Container(
+                              width: 560,
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color(0xFFDCE6E1),
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.directions_car_outlined,
+                                    size: 52,
+                                    color: Color(0xFF5A7066),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const Text(
+                                    'Kayitli araciniz bulunmuyor',
+                                    style: TextStyle(
+                                      color: Color(0xFF1F3A30),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    'Ruhsat dogrulama icin once bir arac ekleyin.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(color: Color(0xFF4E665C)),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  FilledButton.icon(
+                                    onPressed: () =>
+                                        context.go('/vehicle-create'),
+                                    icon: const Icon(Icons.add),
+                                    label: const Text('Arac Ekle'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
+                        return ListView.separated(
+                          itemCount: vehicles.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final vehicle = vehicles[index];
+                            final hasRegistration = vehicle.registrationImage !=
+                                    null &&
+                                vehicle.registrationImage!.trim().isNotEmpty;
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: const Color(0xFFDCE6E1),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 42,
+                                    height: 42,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEAF3EE),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(
+                                      Icons.directions_car_outlined,
+                                      color: Color(0xFF2F6B57),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '${vehicle.brand} ${vehicle.model}',
+                                          style: const TextStyle(
+                                            color: Color(0xFF1F3A30),
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          vehicle.licensePlate,
+                                          style: const TextStyle(
+                                            color: Color(0xFF4E665C),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: hasRegistration
+                                          ? AppColors.warning
+                                              .withValues(alpha: 0.18)
+                                          : const Color(0xFFE8ECEA),
+                                      borderRadius: BorderRadius.circular(999),
+                                      border: Border.all(
+                                        color: hasRegistration
+                                            ? AppColors.warning
+                                            : const Color(0xFFBCCAC3),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      hasRegistration
+                                          ? 'Belge yuklendi'
+                                          : 'Belge eksik',
+                                      style: TextStyle(
+                                        color: hasRegistration
+                                            ? const Color(0xFF8A6111)
+                                            : const Color(0xFF5A7066),
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
