@@ -32,11 +32,29 @@ export class OsrmRoutingProvider implements RoutingProvider {
     const alternatives = Number.isFinite(Number(input.alternatives))
       ? Math.max(1, Math.min(Number(input.alternatives), 5))
       : 3;
-
-    const url = `${this.baseUrl}/route/v1/driving/${departureLng},${departureLat};${arrivalLng},${arrivalLat}`;
+    const viaPoints = Array.isArray(input.viaPoints)
+      ? input.viaPoints
+          .filter(
+            (point) =>
+              Number.isFinite(point?.lat) && Number.isFinite(point?.lng),
+          )
+          .map((point) => ({
+            lat: Number(point.lat),
+            lng: Number(point.lng),
+          }))
+      : [];
+    const coordinates = [
+      { lat: departureLat, lng: departureLng },
+      ...viaPoints,
+      { lat: arrivalLat, lng: arrivalLng },
+    ]
+      .map((point) => `${point.lng},${point.lat}`)
+      .join(";");
+    const useDirectAlternatives = viaPoints.length === 0;
+    const url = `${this.baseUrl}/route/v1/driving/${coordinates}`;
     const response = await axios.get<OsrmRouteResponse>(url, {
       params: {
-        alternatives: String(alternatives),
+        alternatives: useDirectAlternatives ? String(alternatives) : "false",
         overview: "full",
         geometries: "geojson",
         steps: "false",

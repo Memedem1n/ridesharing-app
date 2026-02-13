@@ -224,6 +224,167 @@ describe("TripsService", () => {
     expect(result.alternatives[0].id).toBe("route_1");
     expect(result.alternatives[0].route.points).toHaveLength(3);
     expect(result.alternatives[0].viaCities).toHaveLength(1);
+    expect(mockRoutingProvider.getRouteAlternatives).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alternatives: 5,
+      }),
+    );
+  });
+
+  it("returns all unique alternatives from provider up to max limit", async () => {
+    jest
+      .spyOn(service as any, "forwardGeocodeCity")
+      .mockImplementation(async (query: string) => {
+        if (query === "Istanbul") return { lat: 41.0082, lng: 28.9784 };
+        if (query === "Ankara") return { lat: 39.9208, lng: 32.8541 };
+        return null;
+      });
+    jest.spyOn(service as any, "inferViaCities").mockResolvedValue([]);
+    mockRoutingProvider.getRouteAlternatives.mockResolvedValue([
+      {
+        provider: "osrm",
+        distanceKm: 451.2,
+        durationMin: 290,
+        points: [
+          { lat: 41.0082, lng: 28.9784 },
+          { lat: 40.8, lng: 30.2 },
+          { lat: 39.9208, lng: 32.8541 },
+        ],
+      },
+      {
+        provider: "osrm",
+        distanceKm: 472.4,
+        durationMin: 315,
+        points: [
+          { lat: 41.0082, lng: 28.9784 },
+          { lat: 40.4, lng: 31.4 },
+          { lat: 39.9208, lng: 32.8541 },
+        ],
+      },
+      {
+        provider: "osrm",
+        distanceKm: 498.6,
+        durationMin: 339,
+        points: [
+          { lat: 41.0082, lng: 28.9784 },
+          { lat: 40.2, lng: 32.1 },
+          { lat: 39.9208, lng: 32.8541 },
+        ],
+      },
+    ]);
+
+    const result = await service.routePreview({
+      departureCity: "Istanbul",
+      arrivalCity: "Ankara",
+    });
+
+    expect(result.provider).toBe("osrm");
+    expect(result.alternatives).toHaveLength(3);
+    expect(mockRoutingProvider.getRouteAlternatives).toHaveBeenCalledTimes(1);
+    expect(mockRoutingProvider.getRouteAlternatives).toHaveBeenCalledWith(
+      expect.objectContaining({
+        alternatives: 5,
+      }),
+    );
+  });
+
+  it("builds fallback route variants when provider returns a single route", async () => {
+    jest
+      .spyOn(service as any, "forwardGeocodeCity")
+      .mockImplementation(async (query: string) => {
+        if (query === "Istanbul") return { lat: 41.0082, lng: 28.9784 };
+        if (query === "Ankara") return { lat: 39.9208, lng: 32.8541 };
+        return null;
+      });
+    jest
+      .spyOn(service as any, "inferViaCities")
+      .mockResolvedValue([
+        {
+          city: "Eskisehir",
+          lat: 39.7767,
+          lng: 30.5206,
+          pickupSuggestions: ["Otogar"],
+        },
+      ]);
+
+    const primaryPath = {
+      provider: "osrm",
+      distanceKm: 451.2,
+      durationMin: 290,
+      points: [
+        { lat: 41.0082, lng: 28.9784 },
+        { lat: 40.6, lng: 30.5 },
+        { lat: 39.9208, lng: 32.8541 },
+      ],
+    };
+    const variantPath = {
+      provider: "osrm",
+      distanceKm: 478.6,
+      durationMin: 322,
+      points: [
+        { lat: 41.0082, lng: 28.9784 },
+        { lat: 39.7767, lng: 30.5206 },
+        { lat: 39.9208, lng: 32.8541 },
+      ],
+    };
+
+    mockRoutingProvider.getRouteAlternatives.mockImplementation(
+      async (input: any) => {
+        if (Array.isArray(input?.viaPoints) && input.viaPoints.length > 0) {
+          return [variantPath];
+        }
+        return [primaryPath];
+      },
+    );
+
+    const result = await service.routePreview({
+      departureCity: "Istanbul",
+      arrivalCity: "Ankara",
+    });
+
+    expect(result.alternatives.length).toBeGreaterThan(1);
+    const waypointCalls = mockRoutingProvider.getRouteAlternatives.mock.calls
+      .map((call) => call[0])
+      .filter(
+        (payload: any) =>
+          Array.isArray(payload?.viaPoints) && payload.viaPoints.length > 0,
+      );
+    expect(waypointCalls.length).toBeGreaterThan(0);
+  });
+
+  it("keeps via cities at city level and excludes departure/arrival cities", async () => {
+    jest
+      .spyOn(service as any, "reverseGeocodeCity")
+      .mockResolvedValueOnce({ city: "Istanbul", district: "Kadikoy" })
+      .mockResolvedValueOnce({ city: "Kocaeli", district: "Gebze" })
+      .mockResolvedValueOnce({ city: "Kocaeli", district: "Izmit" })
+      .mockResolvedValueOnce({ city: "Eskisehir", district: "Tepebasi" })
+      .mockResolvedValueOnce({ city: "Ankara", district: "Cankaya" });
+
+    const viaCities = await (service as any).inferViaCities(
+      [
+        { lat: 41.0082, lng: 28.9784 },
+        { lat: 40.9, lng: 29.5 },
+        { lat: 40.2, lng: 30.3 },
+        { lat: 39.8, lng: 30.6 },
+        { lat: 39.9208, lng: 32.8541 },
+      ],
+      {
+        departureCity: "Istanbul",
+        arrivalCity: "Ankara",
+        sampleSize: 5,
+        maxCities: 5,
+      },
+    );
+
+    expect(viaCities).toHaveLength(2);
+    expect(viaCities.map((city: any) => city.city)).toEqual([
+      "Kocaeli",
+      "Eskisehir",
+    ]);
+    expect(viaCities.every((city: any) => city.district === undefined)).toBe(
+      true,
+    );
   });
 
   it("rejects route preview when no departure/arrival info is provided", async () => {

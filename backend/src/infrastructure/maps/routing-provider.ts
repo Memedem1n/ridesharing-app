@@ -22,6 +22,7 @@ export type RoutePreviewInput = {
   arrivalLat: number;
   arrivalLng: number;
   alternatives?: number;
+  viaPoints?: RouteCoordinate[];
 };
 
 export interface RoutingProvider {

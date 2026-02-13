@@ -29,6 +29,7 @@ import {
   TripListResponseDto,
 } from "@application/dto/trips/trips.dto";
 import { RoutingProviderResolver } from "@infrastructure/maps/routing-provider-resolver.service";
+import { RoutePath, RoutingProvider } from "@infrastructure/maps/routing-provider";
 import { v4 as uuid } from "uuid";
 import axios from "axios";
 
@@ -184,23 +185,55 @@ export class TripsService {
     );
 
     const routingProvider = this.routingProviderResolver.getProvider();
+    const maxAlternatives = 5;
     try {
-      const paths = await routingProvider.getRouteAlternatives({
+      const primaryPaths = await routingProvider.getRouteAlternatives({
         departureLat,
         departureLng,
         arrivalLat,
         arrivalLng,
-        alternatives: 3,
+        alternatives: maxAlternatives,
       });
+
+      if (!primaryPaths.length) {
+        throw new BadRequestException("Rota bulunamadi");
+      }
+
+      let paths = this.deduplicateRoutePaths(primaryPaths, maxAlternatives);
+      if (paths.length === 1) {
+        const fallbackPaths = await this.buildFallbackRouteAlternatives(
+          routingProvider,
+          {
+            departureLat,
+            departureLng,
+            arrivalLat,
+            arrivalLng,
+            departureCity: dto.departureCity,
+            arrivalCity: dto.arrivalCity,
+            basePath: paths[0],
+            existingPaths: paths,
+            maxAlternatives,
+          },
+        );
+        paths = this.deduplicateRoutePaths(
+          [...paths, ...fallbackPaths],
+          maxAlternatives,
+        );
+      }
 
       if (!paths.length) {
         throw new BadRequestException("Rota bulunamadi");
       }
 
       const alternatives: RouteAlternativeDto[] = [];
-      for (let i = 0; i < Math.min(paths.length, 3); i += 1) {
+      for (let i = 0; i < paths.length; i += 1) {
         const path = paths[i];
-        const viaCities = await this.inferViaCities(path.points);
+        const viaCities = await this.inferViaCities(path.points, {
+          departureCity: dto.departureCity,
+          arrivalCity: dto.arrivalCity,
+          sampleSize: 7,
+          maxCities: 6,
+        });
         const simplifiedPoints = this.downsampleRoutePoints(path.points, 280);
 
         alternatives.push({
@@ -1508,10 +1541,141 @@ export class TripsService {
     return normalized.length ? normalized : undefined;
   }
 
+  private deduplicateRoutePaths(
+    paths: RoutePath[],
+    maxCount: number,
+  ): RoutePath[] {
+    if (!Array.isArray(paths) || !paths.length) return [];
+    const limit = Number.isFinite(maxCount)
+      ? Math.max(1, Math.floor(maxCount))
+      : 5;
+    const seen = new Set<string>();
+    const unique: RoutePath[] = [];
+
+    for (const path of paths) {
+      if (!path || !Array.isArray(path.points) || path.points.length < 2) {
+        continue;
+      }
+      const signature = this.buildRoutePathSignature(path);
+      if (!signature || seen.has(signature)) {
+        continue;
+      }
+      seen.add(signature);
+      unique.push(path);
+      if (unique.length >= limit) {
+        break;
+      }
+    }
+
+    return unique;
+  }
+
+  private buildRoutePathSignature(path: RoutePath): string {
+    const samples = this.sampleRoutePoints(path.points, 9);
+    if (!samples.length) {
+      return "";
+    }
+    const geometry = samples
+      .map((point) => `${point.lat.toFixed(3)},${point.lng.toFixed(3)}`)
+      .join("|");
+    return `${Number(path.distanceKm || 0).toFixed(1)}:${Number(path.durationMin || 0).toFixed(1)}:${geometry}`;
+  }
+
+  private async buildFallbackRouteAlternatives(
+    routingProvider: RoutingProvider,
+    input: {
+      departureLat: number;
+      departureLng: number;
+      arrivalLat: number;
+      arrivalLng: number;
+      departureCity?: string;
+      arrivalCity?: string;
+      basePath: RoutePath;
+      existingPaths: RoutePath[];
+      maxAlternatives: number;
+    },
+  ): Promise<RoutePath[]> {
+    const candidates = await this.inferViaCities(input.basePath.points, {
+      departureCity: input.departureCity,
+      arrivalCity: input.arrivalCity,
+      sampleSize: 12,
+      maxCities: 6,
+    });
+    if (!candidates.length) {
+      return [];
+    }
+
+    const collected: RoutePath[] = [];
+    let merged = this.deduplicateRoutePaths(
+      input.existingPaths,
+      input.maxAlternatives,
+    );
+
+    for (const candidate of candidates) {
+      if (merged.length >= input.maxAlternatives) {
+        break;
+      }
+      if (!Number.isFinite(candidate.lat) || !Number.isFinite(candidate.lng)) {
+        continue;
+      }
+
+      try {
+        const paths = await routingProvider.getRouteAlternatives({
+          departureLat: input.departureLat,
+          departureLng: input.departureLng,
+          arrivalLat: input.arrivalLat,
+          arrivalLng: input.arrivalLng,
+          alternatives: 1,
+          viaPoints: [{ lat: candidate.lat!, lng: candidate.lng! }],
+        });
+        if (!paths.length) {
+          continue;
+        }
+
+        const deduped = this.deduplicateRoutePaths(
+          [...merged, ...paths],
+          input.maxAlternatives,
+        );
+        if (deduped.length > merged.length) {
+          merged = deduped;
+          collected.push(...paths);
+        }
+      } catch (error: any) {
+        this.logger.debug(
+          `ROUTE_VARIANT_SKIPPED via=${candidate.city} reason=${error?.message || "unknown"}`,
+        );
+      }
+    }
+
+    return collected;
+  }
+
+  private normalizeCityName(value: string): string {
+    return this.normalizeForSearch(value || "").replace(/\s+/g, " ").trim();
+  }
+
   private async inferViaCities(
     points: Array<{ lat: number; lng: number }>,
+    options?: {
+      departureCity?: string;
+      arrivalCity?: string;
+      sampleSize?: number;
+      maxCities?: number;
+    },
   ): Promise<ViaCityDto[]> {
-    const sampled = this.sampleRoutePoints(points, 6);
+    const sampleSize = Number.isFinite(Number(options?.sampleSize))
+      ? Math.max(4, Math.min(16, Math.floor(Number(options?.sampleSize))))
+      : 6;
+    const maxCities = Number.isFinite(Number(options?.maxCities))
+      ? Math.max(1, Math.min(12, Math.floor(Number(options?.maxCities))))
+      : 6;
+    const sampled = this.sampleRoutePoints(points, sampleSize);
+    if (!sampled.length) {
+      return [];
+    }
+
+    const departureKey = this.normalizeCityName(options?.departureCity || "");
+    const arrivalKey = this.normalizeCityName(options?.arrivalCity || "");
     const dedupe = new Set<string>();
     const viaCities: ViaCityDto[] = [];
 
@@ -1522,17 +1686,22 @@ export class TripsService {
     for (let i = 0; i < resolvedCities.length; i += 1) {
       const resolved = resolvedCities[i];
       if (!resolved) continue;
-      const key = `${resolved.city.toLowerCase()}|${(resolved.district || "").toLowerCase()}`;
+      if (i === 0 || i === resolvedCities.length - 1) continue;
+      const key = this.normalizeCityName(resolved.city);
+      if (!key) continue;
+      if (key === departureKey || key === arrivalKey) continue;
       if (dedupe.has(key)) continue;
       dedupe.add(key);
       const samplePoint = sampled[i];
       viaCities.push({
         city: resolved.city,
-        district: resolved.district,
         lat: samplePoint?.lat,
         lng: samplePoint?.lng,
         pickupSuggestions: ["Otogar", "Dinlenme Tesisi", "Sehir Merkezi"],
       });
+      if (viaCities.length >= maxCities) {
+        break;
+      }
     }
 
     return viaCities;
@@ -1648,18 +1817,19 @@ export class TripsService {
       });
 
       const address = response.data?.address || {};
-      const city = String(
+      const province = String(address.state || address.province || "").trim();
+      const municipality = String(
         address.city ||
           address.town ||
-          address.state ||
-          address.province ||
           address.county ||
+          address.municipality ||
+          address.village ||
           "",
       ).trim();
+      const city = String(province || municipality || "").trim();
       const district = String(
         address.city_district ||
           address.district ||
-          address.municipality ||
           address.suburb ||
           "",
       ).trim();
